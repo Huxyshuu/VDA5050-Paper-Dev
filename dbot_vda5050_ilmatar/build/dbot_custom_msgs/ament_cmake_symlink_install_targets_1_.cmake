@@ -1,0 +1,1 @@
+ament_cmake_symlink_install_targets("TARGET_FILES" "/home/dbot2/dbot_vda5050_ilmatar/build/dbot_custom_msgs/rosidl_generator_py/dbot_custom_msgs/dbot_custom_msgs_s__rosidl_typesupport_introspection_c.cpython-310-x86_64-linux-gnu.so" "TARGETS" "dbot_custom_msgs__rosidl_typesupport_introspection_c__pyext" "DESTINATION" "local/lib/python3.10/dist-packages/dbot_custom_msgs")

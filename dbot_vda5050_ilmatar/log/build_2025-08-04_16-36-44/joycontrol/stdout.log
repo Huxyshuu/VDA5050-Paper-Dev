@@ -1,0 +1,28 @@
+running develop
+Removing /home/dbot2/dbot_vda5050_ilmatar/install/joycontrol/lib/python3.10/site-packages/joycontrol.egg-link (link to .)
+running egg_info
+writing ../../build/joycontrol/joycontrol.egg-info/PKG-INFO
+writing dependency_links to ../../build/joycontrol/joycontrol.egg-info/dependency_links.txt
+writing entry points to ../../build/joycontrol/joycontrol.egg-info/entry_points.txt
+writing requirements to ../../build/joycontrol/joycontrol.egg-info/requires.txt
+writing top-level names to ../../build/joycontrol/joycontrol.egg-info/top_level.txt
+reading manifest file '../../build/joycontrol/joycontrol.egg-info/SOURCES.txt'
+adding license file 'LICENSE'
+writing manifest file '../../build/joycontrol/joycontrol.egg-info/SOURCES.txt'
+running build
+running build_py
+running install
+running install_lib
+creating /home/dbot2/dbot_vda5050_ilmatar/install/joycontrol/lib/python3.10/site-packages/joycontrol
+copying /home/dbot2/dbot_vda5050_ilmatar/build/joycontrol/build/lib/joycontrol/__init__.py -> /home/dbot2/dbot_vda5050_ilmatar/install/joycontrol/lib/python3.10/site-packages/joycontrol
+copying /home/dbot2/dbot_vda5050_ilmatar/build/joycontrol/build/lib/joycontrol/Joy.py -> /home/dbot2/dbot_vda5050_ilmatar/install/joycontrol/lib/python3.10/site-packages/joycontrol
+byte-compiling /home/dbot2/dbot_vda5050_ilmatar/install/joycontrol/lib/python3.10/site-packages/joycontrol/__init__.py to __init__.cpython-310.pyc
+byte-compiling /home/dbot2/dbot_vda5050_ilmatar/install/joycontrol/lib/python3.10/site-packages/joycontrol/Joy.py to Joy.cpython-310.pyc
+running install_data
+copying resource/joycontrol -> /home/dbot2/dbot_vda5050_ilmatar/install/joycontrol/share/ament_index/resource_index/packages
+copying package.xml -> /home/dbot2/dbot_vda5050_ilmatar/install/joycontrol/share/joycontrol
+running install_egg_info
+Copying ../../build/joycontrol/joycontrol.egg-info to /home/dbot2/dbot_vda5050_ilmatar/install/joycontrol/lib/python3.10/site-packages/joycontrol-0.0.0-py3.10.egg-info
+running install_scripts
+Installing joycontrol script to /home/dbot2/dbot_vda5050_ilmatar/install/joycontrol/lib/joycontrol
+writing list of installed files to '/home/dbot2/dbot_vda5050_ilmatar/build/joycontrol/install.log'

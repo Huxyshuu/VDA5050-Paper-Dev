@@ -1,0 +1,16 @@
+[2.218s] Invoking command in '/home/dbot2/dbot_vda5050_ilmatar/build/dbot': PYTHONPATH=/home/dbot2/dbot_vda5050_ilmatar/build/dbot/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/dbot2/dbot_vda5050_ilmatar/install/dbot/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/dbot2/dbot_vda5050_ilmatar/build/dbot/build --no-deps symlink_data
+[2.732s] running develop
+[3.050s] running egg_info
+[3.051s] writing dbot.egg-info/PKG-INFO
+[3.051s] writing dependency_links to dbot.egg-info/dependency_links.txt
+[3.051s] writing entry points to dbot.egg-info/entry_points.txt
+[3.052s] writing requirements to dbot.egg-info/requires.txt
+[3.052s] writing top-level names to dbot.egg-info/top_level.txt
+[3.056s] reading manifest file 'dbot.egg-info/SOURCES.txt'
+[3.058s] writing manifest file 'dbot.egg-info/SOURCES.txt'
+[3.062s] running build_ext
+[3.062s] Creating /home/dbot2/dbot_vda5050_ilmatar/install/dbot/lib/python3.10/site-packages/dbot.egg-link (link to .)
+[3.062s] 
+[3.062s] Installed /home/dbot2/dbot_vda5050_ilmatar/build/dbot
+[3.062s] running symlink_data
+[3.105s] Invoked command in '/home/dbot2/dbot_vda5050_ilmatar/build/dbot' returned '0': PYTHONPATH=/home/dbot2/dbot_vda5050_ilmatar/build/dbot/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/dbot2/dbot_vda5050_ilmatar/install/dbot/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/dbot2/dbot_vda5050_ilmatar/build/dbot/build --no-deps symlink_data

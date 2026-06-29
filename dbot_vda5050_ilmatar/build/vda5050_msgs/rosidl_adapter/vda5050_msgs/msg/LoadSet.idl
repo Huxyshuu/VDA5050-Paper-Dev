@@ -1,0 +1,90 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from vda5050_msgs/msg/LoadSet.msg
+// generated code does not contain a copyright notice
+
+#include "vda5050_msgs/msg/BoundingBoxReference.idl"
+#include "vda5050_msgs/msg/LoadDimensions.idl"
+
+module vda5050_msgs {
+  module msg {
+    struct LoadSet {
+      string set_name;
+
+      string load_type;
+
+      @verbatim (language="comment", text=
+        "List of load positions / load handling devices")
+      sequence<string> load_positions;
+
+      @verbatim (language="comment", text=
+        "Bounding box reference as defined in parameter loads[] in state-message")
+      vda5050_msgs::msg::BoundingBoxReference bounding_box_reference;
+
+      vda5050_msgs::msg::LoadDimensions load_dimensions;
+
+      @verbatim (language="comment", text=
+        "Maximum weight of load type")
+      @unit (value="kg")
+      double max_weight;
+
+      @verbatim (language="comment", text=
+        "Minimum allowed height for handling of this load-type and weight")
+      @unit (value="m")
+      double min_loadhandling_height;
+
+      @verbatim (language="comment", text=
+        "Maximum allowed height for handling of this load-type and weight")
+      @unit (value="m")
+      double max_loadhandling_height;
+
+      @verbatim (language="comment", text=
+        "Minimum allowed depth for this load-type and weight")
+      @unit (value="m")
+      double min_loadhandling_depth;
+
+      @verbatim (language="comment", text=
+        "Maximum allowed depth for this load-type and weight")
+      @unit (value="m")
+      double max_loadhandling_depth;
+
+      @verbatim (language="comment", text=
+        "Minimum allowed tilt for this load-type and weight")
+      @unit (value="rad")
+      double min_loadhandling_tilt;
+
+      @verbatim (language="comment", text=
+        "Maximum allowed tilt for this load-type and weight")
+      @unit (value="rad")
+      double max_loadhandling_tilt;
+
+      @verbatim (language="comment", text=
+        "Maximum allowed speed for this load-type and weight")
+      @unit (value="m/s^2")
+      double agv_speed_limit;
+
+      @verbatim (language="comment", text=
+        "Maximum allowed acceleration for this load-type and weight")
+      @unit (value="m/s^2")
+      double agv_acceleration_limit;
+
+      @verbatim (language="comment", text=
+        "Maximum allowed deceleration for this load-type and weight")
+      @unit (value="m/s^2")
+      double agv_deceleration_limit;
+
+      @verbatim (language="comment", text=
+        "Approx. time for picking up the load")
+      @unit (value="s")
+      double pick_time;
+
+      @verbatim (language="comment", text=
+        "Approx. time for dropping the load")
+      @unit (value="s")
+      double drop_time;
+
+      @verbatim (language="comment", text=
+        "Free description of the load handling set")
+      string description;
+    };
+  };
+};

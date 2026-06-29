@@ -1,0 +1,36 @@
+running develop
+Removing /home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol/lib/python3.10/site-packages/gesturecontrol.egg-link (link to .)
+running egg_info
+writing ../../build/gesturecontrol/gesturecontrol.egg-info/PKG-INFO
+writing dependency_links to ../../build/gesturecontrol/gesturecontrol.egg-info/dependency_links.txt
+writing entry points to ../../build/gesturecontrol/gesturecontrol.egg-info/entry_points.txt
+writing requirements to ../../build/gesturecontrol/gesturecontrol.egg-info/requires.txt
+writing top-level names to ../../build/gesturecontrol/gesturecontrol.egg-info/top_level.txt
+reading manifest file '../../build/gesturecontrol/gesturecontrol.egg-info/SOURCES.txt'
+adding license file 'LICENSE'
+writing manifest file '../../build/gesturecontrol/gesturecontrol.egg-info/SOURCES.txt'
+running build
+running build_py
+creating /home/dbot2/dbot_vda5050_ilmatar/build/gesturecontrol/build
+creating /home/dbot2/dbot_vda5050_ilmatar/build/gesturecontrol/build/lib
+creating /home/dbot2/dbot_vda5050_ilmatar/build/gesturecontrol/build/lib/gesturecontrol
+copying gesturecontrol/cameratest.py -> /home/dbot2/dbot_vda5050_ilmatar/build/gesturecontrol/build/lib/gesturecontrol
+copying gesturecontrol/__init__.py -> /home/dbot2/dbot_vda5050_ilmatar/build/gesturecontrol/build/lib/gesturecontrol
+copying gesturecontrol/handcontrol.py -> /home/dbot2/dbot_vda5050_ilmatar/build/gesturecontrol/build/lib/gesturecontrol
+running install
+running install_lib
+creating /home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol/lib/python3.10/site-packages/gesturecontrol
+copying /home/dbot2/dbot_vda5050_ilmatar/build/gesturecontrol/build/lib/gesturecontrol/cameratest.py -> /home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol/lib/python3.10/site-packages/gesturecontrol
+copying /home/dbot2/dbot_vda5050_ilmatar/build/gesturecontrol/build/lib/gesturecontrol/__init__.py -> /home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol/lib/python3.10/site-packages/gesturecontrol
+copying /home/dbot2/dbot_vda5050_ilmatar/build/gesturecontrol/build/lib/gesturecontrol/handcontrol.py -> /home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol/lib/python3.10/site-packages/gesturecontrol
+byte-compiling /home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol/lib/python3.10/site-packages/gesturecontrol/cameratest.py to cameratest.cpython-310.pyc
+byte-compiling /home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol/lib/python3.10/site-packages/gesturecontrol/__init__.py to __init__.cpython-310.pyc
+byte-compiling /home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol/lib/python3.10/site-packages/gesturecontrol/handcontrol.py to handcontrol.cpython-310.pyc
+running install_data
+copying resource/gesturecontrol -> /home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol/share/ament_index/resource_index/packages
+copying package.xml -> /home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol/share/gesturecontrol
+running install_egg_info
+Copying ../../build/gesturecontrol/gesturecontrol.egg-info to /home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol/lib/python3.10/site-packages/gesturecontrol-0.0.0-py3.10.egg-info
+running install_scripts
+Installing gesturecontrol script to /home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol/lib/gesturecontrol
+writing list of installed files to '/home/dbot2/dbot_vda5050_ilmatar/build/gesturecontrol/install.log'

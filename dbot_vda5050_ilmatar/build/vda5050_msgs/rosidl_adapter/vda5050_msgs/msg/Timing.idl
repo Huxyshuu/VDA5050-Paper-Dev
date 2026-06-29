@@ -1,0 +1,30 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from vda5050_msgs/msg/Timing.msg
+// generated code does not contain a copyright notice
+
+
+module vda5050_msgs {
+  module msg {
+    struct Timing {
+      @verbatim (language="comment", text=
+        "Minimum interval for sending order messages to the AGV")
+      @unit (value="s")
+      float min_order_interval;
+
+      @verbatim (language="comment", text=
+        "Minimum interval for sending state messages to the AGV")
+      @unit (value="s")
+      float min_state_interval;
+
+      @verbatim (language="comment", text=
+        "Default interval for sending state messages if not defined")
+      @unit (value="s")
+      float default_state_interval;
+
+      @verbatim (language="comment", text=
+        "Default interval for sending on visualization topic")
+      @unit (value="s")
+      float visualization_interval;
+    };
+  };
+};

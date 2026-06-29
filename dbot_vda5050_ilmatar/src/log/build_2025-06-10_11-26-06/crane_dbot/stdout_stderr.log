@@ -1,0 +1,134 @@
+-- The C compiler identification is GNU 11.4.0
+-- The CXX compiler identification is GNU 11.4.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Found ament_cmake: 1.3.10 (/opt/ros/humble/share/ament_cmake/cmake)
+-- Found Python3: /usr/bin/python3 (found version "3.10.12") found components: Interpreter 
+-- Override CMake install command with custom implementation using symlinks instead of copying resources
+-- Found rclcpp: 16.0.10 (/opt/ros/humble/share/rclcpp/cmake)
+-- Found rosidl_generator_c: 3.1.5 (/opt/ros/humble/share/rosidl_generator_c/cmake)
+-- Found rosidl_adapter: 3.1.5 (/opt/ros/humble/share/rosidl_adapter/cmake)
+-- Found rosidl_generator_cpp: 3.1.5 (/opt/ros/humble/share/rosidl_generator_cpp/cmake)
+-- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+-- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+-- Found rmw_implementation_cmake: 6.1.2 (/opt/ros/humble/share/rmw_implementation_cmake/cmake)
+-- Found rmw_fastrtps_cpp: 6.2.7 (/opt/ros/humble/share/rmw_fastrtps_cpp/cmake)
+-- Found OpenSSL: /usr/lib/x86_64-linux-gnu/libcrypto.so (found version "3.0.2")  
+-- Found FastRTPS: /opt/ros/humble/include  
+-- Using RMW implementation 'rmw_fastrtps_cpp' as default
+-- Looking for pthread.h
+-- Looking for pthread.h - found
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE  
+-- Found rclpy: 3.3.14 (/opt/ros/humble/share/rclpy/cmake)
+-- Found ament_lint_auto: 0.12.11 (/opt/ros/humble/share/ament_lint_auto/cmake)
+-- Added test 'copyright' to check source files copyright and LICENSE
+-- Added test 'flake8' to check Python code syntax and style conventions
+-- Added test 'lint_cmake' to check CMake code style
+-- Added test 'pep257' to check Python code against some of the docstring style conventions in PEP 257
+-- Added test 'xmllint' to check XML markup files
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/dbot2/ros2_ws/src/build/crane_dbot
+Built target ament_cmake_python_symlink_crane_dbot
+Built target ament_cmake_python_symlink_crane_dbot_setup
+running egg_info
+creating crane_dbot.egg-info
+writing crane_dbot.egg-info/PKG-INFO
+writing dependency_links to crane_dbot.egg-info/dependency_links.txt
+writing top-level names to crane_dbot.egg-info/top_level.txt
+writing manifest file 'crane_dbot.egg-info/SOURCES.txt'
+reading manifest file 'crane_dbot.egg-info/SOURCES.txt'
+writing manifest file 'crane_dbot.egg-info/SOURCES.txt'
+Built target ament_cmake_python_build_crane_dbot_egg
+-- Install configuration: ""
+-- Execute custom install script
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/environment/pythonpath.sh
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/environment/pythonpath.dsv
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/local/lib/python3.10/dist-packages/crane_dbot-0.0.0-py3.10.egg-info/PKG-INFO
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/local/lib/python3.10/dist-packages/crane_dbot-0.0.0-py3.10.egg-info/SOURCES.txt
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/local/lib/python3.10/dist-packages/crane_dbot-0.0.0-py3.10.egg-info/dependency_links.txt
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/local/lib/python3.10/dist-packages/crane_dbot-0.0.0-py3.10.egg-info/top_level.txt
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/local/lib/python3.10/dist-packages/crane_dbot/__init__.py
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/local/lib/python3.10/dist-packages/crane_dbot/modules_import.py
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/config/diff_drive_controller.yaml
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/config/joystick.yaml
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/config/mapper_params_online_async.yaml
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/config/mqtt_bridge.yaml
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/config/my_controllers.yaml
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/config/nav2_params.yaml
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/config/twist_mux.yaml
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/description/inertial_macros.xacro
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/description/robot.urdf.xacro
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/description/robot_core.xacro
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/description/ros2_control.xacro
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/launch/auto_nav_dbot_launch.py
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/launch/launch_robot.launch.py
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/launch/localization_launch.py
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/launch/navigation_launch.py
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/launch/online_async_launch.py
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/launch/remote_auto_launch.py
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/launch/rsp.launch.py
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/maps/DF_map.pgm
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/maps/DF_map.yaml
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/maps/cage.pgm
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/maps/cage.yaml
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/maps/office_map.pgm
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/maps/office_map.yaml
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/maps/office_map_localize.data
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/maps/office_map_localize.posegraph
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/maps/office_map_serial.data
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/maps/office_map_serial.posegraph
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/scripts/.mqtt_dbot.py.swp
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/scripts/DF_inspection_route.py
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/scripts/demo_nav.py
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/scripts/emca.crt
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/scripts/emqxsl-ca.crt
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/scripts/mqtt.py
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/scripts/mqtt_dbot.py
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/scripts/mqtt_inspection.py
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/scripts/mqtt_original.py
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/scripts/nav_through_poses.py
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/scripts/pose_subscriber.py
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/scripts/remote_control.py
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/scripts/single_goalpose.py
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/scripts/test_full.py
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/scripts/vel_msg_sub.py
+-- Up-to-date symlink: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot//launch/auto_nav_dbot_launch.py
+-- Up-to-date symlink: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot//launch/launch_robot.launch.py
+-- Up-to-date symlink: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot//launch/localization_launch.py
+-- Up-to-date symlink: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot//launch/navigation_launch.py
+-- Up-to-date symlink: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot//launch/online_async_launch.py
+-- Up-to-date symlink: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot//launch/remote_auto_launch.py
+-- Up-to-date symlink: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot//launch/rsp.launch.py
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/lib/crane_dbot/nav_through_poses.py
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/lib/crane_dbot/DF_inspection_route.py
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/lib/crane_dbot/mqtt.py
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/lib/crane_dbot/remote_control.py
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/ament_index/resource_index/package_run_dependencies/crane_dbot
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/ament_index/resource_index/parent_prefix_path/crane_dbot
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/environment/ament_prefix_path.sh
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/environment/ament_prefix_path.dsv
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/environment/path.sh
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/environment/path.dsv
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/local_setup.bash
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/local_setup.sh
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/local_setup.zsh
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/local_setup.dsv
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/package.dsv
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/ament_index/resource_index/packages/crane_dbot
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/cmake/crane_dbotConfig.cmake
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/cmake/crane_dbotConfig-version.cmake
+-- Symlinking: /home/dbot2/ros2_ws/src/install/crane_dbot/share/crane_dbot/package.xml
+Listing '/home/dbot2/ros2_ws/src/install/crane_dbot/local/lib/python3.10/dist-packages/crane_dbot'...
+Compiling '/home/dbot2/ros2_ws/src/install/crane_dbot/local/lib/python3.10/dist-packages/crane_dbot/__init__.py'...
+Compiling '/home/dbot2/ros2_ws/src/install/crane_dbot/local/lib/python3.10/dist-packages/crane_dbot/modules_import.py'...

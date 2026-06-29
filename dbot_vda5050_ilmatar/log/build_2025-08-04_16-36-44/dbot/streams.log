@@ -1,0 +1,30 @@
+[2.181s] Invoking command in '/home/dbot2/dbot_vda5050_ilmatar/build/dbot': PYTHONPATH=/home/dbot2/dbot_vda5050_ilmatar/build/dbot/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/dbot2/dbot_vda5050_ilmatar/install/dbot/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --uninstall --editable --build-directory /home/dbot2/dbot_vda5050_ilmatar/build/dbot/build
+[2.639s] running develop
+[2.941s] Removing /home/dbot2/dbot_vda5050_ilmatar/install/dbot/lib/python3.10/site-packages/dbot.egg-link (link to .)
+[2.989s] Invoked command in '/home/dbot2/dbot_vda5050_ilmatar/build/dbot' returned '0': PYTHONPATH=/home/dbot2/dbot_vda5050_ilmatar/build/dbot/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/dbot2/dbot_vda5050_ilmatar/install/dbot/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --uninstall --editable --build-directory /home/dbot2/dbot_vda5050_ilmatar/build/dbot/build
+[2.990s] Invoking command in '/home/dbot2/dbot_vda5050_ilmatar/src/dbot': PYTHONPATH=/home/dbot2/dbot_vda5050_ilmatar/build/dbot/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/dbot2/dbot_vda5050_ilmatar/install/dbot/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/dbot build --build-base /home/dbot2/dbot_vda5050_ilmatar/build/dbot/build install --record /home/dbot2/dbot_vda5050_ilmatar/build/dbot/install.log --single-version-externally-managed install_data --force
+[3.376s] running egg_info
+[3.376s] writing ../../build/dbot/dbot.egg-info/PKG-INFO
+[3.376s] writing dependency_links to ../../build/dbot/dbot.egg-info/dependency_links.txt
+[3.376s] writing entry points to ../../build/dbot/dbot.egg-info/entry_points.txt
+[3.377s] writing requirements to ../../build/dbot/dbot.egg-info/requires.txt
+[3.377s] writing top-level names to ../../build/dbot/dbot.egg-info/top_level.txt
+[3.380s] reading manifest file '../../build/dbot/dbot.egg-info/SOURCES.txt'
+[3.380s] adding license file 'LICENSE'
+[3.380s] writing manifest file '../../build/dbot/dbot.egg-info/SOURCES.txt'
+[3.380s] running build
+[3.382s] running build_py
+[3.382s] running install
+[3.382s] running install_lib
+[3.382s] creating /home/dbot2/dbot_vda5050_ilmatar/install/dbot/lib/python3.10/site-packages/dbot
+[3.382s] copying /home/dbot2/dbot_vda5050_ilmatar/build/dbot/build/lib/dbot/__init__.py -> /home/dbot2/dbot_vda5050_ilmatar/install/dbot/lib/python3.10/site-packages/dbot
+[3.382s] byte-compiling /home/dbot2/dbot_vda5050_ilmatar/install/dbot/lib/python3.10/site-packages/dbot/__init__.py to __init__.cpython-310.pyc
+[3.382s] running install_data
+[3.382s] copying launch/remote_dbot_launch.py -> /home/dbot2/dbot_vda5050_ilmatar/install/dbot/share/dbot/launch
+[3.383s] copying launch/remote_dbot_no_odom_launch.py -> /home/dbot2/dbot_vda5050_ilmatar/install/dbot/share/dbot/launch
+[3.383s] copying launch/dbot_launch.py -> /home/dbot2/dbot_vda5050_ilmatar/install/dbot/share/dbot/launch
+[3.384s] running install_egg_info
+[3.385s] Copying ../../build/dbot/dbot.egg-info to /home/dbot2/dbot_vda5050_ilmatar/install/dbot/lib/python3.10/site-packages/dbot-0.0.0-py3.10.egg-info
+[3.386s] running install_scripts
+[3.414s] writing list of installed files to '/home/dbot2/dbot_vda5050_ilmatar/build/dbot/install.log'
+[3.677s] Invoked command in '/home/dbot2/dbot_vda5050_ilmatar/src/dbot' returned '0': PYTHONPATH=/home/dbot2/dbot_vda5050_ilmatar/build/dbot/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/dbot2/dbot_vda5050_ilmatar/install/dbot/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/dbot build --build-base /home/dbot2/dbot_vda5050_ilmatar/build/dbot/build install --record /home/dbot2/dbot_vda5050_ilmatar/build/dbot/install.log --single-version-externally-managed install_data --force

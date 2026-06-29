@@ -1,0 +1,3 @@
+[console_scripts]
+joycontrol = joycontrol.Joy:main
+

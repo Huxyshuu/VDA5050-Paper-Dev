@@ -1,0 +1,1 @@
+ament_cmake_symlink_install_targets("TARGET_FILES" "/home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector/rosidl_generator_py/vda5050_connector/vda5050_connector_s__rosidl_typesupport_c.cpython-310-x86_64-linux-gnu.so" "TARGETS" "vda5050_connector__rosidl_typesupport_c__pyext" "DESTINATION" "local/lib/python3.10/dist-packages/vda5050_connector")

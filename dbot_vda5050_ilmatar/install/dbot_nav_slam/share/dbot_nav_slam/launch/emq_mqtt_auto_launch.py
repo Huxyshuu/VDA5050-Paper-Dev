@@ -1,0 +1,1 @@
+/home/dbot2/dbot_vda5050_ilmatar/src/dbot_nav_slam/launch/emq_mqtt_auto_launch.py

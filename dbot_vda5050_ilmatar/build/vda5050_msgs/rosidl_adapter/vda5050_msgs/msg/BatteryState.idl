@@ -1,0 +1,34 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from vda5050_msgs/msg/BatteryState.msg
+// generated code does not contain a copyright notice
+
+
+module vda5050_msgs {
+  module msg {
+    struct BatteryState {
+      @verbatim (language="comment", text=
+        "State of Charge: if AGV only provides values for good or bad battery levels, these will" "\n"
+        "be indicated as 20% (bad) and 80% (good).")
+      @unit (value="%")
+      double battery_charge;
+
+      @verbatim (language="comment", text=
+        "Battery Voltage")
+      @unit (value="V")
+      double battery_voltage;
+
+      @verbatim (language="comment", text=
+        "State of Health")
+      @unit (value="%")
+      int8 battery_health;
+
+      @verbatim (language="comment", text=
+        "True: charging in progress False: AGV is currently not charging")
+      boolean charging;
+
+      @verbatim (language="comment", text=
+        "Estimated reach with current SoC")
+      uint32 reach;
+    };
+  };
+};

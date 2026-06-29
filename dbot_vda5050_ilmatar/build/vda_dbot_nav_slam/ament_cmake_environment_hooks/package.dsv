@@ -1,0 +1,4 @@
+source;share/vda_dbot_nav_slam/local_setup.bash
+source;share/vda_dbot_nav_slam/local_setup.dsv
+source;share/vda_dbot_nav_slam/local_setup.sh
+source;share/vda_dbot_nav_slam/local_setup.zsh

@@ -1,0 +1,25 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from vda5050_msgs/msg/ProtocolLimits.msg
+// generated code does not contain a copyright notice
+
+#include "vda5050_msgs/msg/MaxArrayLens.idl"
+#include "vda5050_msgs/msg/MaxStringLens.idl"
+#include "vda5050_msgs/msg/Timing.idl"
+
+module vda5050_msgs {
+  module msg {
+    struct ProtocolLimits {
+      @verbatim (language="comment", text=
+        "Maximum lengths of strings")
+      vda5050_msgs::msg::MaxStringLens max_string_lens;
+
+      @verbatim (language="comment", text=
+        "Maximum lengths of arrays")
+      vda5050_msgs::msg::MaxArrayLens max_array_lens;
+
+      @verbatim (language="comment", text=
+        "Timing information")
+      vda5050_msgs::msg::Timing timing;
+    };
+  };
+};

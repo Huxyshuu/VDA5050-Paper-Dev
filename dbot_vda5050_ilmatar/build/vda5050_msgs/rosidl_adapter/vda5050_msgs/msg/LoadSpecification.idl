@@ -1,0 +1,19 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from vda5050_msgs/msg/LoadSpecification.msg
+// generated code does not contain a copyright notice
+
+#include "vda5050_msgs/msg/LoadSet.idl"
+
+module vda5050_msgs {
+  module msg {
+    struct LoadSpecification {
+      @verbatim (language="comment", text=
+        "List of load positions / load handling devices")
+      sequence<string> load_positions;
+
+      @verbatim (language="comment", text=
+        "List of load-sets that can be handled by the AGV")
+      sequence<vda5050_msgs::msg::LoadSet> load_sets;
+    };
+  };
+};

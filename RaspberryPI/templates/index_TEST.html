@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Master Control Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --size: 220px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      background: #1b1b1b;
+      min-height: 100vh;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Orbitron', Arial, sans-serif;
+    }
+    .button-row {
+      display: flex;
+      gap: 28px;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 24px;
+    }
+    .button-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    .btn {
+      width: var(--size);
+      height: var(--size);
+      border-radius: 50%;
+      border: 6px solid transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.1rem;
+      font-weight: 900;
+      letter-spacing: 0.10em;
+      color: #fff;
+      cursor: pointer;
+      position: relative;
+      transition: transform 0.07s, box-shadow 0.13s, filter 0.13s;
+      outline: none;
+      user-select: none;
+      text-shadow: 0 2px 6px #0007, 0 1px 0 #fff3;
+      animation: pulse 1.2s infinite alternate;
+    }
+    .btn:active {
+      transform: scale(0.95);
+      filter: brightness(0.96);
+    }
+    @keyframes pulse {
+      0%   { box-shadow: 0 4px 18px 4px #3ae84c33, 0 2px 4px #fff2; }
+      100% { box-shadow: 0 8px 28px 12px #95ffa033, 0 4px 10px 2px #0008; }
+    }
+
+    /* Color variants */
+    .btn--blue {
+      background: radial-gradient(circle at 80px 80px, #2e8bff 65%, #08315f 100%);
+      border-color: #4fa8ff;
+      box-shadow:
+        0 4px 18px 4px #2e8bff44,
+        0 2px 4px #fff2,
+        inset 0 2px 16px 1px #fff4,
+        inset 0 -4px 18px 2px #001a3666;
+      text-shadow: 0 2px 6px #2e8bff55, 0 1px 0 #fff4;
+    }
+    .btn--blue:active {
+      background: radial-gradient(circle at 80px 80px, #1d68c7 70%, #051f3b 100%);
+    }
+
+    .btn--green {
+      /* Matches your original green look */
+      background: radial-gradient(circle at 80px 80px, #219150 65%, #013b1c 100%);
+      border-color: #2fa861;
+      box-shadow:
+        0 4px 18px 4px #40ee8d44,
+        0 2px 4px #fff2,
+        inset 0 2px 16px 1px #fff4,
+        inset 0 -4px 18px 2px #00381866;
+      text-shadow: 0 2px 6px #20974277, 0 1px 0 #fff4;
+    }
+    .btn--green:active {
+      background: radial-gradient(circle at 80px 80px, #146b37 70%, #012312 100%);
+      box-shadow:
+        0 2px 10px 2px #1d9535bb,
+        0 2px 6px #fff2,
+        inset 0 2px 10px #fff4;
+    }
+
+    .btn--red {
+      background: radial-gradient(circle at 80px 80px, #ff4b4b 65%, #5a0b0b 100%);
+      border-color: #ff6a6a;
+      box-shadow:
+        0 4px 18px 4px #ff4b4b44,
+        0 2px 4px #fff2,
+        inset 0 2px 16px 1px #fff4,
+        inset 0 -4px 18px 2px #3a000066;
+      text-shadow: 0 2px 6px #8a1a1a77, 0 1px 0 #fff4;
+    }
+    .btn--red:active {
+      background: radial-gradient(circle at 80px 80px, #cc3535 70%, #3b0707 100%);
+    }
+
+    .btn--yellow {
+      background: radial-gradient(circle at 80px 80px, #ffd44b 65%, #5f4a08 100%);
+      border-color: #ffd85c;
+      box-shadow:
+        0 4px 18px 4px #ffd44b44,
+        0 2px 4px #fff2,
+        inset 0 2px 16px 1px #fff4,
+        inset 0 -4px 18px 2px #3a2f0066;
+      text-shadow: 0 2px 6px #6b5a1477, 0 1px 0 #fff4;
+      color: #1b1b1b;
+    }
+    .btn--yellow:active {
+      background: radial-gradient(circle at 80px 80px, #e6bc38 70%, #3f3205 100%);
+    }
+
+    .caption {
+      color: #ffe978;
+      font-size: 1.2rem;
+      font-weight: bold;
+      letter-spacing: 1.3px;
+      text-align: center;
+      opacity: 0.96;
+      text-shadow: 1px 1px 3px #222, 0 0 10px #fff3;
+      user-select: none;
+    }
+
+    .button-label {
+      pointer-events: none;
+      user-select: none;
+      width: 100%;
+      text-align: center;
+    }
+
+    /* Make them a bit smaller on very narrow screens */
+    @media (max-width: 980px) {
+      :root { --size: 180px; }
+    }
+    
+        .btn--purple {
+      background: radial-gradient(circle at 80px 80px, #8a5cff 65%, #2d0f5a 100%);
+      border-color: #a584ff;
+      box-shadow:
+        0 4px 18px 4px #8a5cff44,
+        0 2px 4px #fff2,
+        inset 0 2px 16px 1px #fff4,
+        inset 0 -4px 18px 2px #15052d66;
+      text-shadow: 0 2px 6px #8a5cff55, 0 1px 0 #fff4;
+    }
+    .btn--purple:active {
+      background: radial-gradient(circle at 80px 80px, #6c41d1 70%, #1c083a 100%);
+    }
+
+    .btn--gray {
+      background: radial-gradient(circle at 80px 80px, #9aa3ad 65%, #2c3136 100%);
+      border-color: #b7c0c9;
+      box-shadow:
+        0 4px 18px 4px #9aa3ad44,
+        0 2px 4px #fff2,
+        inset 0 2px 16px 1px #fff4,
+        inset 0 -4px 18px 2px #0c0f1166;
+      text-shadow: 0 2px 6px #88919a77, 0 1px 0 #fff4;
+      color: #fff;
+    }
+    .btn--gray:active {
+      background: radial-gradient(circle at 80px 80px, #7c858e 70%, #1f2327 100%);
+    }
+
+  .btn--orange {
+    background: radial-gradient(circle at 80px 80px, #ff9b2e 65%, #5a2b08 100%);
+    border-color: #ffb062;
+    box-shadow:
+      0 4px 18px 4px #ff9b2e44,
+      0 2px 4px #fff2,
+      inset 0 2px 16px 1px #fff4,
+      inset 0 -4px 18px 2px #3a1a0066;
+    text-shadow: 0 2px 6px #ff9b2e55, 0 1px 0 #fff4;
+    color: #1b1b1b;
+  }
+  .btn--orange:active {
+    background: radial-gradient(circle at 80px 80px, #d17c22 70%, #3a1d05 100%);
+  }
+
+  .btn--teal {
+    background: radial-gradient(circle at 80px 80px, #22c1a1 65%, #0c3a34 100%);
+    border-color: #42d2b8;
+    box-shadow:
+      0 4px 18px 4px #22c1a144,
+      0 2px 4px #fff2,
+      inset 0 2px 16px 1px #fff4,
+      inset 0 -4px 18px 2px #02252166;
+    text-shadow: 0 2px 6px #22c1a155, 0 1px 0 #fff4;
+  }
+  .btn--teal:active {
+    background: radial-gradient(circle at 80px 80px, #179e84 70%, #082823 100%);
+  }
+
+  .btn--pink {
+    background: radial-gradient(circle at 80px 80px, #ff5aa5 65%, #5a0f33 100%);
+    border-color: #ff86bf;
+    box-shadow:
+      0 4px 18px 4px #ff5aa544,
+      0 2px 4px #fff2,
+      inset 0 2px 16px 1px #fff4,
+      inset 0 -4px 18px 2px #2d051a66;
+    text-shadow: 0 2px 6px #ff5aa555, 0 1px 0 #fff4;
+  }
+  .btn--pink:active {
+    background: radial-gradient(circle at 80px 80px, #d14786 70%, #3a0a22 100%);
+  }
+
+  .btn--lightgreen {
+    background: radial-gradient(circle at 80px 80px, #84f2a3 65%, #0f3f22 100%);
+    border-color: #9bf5b5;
+    box-shadow:
+      0 4px 18px 4px #84f2a344,
+      0 2px 4px #fff2,
+      inset 0 2px 16px 1px #fff4,
+      inset 0 -4px 18px 2px #05281666;
+    text-shadow: 0 2px 6px #84f2a355, 0 1px 0 #fff4;
+    color: #fff;
+  }
+  .btn--lightgreen:active {
+    background: radial-gradient(circle at 80px 80px, #5fd486 70%, #0a2b18 100%);
+  }
+
+  </style>
+</head>
+<body>
+  <div class="button-row">
+    <!-- 1) BLUE – AUTOMATIC or RESET -->
+    <div class="button-card">
+      <button id="btn-automatic" class="btn btn--blue">
+      </button>
+      <div class="caption">Automatic (homeReset/initPostion)<br>Button</div>
+    </div>
+
+    <!-- 2) GREEN – RELEASE (keeps your original endpoint /press) -->
+    <div class="button-card">
+      <button id="btn-release" class="btn btn--green">
+      </button>
+      <div class="caption">Release<br>Button</div>
+    </div>
+
+    <!-- 3) RED – PAUSE -->
+    <div class="button-card">
+      <button id="btn-pause" class="btn btn--red">
+      </button>
+      <div class="caption">Pause<br>Button</div>
+    </div>
+
+    <!-- 4) YELLOW – RESUME -->
+    <div class="button-card">
+      <button id="btn-resume" class="btn btn--yellow">
+      </button>
+      <div class="caption">Resume<br>Button</div>
+    </div>
+    
+    <!-- 5) PURPLE  –  ORDER -->
+    <div class="button-card">
+      <button id="btn-order" class="btn btn--purple"></button>
+      <div class="caption">Order<br>Button</div>
+    </div>
+
+    <!-- 6) GRAY  –  CANCEL -->
+    <div class="button-card">
+      <button id="btn-cancel" class="btn btn--gray"></button>
+      <div class="caption">Cancel<br>Button</div>
+    </div>
+    
+    <!-- 7) ORANGE – RESET ALL HOME -->
+  <div class="button-card">
+    <button id="btn-reset-all" class="btn btn--orange"></button>
+    <div class="caption">Reset All<br>(Z then XY)</div>
+  </div>
+
+  <!-- 8) TEAL – RESET HOIST -->
+  <div class="button-card">
+    <button id="btn-reset-hoist" class="btn btn--teal"></button>
+    <div class="caption">Reset Hoist<br>(Z only)</div>
+  </div>
+
+  <!-- 9) PINK – RESET BRIDGE/TROLLEY -->
+  <div class="button-card">
+    <button id="btn-reset-xy" class="btn btn--pink"></button>
+    <div class="caption">Reset Bridge/Trolley<br>(XY only)</div>
+  </div>
+    
+  <div class="button-card">
+    <button id="btn-release-hold" class="btn btn--lightgreen"></button>
+    <div class="caption">ReleaseHold<br>Button</div>
+  </div>
+    
+  </div>
+
+  <script>
+    // Map buttons to their POST endpoints.
+    // Kept '/press' for Release to match your original code.
+    const routes = {
+      'btn-automatic': '/automatic',
+      'btn-release': '/release',
+      'btn-pause': '/pause',
+      'btn-resume': '/resume',
+      'btn-order': '/order',
+      'btn-cancel': '/cancel',
+      'btn-reset-all': '/reset_all',
+      'btn-reset-hoist': '/reset_hoist',
+      'btn-reset-xy': '/reset_xy',
+      'btn-release-hold': '/release_hold'
+    };
+
+    Object.entries(routes).forEach(([id, path]) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('click', () => {
+        fetch(path, { method: 'POST' })
+          .catch(err => console.error('Request failed:', err));
+      });
+    });
+  </script>
+</body>
+</html>

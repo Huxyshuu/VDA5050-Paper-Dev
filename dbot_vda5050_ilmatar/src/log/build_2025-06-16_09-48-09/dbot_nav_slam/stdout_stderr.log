@@ -1,0 +1,6 @@
+[31mCMake Error at CMakeLists.txt:50:
+  Parse error.  Function missing ending ")".  End of file reached.
+
+[0m
+-- Configuring incomplete, errors occurred!
+See also "/home/dbot2/ros2_ws/src/build/dbot_nav_slam/CMakeFiles/CMakeOutput.log".

@@ -1,0 +1,1 @@
+/home/dbot2/dbot_vda5050_ilmatar/build/vda5050_msgs/rosidl_generator_py/vda5050_msgs/msg/_battery_state.py

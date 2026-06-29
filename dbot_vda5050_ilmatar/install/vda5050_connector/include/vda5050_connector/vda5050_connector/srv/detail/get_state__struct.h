@@ -1,0 +1,1 @@
+/home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector/rosidl_generator_c/vda5050_connector/srv/detail/get_state__struct.h

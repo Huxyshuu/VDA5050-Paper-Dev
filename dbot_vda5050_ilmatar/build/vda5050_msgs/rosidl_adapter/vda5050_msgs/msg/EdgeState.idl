@@ -1,0 +1,34 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from vda5050_msgs/msg/EdgeState.msg
+// generated code does not contain a copyright notice
+
+#include "vda5050_msgs/msg/Trajectory.idl"
+
+module vda5050_msgs {
+  module msg {
+    struct EdgeState {
+      @verbatim (language="comment", text=
+        "Unique edge identification")
+      string edge_id;
+
+      @verbatim (language="comment", text=
+        "sequenceId to differentiate between multiple edges with")
+      uint32 sequence_id;
+
+      @verbatim (language="comment", text=
+        "Additional information on the edge")
+      string edge_description;
+
+      @verbatim (language="comment", text=
+        "True indicates that the edge is part of the base. False indicates that the edge is" "\n"
+        "part of the horizon.")
+      boolean released;
+
+      @verbatim (language="comment", text=
+        "The trajectory is to be communicated as a NURBS and is defined in chapter6.4" "\n"
+        "Trajectory segments are from the point where the AGV starts to enter the edge" "\n"
+        "until the point where it reports that the next node was traversed.")
+      vda5050_msgs::msg::Trajectory trajectory;
+    };
+  };
+};

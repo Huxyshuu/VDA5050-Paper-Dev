@@ -1,0 +1,1 @@
+/home/dbot2/dbot_vda5050_ilmatar/src/vda_dbot_nav_slam/scripts/vel_msg_sub.py

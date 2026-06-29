@@ -1,0 +1,17 @@
+[2.578s] Invoking command in '/home/dbot2/dbot_vda5050_ilmatar/build/tf2_dbot': PYTHONPATH=/home/dbot2/dbot_vda5050_ilmatar/build/tf2_dbot/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/dbot2/dbot_vda5050_ilmatar/install/tf2_dbot/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/dbot2/dbot_vda5050_ilmatar/build/tf2_dbot/build --no-deps symlink_data
+[3.072s] running develop
+[3.335s] running egg_info
+[3.335s] writing tf2_dbot.egg-info/PKG-INFO
+[3.335s] writing dependency_links to tf2_dbot.egg-info/dependency_links.txt
+[3.335s] writing entry points to tf2_dbot.egg-info/entry_points.txt
+[3.335s] writing requirements to tf2_dbot.egg-info/requires.txt
+[3.336s] writing top-level names to tf2_dbot.egg-info/top_level.txt
+[3.343s] reading manifest file 'tf2_dbot.egg-info/SOURCES.txt'
+[3.343s] writing manifest file 'tf2_dbot.egg-info/SOURCES.txt'
+[3.345s] running build_ext
+[3.345s] Creating /home/dbot2/dbot_vda5050_ilmatar/install/tf2_dbot/lib/python3.10/site-packages/tf2-dbot.egg-link (link to .)
+[3.346s] Installing odom_baselink_broadcaster script to /home/dbot2/dbot_vda5050_ilmatar/install/tf2_dbot/lib/tf2_dbot
+[3.346s] 
+[3.346s] Installed /home/dbot2/dbot_vda5050_ilmatar/build/tf2_dbot
+[3.346s] running symlink_data
+[3.715s] Invoked command in '/home/dbot2/dbot_vda5050_ilmatar/build/tf2_dbot' returned '0': PYTHONPATH=/home/dbot2/dbot_vda5050_ilmatar/build/tf2_dbot/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/dbot2/dbot_vda5050_ilmatar/install/tf2_dbot/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/dbot2/dbot_vda5050_ilmatar/build/tf2_dbot/build --no-deps symlink_data

@@ -1,0 +1,364 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"childIndexes" : 
+					[
+						1,
+						2
+					],
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-4a1c5a7fc7af0ba6d567.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.12"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						11,
+						12,
+						13,
+						15,
+						16,
+						17,
+						18,
+						19,
+						20,
+						21,
+						22,
+						23,
+						24,
+						25,
+						26
+					]
+				},
+				{
+					"build" : "vda5050_connector__py",
+					"jsonFile" : "directory-vda5050_connector__py-c30e6a6c5ef307f2fbf6.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.12"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "/home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector/vda5050_connector__py",
+					"targetIndexes" : 
+					[
+						14
+					]
+				},
+				{
+					"build" : "test/adapter",
+					"childIndexes" : 
+					[
+						3
+					],
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-test.adapter-eed7afc978f6825d1a6c.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.12"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "test/adapter",
+					"targetIndexes" : 
+					[
+						7,
+						8,
+						9,
+						10
+					]
+				},
+				{
+					"build" : "gtest",
+					"jsonFile" : "directory-gtest-a2408fe1a73b92c5e636.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.8"
+					},
+					"parentIndex" : 2,
+					"projectIndex" : 1,
+					"source" : "/opt/ros/humble/src/gtest_vendor",
+					"targetIndexes" : 
+					[
+						5,
+						6
+					]
+				}
+			],
+			"name" : "",
+			"projects" : 
+			[
+				{
+					"childIndexes" : 
+					[
+						1
+					],
+					"directoryIndexes" : 
+					[
+						0,
+						1,
+						2
+					],
+					"name" : "vda5050_connector",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						7,
+						8,
+						9,
+						10,
+						11,
+						12,
+						13,
+						14,
+						15,
+						16,
+						17,
+						18,
+						19,
+						20,
+						21,
+						22,
+						23,
+						24,
+						25,
+						26
+					]
+				},
+				{
+					"directoryIndexes" : 
+					[
+						3
+					],
+					"name" : "gtest",
+					"parentIndex" : 0,
+					"targetIndexes" : 
+					[
+						5,
+						6
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "adapter::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-adapter-477f3e964667876ce23f.json",
+					"name" : "adapter",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "ament_cmake_python_build_vda5050_connector_egg::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ament_cmake_python_build_vda5050_connector_egg-a99aac641a50fc55832e.json",
+					"name" : "ament_cmake_python_build_vda5050_connector_egg",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "ament_cmake_python_build_vda5050_connector_py_egg::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ament_cmake_python_build_vda5050_connector_py_egg-4457e1b31932d87f08ee.json",
+					"name" : "ament_cmake_python_build_vda5050_connector_py_egg",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "ament_cmake_python_symlink_vda5050_connector::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ament_cmake_python_symlink_vda5050_connector-00b56853e5d5c6164025.json",
+					"name" : "ament_cmake_python_symlink_vda5050_connector",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "ament_cmake_python_symlink_vda5050_connector_py::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ament_cmake_python_symlink_vda5050_connector_py-3f0022f4a20c0d8bdabd.json",
+					"name" : "ament_cmake_python_symlink_vda5050_connector_py",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 3,
+					"id" : "gtest::@0af4add9fe94340e763e",
+					"jsonFile" : "target-gtest-bd5193e4a3cfb67048ef.json",
+					"name" : "gtest",
+					"projectIndex" : 1
+				},
+				{
+					"directoryIndex" : 3,
+					"id" : "gtest_main::@0af4add9fe94340e763e",
+					"jsonFile" : "target-gtest_main-813512142c49b5010796.json",
+					"name" : "gtest_main",
+					"projectIndex" : 1
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "test_handler_execution::@3ea30f98ffd2a4ca602d",
+					"jsonFile" : "target-test_handler_execution-dcc127e699eafc0cfbf8.json",
+					"name" : "test_handler_execution",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "test_node_config::@3ea30f98ffd2a4ca602d",
+					"jsonFile" : "target-test_node_config-69376c8e810ac0457f3e.json",
+					"name" : "test_node_config",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "test_plugin_load::@3ea30f98ffd2a4ca602d",
+					"jsonFile" : "target-test_plugin_load-95aaf2a21f865c77b020.json",
+					"name" : "test_plugin_load",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "test_plugins::@3ea30f98ffd2a4ca602d",
+					"jsonFile" : "target-test_plugins-e40dc41712be3f3e6671.json",
+					"name" : "test_plugins",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-uninstall-c190b1b904f4b0234158.json",
+					"name" : "uninstall",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "vda5050_connector::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-vda5050_connector-dfe69342e901ab8e1696.json",
+					"name" : "vda5050_connector",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "vda5050_connector__cpp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-vda5050_connector__cpp-a480c06957697afe6c0c.json",
+					"name" : "vda5050_connector__cpp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "vda5050_connector__py::@bbadfab8713a9b4931ca",
+					"jsonFile" : "target-vda5050_connector__py-ecefa0ccd9563a78904b.json",
+					"name" : "vda5050_connector__py",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "vda5050_connector__rosidl_generator_c::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-vda5050_connector__rosidl_generator_c-7fbb54a42a1e35b0deb2.json",
+					"name" : "vda5050_connector__rosidl_generator_c",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "vda5050_connector__rosidl_generator_py::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-vda5050_connector__rosidl_generator_py-550f25cbc6ec30d314f6.json",
+					"name" : "vda5050_connector__rosidl_generator_py",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "vda5050_connector__rosidl_typesupport_c::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-vda5050_connector__rosidl_typesupport_c-82cc4d8736c137a94aab.json",
+					"name" : "vda5050_connector__rosidl_typesupport_c",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "vda5050_connector__rosidl_typesupport_c__pyext::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-vda5050_connector__rosidl_typesupport_c__pyext-f5c3c429b6ba4325e267.json",
+					"name" : "vda5050_connector__rosidl_typesupport_c__pyext",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "vda5050_connector__rosidl_typesupport_cpp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-vda5050_connector__rosidl_typesupport_cpp-ca07b0d479e16db6e733.json",
+					"name" : "vda5050_connector__rosidl_typesupport_cpp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "vda5050_connector__rosidl_typesupport_fastrtps_c::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-vda5050_connector__rosidl_typesupport_fastrtps_c-80476e8e70ef5392e759.json",
+					"name" : "vda5050_connector__rosidl_typesupport_fastrtps_c",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "vda5050_connector__rosidl_typesupport_fastrtps_c__pyext::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-vda5050_connector__rosidl_typesupport_fastrtps_c__pyext-b8564eee605f06bc4599.json",
+					"name" : "vda5050_connector__rosidl_typesupport_fastrtps_c__pyext",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "vda5050_connector__rosidl_typesupport_fastrtps_cpp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-vda5050_connector__rosidl_typesupport_fastrtps_cpp-b562113063da3185ee0d.json",
+					"name" : "vda5050_connector__rosidl_typesupport_fastrtps_cpp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "vda5050_connector__rosidl_typesupport_introspection_c::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-vda5050_connector__rosidl_typesupport_introspection_c-4d7ae5b4b433a2348a3e.json",
+					"name" : "vda5050_connector__rosidl_typesupport_introspection_c",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "vda5050_connector__rosidl_typesupport_introspection_c__pyext::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-vda5050_connector__rosidl_typesupport_introspection_c__pyext-b29f0ca42dc2d77e05eb.json",
+					"name" : "vda5050_connector__rosidl_typesupport_introspection_c__pyext",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "vda5050_connector__rosidl_typesupport_introspection_cpp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-vda5050_connector__rosidl_typesupport_introspection_cpp-f56024d3f12f778fb12b.json",
+					"name" : "vda5050_connector__rosidl_typesupport_introspection_cpp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "vda5050_connector_uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-vda5050_connector_uninstall-442a4c80b451317bd139.json",
+					"name" : "vda5050_connector_uninstall",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector",
+		"source" : "/home/dbot2/dbot_vda5050_ilmatar/src/vda5050_connector"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 3
+	}
+}

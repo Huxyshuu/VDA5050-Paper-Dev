@@ -1,0 +1,58 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from vda5050_msgs/msg/NodePosition.msg
+// generated code does not contain a copyright notice
+
+
+module vda5050_msgs {
+  module msg {
+    @verbatim (language="comment", text=
+      "Defines the position on a map in world coordinates. Each floor has its own map.")
+    struct NodePosition {
+      @verbatim (language="comment", text=
+        "X-position on the map in reference to the world coordinate system")
+      @unit (value="m")
+      double x;
+
+      @verbatim (language="comment", text=
+        "Y-position on the map in reference to the world coordinate system")
+      @unit (value="m")
+      double y;
+
+      @verbatim (language="comment", text=
+        "The angular dimension")
+      @unit (value="rad")
+      double theta;
+
+      @verbatim (language="comment", text=
+        "Indicates how exact an AGV has to drive over a node in order for it" "\n"
+        "to count as traversed." "\n"
+        "" "\n"
+        "If = 0: no deviation is allowed (no deviation means within the" "\n"
+        "normal tolerance of the AGV manufacturer)." "\n"
+        "" "\n"
+        "If > 0: allowed deviationradius in meters. If the AGV passes a node" "\n"
+        "within the deviation-radius, the node is considered to have been" "\n"
+        "traversed.")
+      float allowed_deviation_x_y;
+
+      @verbatim (language="comment", text=
+        "Range:" "\n"
+        "Indicates how big the deviation of theta angle can be." "\n"
+        "The lowest acceptable angle  is theta -allowedDevaitionTheta and" "\n"
+        "the  highest acceptable angle is theta + allowedDeviationTheta")
+      @unit (value="0 ... Pi")
+      float allowed_deviation_theta;
+
+      @verbatim (language="comment", text=
+        "Unique identification of the map in which the position is referenced. Each map has the same" "\n"
+        "origin of coordinates. When an AGV uses an elevator, e. g. leading from a departure floor to a" "\n"
+        "target floor, it will disappear off the map of the departure floor and spawn in the related" "\n"
+        "lift node on the map of the target floor.")
+      string map_id;
+
+      @verbatim (language="comment", text=
+        "Additional information on the map")
+      string map_description;
+    };
+  };
+};

@@ -1,0 +1,1 @@
+/home/dbot2/dbot_vda5050_ilmatar/build/dbot_custom_msgs/rosidl_generator_py/dbot_custom_msgs/__init__.py

@@ -1,0 +1,1 @@
+/home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector/ament_cmake_core/vda5050_connectorConfig-version.cmake

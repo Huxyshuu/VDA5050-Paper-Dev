@@ -1,0 +1,1 @@
+/home/dbot2/dbot_vda5050_ilmatar/src/dbot_nav_slam/scripts/emq_mqtt_vel_msg_sub.py

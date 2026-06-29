@@ -1,0 +1,16 @@
+package.xml
+setup.cfg
+setup.py
+../../build/dbot_bridge/dbot_bridge.egg-info/PKG-INFO
+../../build/dbot_bridge/dbot_bridge.egg-info/SOURCES.txt
+../../build/dbot_bridge/dbot_bridge.egg-info/dependency_links.txt
+../../build/dbot_bridge/dbot_bridge.egg-info/entry_points.txt
+../../build/dbot_bridge/dbot_bridge.egg-info/requires.txt
+../../build/dbot_bridge/dbot_bridge.egg-info/top_level.txt
+../../build/dbot_bridge/dbot_bridge.egg-info/zip-safe
+dbot_bridge/__init__.py
+dbot_bridge/dbot_bridge_node.py
+resource/dbot_bridge
+test/test_copyright.py
+test/test_flake8.py
+test/test_pep257.py

@@ -1,0 +1,36 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from vda5050_msgs/msg/InstantActions.msg
+// generated code does not contain a copyright notice
+
+#include "vda5050_msgs/msg/Action.idl"
+
+module vda5050_msgs {
+  module msg {
+    struct InstantActions {
+      @verbatim (language="comment", text=
+        "header ID of the message. The headerId is defined per topic and incremented by 1 with each sent" "\n"
+        "(but not necessarily received) message.")
+      uint32 header_id;
+
+      @verbatim (language="comment", text=
+        "Timestamp after ISO8601 in the format YYYY-MM-DDTHH:mm:ss.ssZ (e.g.“2017-04-15T11:40:03.12Z”)")
+      string timestamp;
+
+      @verbatim (language="comment", text=
+        "Version of the protocol [Major].[Minor].[Patch] (e.g. 1.3.2)")
+      string version;
+
+      @verbatim (language="comment", text=
+        "Manufacturer of the AGV")
+      string manufacturer;
+
+      @verbatim (language="comment", text=
+        "Serial Number of the AGV")
+      string serial_number;
+
+      @verbatim (language="comment", text=
+        "List of actions to execute")
+      sequence<vda5050_msgs::msg::Action> actions;
+    };
+  };
+};

@@ -1,0 +1,24 @@
+running develop
+running egg_info
+creating tf2_dbot.egg-info
+writing tf2_dbot.egg-info/PKG-INFO
+writing dependency_links to tf2_dbot.egg-info/dependency_links.txt
+writing entry points to tf2_dbot.egg-info/entry_points.txt
+writing requirements to tf2_dbot.egg-info/requires.txt
+writing top-level names to tf2_dbot.egg-info/top_level.txt
+writing manifest file 'tf2_dbot.egg-info/SOURCES.txt'
+reading manifest file 'tf2_dbot.egg-info/SOURCES.txt'
+writing manifest file 'tf2_dbot.egg-info/SOURCES.txt'
+running build_ext
+Creating /home/dbot2/dbot_vda5050_ilmatar/install/tf2_dbot/lib/python3.10/site-packages/tf2-dbot.egg-link (link to .)
+Installing odom_baselink_broadcaster script to /home/dbot2/dbot_vda5050_ilmatar/install/tf2_dbot/lib/tf2_dbot
+
+Installed /home/dbot2/dbot_vda5050_ilmatar/build/tf2_dbot
+running symlink_data
+creating /home/dbot2/dbot_vda5050_ilmatar/install/tf2_dbot/share/ament_index
+creating /home/dbot2/dbot_vda5050_ilmatar/install/tf2_dbot/share/ament_index/resource_index
+creating /home/dbot2/dbot_vda5050_ilmatar/install/tf2_dbot/share/ament_index/resource_index/packages
+symbolically linking /home/dbot2/dbot_vda5050_ilmatar/build/tf2_dbot/resource/tf2_dbot -> /home/dbot2/dbot_vda5050_ilmatar/install/tf2_dbot/share/ament_index/resource_index/packages
+symbolically linking /home/dbot2/dbot_vda5050_ilmatar/build/tf2_dbot/package.xml -> /home/dbot2/dbot_vda5050_ilmatar/install/tf2_dbot/share/tf2_dbot
+creating /home/dbot2/dbot_vda5050_ilmatar/install/tf2_dbot/share/tf2_dbot/launch
+symbolically linking /home/dbot2/dbot_vda5050_ilmatar/build/tf2_dbot/launch/tf2_dbot_launch.py -> /home/dbot2/dbot_vda5050_ilmatar/install/tf2_dbot/share/tf2_dbot/launch

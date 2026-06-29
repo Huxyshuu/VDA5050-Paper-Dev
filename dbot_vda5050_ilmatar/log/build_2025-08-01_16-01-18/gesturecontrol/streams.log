@@ -1,0 +1,17 @@
+[2.385s] Invoking command in '/home/dbot2/dbot_vda5050_ilmatar/build/gesturecontrol': PYTHONPATH=/home/dbot2/dbot_vda5050_ilmatar/build/gesturecontrol/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/dbot2/dbot_vda5050_ilmatar/build/gesturecontrol/build --no-deps symlink_data
+[2.840s] running develop
+[3.072s] running egg_info
+[3.073s] writing gesturecontrol.egg-info/PKG-INFO
+[3.073s] writing dependency_links to gesturecontrol.egg-info/dependency_links.txt
+[3.073s] writing entry points to gesturecontrol.egg-info/entry_points.txt
+[3.073s] writing requirements to gesturecontrol.egg-info/requires.txt
+[3.073s] writing top-level names to gesturecontrol.egg-info/top_level.txt
+[3.077s] reading manifest file 'gesturecontrol.egg-info/SOURCES.txt'
+[3.078s] writing manifest file 'gesturecontrol.egg-info/SOURCES.txt'
+[3.081s] running build_ext
+[3.081s] Creating /home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol/lib/python3.10/site-packages/gesturecontrol.egg-link (link to .)
+[3.082s] Installing gesturecontrol script to /home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol/lib/gesturecontrol
+[3.082s] 
+[3.082s] Installed /home/dbot2/dbot_vda5050_ilmatar/build/gesturecontrol
+[3.082s] running symlink_data
+[3.128s] Invoked command in '/home/dbot2/dbot_vda5050_ilmatar/build/gesturecontrol' returned '0': PYTHONPATH=/home/dbot2/dbot_vda5050_ilmatar/build/gesturecontrol/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/dbot2/dbot_vda5050_ilmatar/build/gesturecontrol/build --no-deps symlink_data

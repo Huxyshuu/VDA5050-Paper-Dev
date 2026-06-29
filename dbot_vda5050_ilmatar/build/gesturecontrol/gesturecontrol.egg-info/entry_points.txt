@@ -1,0 +1,3 @@
+[console_scripts]
+gesturecontrol = gesturecontrol.handcontrol:main
+

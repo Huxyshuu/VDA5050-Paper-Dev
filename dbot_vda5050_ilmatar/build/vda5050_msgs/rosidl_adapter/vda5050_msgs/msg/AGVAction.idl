@@ -1,0 +1,34 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from vda5050_msgs/msg/AGVAction.msg
+// generated code does not contain a copyright notice
+
+#include "vda5050_msgs/msg/ActionParameterDefinition.idl"
+
+module vda5050_msgs {
+  module msg {
+    module AGVAction_Constants {
+      @verbatim (language="comment", text=
+        "Enums for action scopes")
+      const string INSTANT = "INSTANT";
+      const string NODE = "NODE";
+      const string EDGE = "EDGE";
+    };
+    struct AGVAction {
+      @verbatim (language="comment", text=
+        "Unique actionType corresponding to action.actionType")
+      string action_type;
+
+      string action_description;
+
+      @verbatim (language="comment", text=
+        "Allowed scopes for using this action-type")
+      sequence<string> action_scopes;
+
+      @verbatim (language="comment", text=
+        "List of parameters defined for the action")
+      sequence<vda5050_msgs::msg::ActionParameterDefinition> action_parameters;
+
+      string result_description;
+    };
+  };
+};

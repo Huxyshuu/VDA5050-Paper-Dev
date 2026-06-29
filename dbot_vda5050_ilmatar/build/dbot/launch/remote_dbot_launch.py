@@ -1,0 +1,1 @@
+/home/dbot2/dbot_vda5050_ilmatar/src/dbot/launch/remote_dbot_launch.py

@@ -1,0 +1,38 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from vda5050_msgs/msg/MaxStringLens.msg
+// generated code does not contain a copyright notice
+
+
+module vda5050_msgs {
+  module msg {
+    struct MaxStringLens {
+      @verbatim (language="comment", text=
+        "Maximum MQTT Message length")
+      uint32 msg_len;
+
+      @verbatim (language="comment", text=
+        "Maximum length of serial-number part in MQTT-topics")
+      uint32 topic_serial_len;
+
+      @verbatim (language="comment", text=
+        "Maximum length of all other parts in MQTT-topics (timestamp, versions, manufacturer)")
+      uint32 topic_elem_len;
+
+      @verbatim (language="comment", text=
+        "Maximum length of ID-Strings")
+      uint32 id_len;
+
+      @verbatim (language="comment", text=
+        "If true ID-strings need to contain numerical values only")
+      boolean id_numerical_only;
+
+      @verbatim (language="comment", text=
+        "Maximum length of ENUM- and Key-Strings")
+      uint32 enum_len;
+
+      @verbatim (language="comment", text=
+        "Maximum length of loadId Strings")
+      uint32 load_id_len;
+    };
+  };
+};

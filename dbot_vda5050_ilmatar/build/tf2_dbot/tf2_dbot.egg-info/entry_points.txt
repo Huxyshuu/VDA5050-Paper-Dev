@@ -1,0 +1,3 @@
+[console_scripts]
+odom_baselink_broadcaster = tf2_dbot.odom_baselink_broadcaster:main
+
