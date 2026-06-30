@@ -1,1 +1,3 @@
-/home/dbot2/dbot_vda5050_ilmatar/src/vda5050_msgs/msg/Envelope2D.msg
+string set                      # Name of the envelope curve set
+PolygonPoint[] polygon_points   # Envelope curve as a x/y-polygon
+string description

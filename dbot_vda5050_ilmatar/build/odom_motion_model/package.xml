@@ -1,1 +1,22 @@
-/home/dbot2/dbot_vda5050_ilmatar/src/odom_motion_model/package.xml
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>odom_motion_model</name>
+  <version>0.0.0</version>
+  <description>DBot odom motion model</description>
+  <maintainer email="sm.hariprasanth@gmail.com">Hari Prasanth SM</maintainer>
+  <license>Apache-2.0</license>
+
+  <exec_depend>std_msgs</exec_depend>  
+  <exec_depend>dbot_custom_msgs</exec_depend>
+  <depend>odometry_estimator</depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

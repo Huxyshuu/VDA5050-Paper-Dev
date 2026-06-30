@@ -174,7 +174,7 @@ test/adapter/test_handler_execution: /opt/ros/humble/lib/librosidl_typesupport_f
 test/adapter/test_handler_execution: /opt/ros/humble/lib/libbuiltin_interfaces__rosidl_typesupport_introspection_c.so
 test/adapter/test_handler_execution: /opt/ros/humble/lib/libbuiltin_interfaces__rosidl_typesupport_fastrtps_cpp.so
 test/adapter/test_handler_execution: /opt/ros/humble/lib/librosidl_typesupport_fastrtps_cpp.so
-test/adapter/test_handler_execution: /opt/ros/humble/lib/libfastcdr.so.1.0.24
+test/adapter/test_handler_execution: /opt/ros/humble/lib/libfastcdr.so.1.0.29
 test/adapter/test_handler_execution: /opt/ros/humble/lib/librmw.so
 test/adapter/test_handler_execution: /opt/ros/humble/lib/libbuiltin_interfaces__rosidl_typesupport_introspection_cpp.so
 test/adapter/test_handler_execution: /opt/ros/humble/lib/librosidl_typesupport_introspection_cpp.so

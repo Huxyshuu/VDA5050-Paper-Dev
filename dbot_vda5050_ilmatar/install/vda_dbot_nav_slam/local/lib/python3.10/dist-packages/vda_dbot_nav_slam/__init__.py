@@ -1,1 +1,0 @@
-/home/dbot2/dbot_vda5050_ilmatar/src/vda_dbot_nav_slam/vda_dbot_nav_slam/__init__.py

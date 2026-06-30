@@ -1,1 +1,2 @@
-/home/dbot2/dbot_vda5050_ilmatar/src/vda5050_msgs/msg/LoadSpecification.msg
+string[] load_positions   # List of load positions / load handling devices
+LoadSet[] load_sets       # List of load-sets that can be handled by the AGV

@@ -1,1 +1,2 @@
-/home/dbot2/dbot_vda5050_ilmatar/src/vda5050_msgs/msg/InfoReference.msg
+string reference_key       # References the type of reference (e. g. headerId, orderId, actionId, …).
+string reference_value     # References the value the reference key.

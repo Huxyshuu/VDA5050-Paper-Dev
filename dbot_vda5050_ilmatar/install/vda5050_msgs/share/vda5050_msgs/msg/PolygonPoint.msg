@@ -1,1 +1,2 @@
-/home/dbot2/dbot_vda5050_ilmatar/src/vda5050_msgs/msg/PolygonPoint.msg
+float64 x   # x-position [m] of polygon-point
+float64 y   # y-position [m] of polygon-point

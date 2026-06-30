@@ -82,7 +82,7 @@ cdr_deserialize(
   cdr >> ros_message.length;
 
   return true;
-}
+}  // NOLINT(readability/fn_size)
 
 size_t
 ROSIDL_TYPESUPPORT_FASTRTPS_CPP_PUBLIC_vda5050_msgs

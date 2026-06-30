@@ -5,3 +5,4 @@
 # This file includes the relevant testing commands required for 
 # testing this directory and lists subdirectories to be tested as well.
 subdirs("vda5050_msgs__py")
+subdirs("vda5050_msgs__rs")

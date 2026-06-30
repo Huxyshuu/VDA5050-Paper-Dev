@@ -405,6 +405,19 @@ dbot_custom_msgs__py/fast:
 	$(MAKE) $(MAKESILENT) -f dbot_custom_msgs__py/CMakeFiles/dbot_custom_msgs__py.dir/build.make dbot_custom_msgs__py/CMakeFiles/dbot_custom_msgs__py.dir/build
 .PHONY : dbot_custom_msgs__py/fast
 
+#=============================================================================
+# Target rules for targets named dbot_custom_msgs__rs
+
+# Build rule for target.
+dbot_custom_msgs__rs: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 dbot_custom_msgs__rs
+.PHONY : dbot_custom_msgs__rs
+
+# fast build rule for target.
+dbot_custom_msgs__rs/fast:
+	$(MAKE) $(MAKESILENT) -f dbot_custom_msgs__rs/CMakeFiles/dbot_custom_msgs__rs.dir/build.make dbot_custom_msgs__rs/CMakeFiles/dbot_custom_msgs__rs.dir/build
+.PHONY : dbot_custom_msgs__rs/fast
+
 rosidl_generator_c/dbot_custom_msgs/msg/detail/wheel_encoder__functions.o: rosidl_generator_c/dbot_custom_msgs/msg/detail/wheel_encoder__functions.c.o
 .PHONY : rosidl_generator_c/dbot_custom_msgs/msg/detail/wheel_encoder__functions.o
 
@@ -687,6 +700,7 @@ help:
 	@echo "... dbot_custom_msgs"
 	@echo "... dbot_custom_msgs__cpp"
 	@echo "... dbot_custom_msgs__py"
+	@echo "... dbot_custom_msgs__rs"
 	@echo "... dbot_custom_msgs_uninstall"
 	@echo "... uninstall"
 	@echo "... dbot_custom_msgs__rosidl_generator_c"

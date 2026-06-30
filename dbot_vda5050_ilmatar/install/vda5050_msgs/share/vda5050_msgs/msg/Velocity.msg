@@ -1,1 +1,3 @@
-/home/dbot2/dbot_vda5050_ilmatar/src/vda5050_msgs/msg/Velocity.msg
+float64 vx    # [m/s] forward velocity
+float64 vy    # [m/s] sideways velocity
+float64 omega # [rad/s] rotational velocity

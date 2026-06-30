@@ -39,6 +39,12 @@
 /home/dbot2/dbot_vda5050_ilmatar/install/dbot_custom_msgs/local/lib/python3.10/dist-packages/dbot_custom_msgs/dbot_custom_msgs_s__rosidl_typesupport_fastrtps_c.cpython-310-x86_64-linux-gnu.so
 /home/dbot2/dbot_vda5050_ilmatar/install/dbot_custom_msgs/local/lib/python3.10/dist-packages/dbot_custom_msgs/dbot_custom_msgs_s__rosidl_typesupport_introspection_c.cpython-310-x86_64-linux-gnu.so
 /home/dbot2/dbot_vda5050_ilmatar/install/dbot_custom_msgs/local/lib/python3.10/dist-packages/dbot_custom_msgs/dbot_custom_msgs_s__rosidl_typesupport_c.cpython-310-x86_64-linux-gnu.so
+/home/dbot2/dbot_vda5050_ilmatar/install/dbot_custom_msgs/share/ament_index/resource_index/rust_packages/dbot_custom_msgs
+/home/dbot2/dbot_vda5050_ilmatar/install/dbot_custom_msgs/share/dbot_custom_msgs/rust/Cargo.toml
+/home/dbot2/dbot_vda5050_ilmatar/install/dbot_custom_msgs/share/dbot_custom_msgs/rust/build.rs
+/home/dbot2/dbot_vda5050_ilmatar/install/dbot_custom_msgs/share/dbot_custom_msgs/rust/src/lib.rs
+/home/dbot2/dbot_vda5050_ilmatar/install/dbot_custom_msgs/share/dbot_custom_msgs/rust/src/msg.rs
+/home/dbot2/dbot_vda5050_ilmatar/install/dbot_custom_msgs/share/dbot_custom_msgs/rust/src/msg/rmw.rs
 /home/dbot2/dbot_vda5050_ilmatar/install/dbot_custom_msgs/share/dbot_custom_msgs/msg/WheelEncoder.idl
 /home/dbot2/dbot_vda5050_ilmatar/install/dbot_custom_msgs/share/dbot_custom_msgs/msg/WheelEncoder.msg
 /home/dbot2/dbot_vda5050_ilmatar/install/dbot_custom_msgs/share/ament_index/resource_index/package_run_dependencies/dbot_custom_msgs

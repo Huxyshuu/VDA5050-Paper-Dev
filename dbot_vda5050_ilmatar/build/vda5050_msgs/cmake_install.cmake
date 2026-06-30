@@ -409,6 +409,7 @@ endif()
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
   include("/home/dbot2/dbot_vda5050_ilmatar/build/vda5050_msgs/vda5050_msgs__py/cmake_install.cmake")
+  include("/home/dbot2/dbot_vda5050_ilmatar/build/vda5050_msgs/vda5050_msgs__rs/cmake_install.cmake")
 
 endif()
 

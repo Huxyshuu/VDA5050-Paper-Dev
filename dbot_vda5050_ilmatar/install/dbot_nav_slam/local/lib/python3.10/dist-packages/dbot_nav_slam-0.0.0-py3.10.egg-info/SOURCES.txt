@@ -1,1 +1,9 @@
-/home/dbot2/dbot_vda5050_ilmatar/build/dbot_nav_slam/ament_cmake_python/dbot_nav_slam/dbot_nav_slam.egg-info/SOURCES.txt
+setup.cfg
+setup.py
+dbot_nav_slam/__init__.py
+dbot_nav_slam/initial_pose_publisher.py
+dbot_nav_slam/modules_import.py
+dbot_nav_slam.egg-info/PKG-INFO
+dbot_nav_slam.egg-info/SOURCES.txt
+dbot_nav_slam.egg-info/dependency_links.txt
+dbot_nav_slam.egg-info/top_level.txt

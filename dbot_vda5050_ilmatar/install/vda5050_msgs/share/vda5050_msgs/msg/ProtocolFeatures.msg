@@ -1,1 +1,2 @@
-/home/dbot2/dbot_vda5050_ilmatar/src/vda5050_msgs/msg/ProtocolFeatures.msg
+OptionalParameter[] optional_parameters # List of supported and/or required optional parameters
+AGVAction[] agv_actions                 # List of all actions with parameters supported by this AGV

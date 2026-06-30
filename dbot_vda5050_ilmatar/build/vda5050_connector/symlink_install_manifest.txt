@@ -85,6 +85,14 @@
 /home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/local/lib/python3.10/dist-packages/vda5050_connector/vda5050_connector_s__rosidl_typesupport_fastrtps_c.cpython-310-x86_64-linux-gnu.so
 /home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/local/lib/python3.10/dist-packages/vda5050_connector/vda5050_connector_s__rosidl_typesupport_introspection_c.cpython-310-x86_64-linux-gnu.so
 /home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/local/lib/python3.10/dist-packages/vda5050_connector/vda5050_connector_s__rosidl_typesupport_c.cpython-310-x86_64-linux-gnu.so
+/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/ament_index/resource_index/rust_packages/vda5050_connector
+/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/rust/Cargo.toml
+/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/rust/build.rs
+/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/rust/src/action.rs
+/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/rust/src/action/rmw.rs
+/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/rust/src/lib.rs
+/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/rust/src/srv.rs
+/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/rust/src/srv/rmw.rs
 /home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/action/NavigateToNode.idl
 /home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/action/ProcessVDAAction.idl
 /home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/srv/GetState.idl

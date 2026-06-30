@@ -1,1 +1,1 @@
-/home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector/ament_cmake_python/vda5050_connector/vda5050_connector.egg-info/top_level.txt
+vda5050_connector

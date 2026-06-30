@@ -74,7 +74,7 @@ cdr_deserialize(
     cdr, ros_message.action);
 
   return true;
-}
+}  // NOLINT(readability/fn_size)
 
 size_t
 ROSIDL_TYPESUPPORT_FASTRTPS_CPP_PUBLIC_vda5050_connector
@@ -322,7 +322,7 @@ cdr_deserialize(
     cdr, ros_message.result);
 
   return true;
-}
+}  // NOLINT(readability/fn_size)
 
 size_t
 ROSIDL_TYPESUPPORT_FASTRTPS_CPP_PUBLIC_vda5050_connector
@@ -548,7 +548,7 @@ cdr_deserialize(
     cdr, ros_message.current_action);
 
   return true;
-}
+}  // NOLINT(readability/fn_size)
 
 size_t
 ROSIDL_TYPESUPPORT_FASTRTPS_CPP_PUBLIC_vda5050_connector
@@ -806,7 +806,7 @@ cdr_deserialize(
     cdr, ros_message.goal);
 
   return true;
-}
+}  // NOLINT(readability/fn_size)
 
 size_t
 ROSIDL_TYPESUPPORT_FASTRTPS_CPP_PUBLIC_vda5050_connector
@@ -1088,7 +1088,7 @@ cdr_deserialize(
     cdr, ros_message.stamp);
 
   return true;
-}
+}  // NOLINT(readability/fn_size)
 
 size_t
 ROSIDL_TYPESUPPORT_FASTRTPS_CPP_PUBLIC_vda5050_connector
@@ -1389,7 +1389,7 @@ cdr_deserialize(
     cdr, ros_message.goal_id);
 
   return true;
-}
+}  // NOLINT(readability/fn_size)
 
 size_t
 ROSIDL_TYPESUPPORT_FASTRTPS_CPP_PUBLIC_vda5050_connector
@@ -1621,7 +1621,7 @@ cdr_deserialize(
     cdr, ros_message.result);
 
   return true;
-}
+}  // NOLINT(readability/fn_size)
 
 size_t
 ROSIDL_TYPESUPPORT_FASTRTPS_CPP_PUBLIC_vda5050_connector
@@ -1935,7 +1935,7 @@ cdr_deserialize(
     cdr, ros_message.feedback);
 
   return true;
-}
+}  // NOLINT(readability/fn_size)
 
 size_t
 ROSIDL_TYPESUPPORT_FASTRTPS_CPP_PUBLIC_vda5050_connector

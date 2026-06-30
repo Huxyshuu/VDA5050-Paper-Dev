@@ -1,1 +1,3 @@
-/home/dbot2/dbot_vda5050_ilmatar/src/vda5050_msgs/msg/ProtocolLimits.msg
+MaxStringLens max_string_lens   # Maximum lengths of strings
+MaxArrayLens max_array_lens     # Maximum lengths of arrays
+Timing timing                   # Timing information

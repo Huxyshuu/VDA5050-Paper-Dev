@@ -1,1 +1,2 @@
-/home/dbot2/dbot_vda5050_ilmatar/src/vda5050_connector/srv/SupportedActions.srv
+---
+vda5050_msgs/AGVAction[] agv_actions

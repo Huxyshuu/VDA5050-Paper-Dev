@@ -79,11 +79,13 @@ all: CMakeFiles/vda5050_connector__rosidl_typesupport_c__pyext.dir/all
 all: CMakeFiles/adapter.dir/all
 all: CMakeFiles/ament_cmake_python_build_vda5050_connector_py_egg.dir/all
 all: vda5050_connector__py/all
+all: vda5050_connector__rs/all
 all: test/adapter/all
 .PHONY : all
 
 # The main recursive "preinstall" target.
 preinstall: vda5050_connector__py/preinstall
+preinstall: vda5050_connector__rs/preinstall
 preinstall: test/adapter/preinstall
 .PHONY : preinstall
 
@@ -109,6 +111,7 @@ clean: CMakeFiles/adapter.dir/clean
 clean: CMakeFiles/ament_cmake_python_symlink_vda5050_connector_py.dir/clean
 clean: CMakeFiles/ament_cmake_python_build_vda5050_connector_py_egg.dir/clean
 clean: vda5050_connector__py/clean
+clean: vda5050_connector__rs/clean
 clean: test/adapter/clean
 .PHONY : clean
 
@@ -165,6 +168,21 @@ vda5050_connector__py/preinstall:
 # Recursive "clean" directory target.
 vda5050_connector__py/clean: vda5050_connector__py/CMakeFiles/vda5050_connector__py.dir/clean
 .PHONY : vda5050_connector__py/clean
+
+#=============================================================================
+# Directory level rules for directory vda5050_connector__rs
+
+# Recursive "all" directory target.
+vda5050_connector__rs/all: vda5050_connector__rs/CMakeFiles/vda5050_connector__rs.dir/all
+.PHONY : vda5050_connector__rs/all
+
+# Recursive "preinstall" directory target.
+vda5050_connector__rs/preinstall:
+.PHONY : vda5050_connector__rs/preinstall
+
+# Recursive "clean" directory target.
+vda5050_connector__rs/clean: vda5050_connector__rs/CMakeFiles/vda5050_connector__rs.dir/clean
+.PHONY : vda5050_connector__rs/clean
 
 #=============================================================================
 # Target rules for target CMakeFiles/uninstall.dir
@@ -230,6 +248,7 @@ CMakeFiles/vda5050_connector.dir/all: CMakeFiles/vda5050_connector__rosidl_types
 CMakeFiles/vda5050_connector.dir/all: CMakeFiles/vda5050_connector__rosidl_typesupport_c.dir/all
 CMakeFiles/vda5050_connector.dir/all: CMakeFiles/vda5050_connector__rosidl_typesupport_introspection_cpp.dir/all
 CMakeFiles/vda5050_connector.dir/all: CMakeFiles/vda5050_connector__rosidl_typesupport_cpp.dir/all
+CMakeFiles/vda5050_connector.dir/all: vda5050_connector__rs/CMakeFiles/vda5050_connector__rs.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/vda5050_connector.dir/build.make CMakeFiles/vda5050_connector.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/vda5050_connector.dir/build.make CMakeFiles/vda5050_connector.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector/CMakeFiles --progress-num= "Built target vda5050_connector"
@@ -237,7 +256,7 @@ CMakeFiles/vda5050_connector.dir/all: CMakeFiles/vda5050_connector__rosidl_types
 
 # Build rule for subdir invocation for target.
 CMakeFiles/vda5050_connector.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector/CMakeFiles 43
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector/CMakeFiles 44
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/vda5050_connector.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector/CMakeFiles 0
 .PHONY : CMakeFiles/vda5050_connector.dir/rule
@@ -525,7 +544,7 @@ CMakeFiles/vda5050_connector__rosidl_generator_py.dir/all: vda5050_connector__py
 
 # Build rule for subdir invocation for target.
 CMakeFiles/vda5050_connector__rosidl_generator_py.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector/CMakeFiles 49
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector/CMakeFiles 50
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/vda5050_connector__rosidl_generator_py.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector/CMakeFiles 0
 .PHONY : CMakeFiles/vda5050_connector__rosidl_generator_py.dir/rule
@@ -555,7 +574,7 @@ CMakeFiles/vda5050_connector__rosidl_typesupport_fastrtps_c__pyext.dir/all: vda5
 
 # Build rule for subdir invocation for target.
 CMakeFiles/vda5050_connector__rosidl_typesupport_fastrtps_c__pyext.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector/CMakeFiles 51
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector/CMakeFiles 52
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/vda5050_connector__rosidl_typesupport_fastrtps_c__pyext.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector/CMakeFiles 0
 .PHONY : CMakeFiles/vda5050_connector__rosidl_typesupport_fastrtps_c__pyext.dir/rule
@@ -585,7 +604,7 @@ CMakeFiles/vda5050_connector__rosidl_typesupport_introspection_c__pyext.dir/all:
 
 # Build rule for subdir invocation for target.
 CMakeFiles/vda5050_connector__rosidl_typesupport_introspection_c__pyext.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector/CMakeFiles 51
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector/CMakeFiles 52
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/vda5050_connector__rosidl_typesupport_introspection_c__pyext.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector/CMakeFiles 0
 .PHONY : CMakeFiles/vda5050_connector__rosidl_typesupport_introspection_c__pyext.dir/rule
@@ -614,7 +633,7 @@ CMakeFiles/vda5050_connector__rosidl_typesupport_c__pyext.dir/all: vda5050_conne
 
 # Build rule for subdir invocation for target.
 CMakeFiles/vda5050_connector__rosidl_typesupport_c__pyext.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector/CMakeFiles 51
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector/CMakeFiles 52
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/vda5050_connector__rosidl_typesupport_c__pyext.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector/CMakeFiles 0
 .PHONY : CMakeFiles/vda5050_connector__rosidl_typesupport_c__pyext.dir/rule
@@ -719,7 +738,7 @@ vda5050_connector__py/CMakeFiles/vda5050_connector__py.dir/all: CMakeFiles/vda50
 
 # Build rule for subdir invocation for target.
 vda5050_connector__py/CMakeFiles/vda5050_connector__py.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector/CMakeFiles 44
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector/CMakeFiles 45
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 vda5050_connector__py/CMakeFiles/vda5050_connector__py.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector/CMakeFiles 0
 .PHONY : vda5050_connector__py/CMakeFiles/vda5050_connector__py.dir/rule
@@ -732,6 +751,32 @@ vda5050_connector__py: vda5050_connector__py/CMakeFiles/vda5050_connector__py.di
 vda5050_connector__py/CMakeFiles/vda5050_connector__py.dir/clean:
 	$(MAKE) $(MAKESILENT) -f vda5050_connector__py/CMakeFiles/vda5050_connector__py.dir/build.make vda5050_connector__py/CMakeFiles/vda5050_connector__py.dir/clean
 .PHONY : vda5050_connector__py/CMakeFiles/vda5050_connector__py.dir/clean
+
+#=============================================================================
+# Target rules for target vda5050_connector__rs/CMakeFiles/vda5050_connector__rs.dir
+
+# All Build rule for target.
+vda5050_connector__rs/CMakeFiles/vda5050_connector__rs.dir/all:
+	$(MAKE) $(MAKESILENT) -f vda5050_connector__rs/CMakeFiles/vda5050_connector__rs.dir/build.make vda5050_connector__rs/CMakeFiles/vda5050_connector__rs.dir/depend
+	$(MAKE) $(MAKESILENT) -f vda5050_connector__rs/CMakeFiles/vda5050_connector__rs.dir/build.make vda5050_connector__rs/CMakeFiles/vda5050_connector__rs.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector/CMakeFiles --progress-num=73 "Built target vda5050_connector__rs"
+.PHONY : vda5050_connector__rs/CMakeFiles/vda5050_connector__rs.dir/all
+
+# Build rule for subdir invocation for target.
+vda5050_connector__rs/CMakeFiles/vda5050_connector__rs.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector/CMakeFiles 1
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 vda5050_connector__rs/CMakeFiles/vda5050_connector__rs.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector/CMakeFiles 0
+.PHONY : vda5050_connector__rs/CMakeFiles/vda5050_connector__rs.dir/rule
+
+# Convenience name for target.
+vda5050_connector__rs: vda5050_connector__rs/CMakeFiles/vda5050_connector__rs.dir/rule
+.PHONY : vda5050_connector__rs
+
+# clean rule for target.
+vda5050_connector__rs/CMakeFiles/vda5050_connector__rs.dir/clean:
+	$(MAKE) $(MAKESILENT) -f vda5050_connector__rs/CMakeFiles/vda5050_connector__rs.dir/build.make vda5050_connector__rs/CMakeFiles/vda5050_connector__rs.dir/clean
+.PHONY : vda5050_connector__rs/CMakeFiles/vda5050_connector__rs.dir/clean
 
 #=============================================================================
 # Target rules for target test/adapter/CMakeFiles/test_plugins.dir

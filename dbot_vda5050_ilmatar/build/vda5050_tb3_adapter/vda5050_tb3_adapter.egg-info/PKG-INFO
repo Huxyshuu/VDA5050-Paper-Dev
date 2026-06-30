@@ -1,14 +1,10 @@
 Metadata-Version: 2.1
-Name: vda5050-tb3-adapter
+Name: vda5050_tb3_adapter
 Version: 0.0.0
 Summary: VDA5050 Turtlebot3 adapter example
-Home-page: UNKNOWN
 Author: Leandro Pineda
 Author-email: leandro@inorbit.ai
 Maintainer: TBD
 Maintainer-email: tbd@tbd.com
 License: BSD Clause 3
-Platform: UNKNOWN
-
-UNKNOWN
-
+Requires-Dist: setuptools

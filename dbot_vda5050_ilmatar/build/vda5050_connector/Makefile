@@ -445,6 +445,19 @@ vda5050_connector__py/fast:
 .PHONY : vda5050_connector__py/fast
 
 #=============================================================================
+# Target rules for targets named vda5050_connector__rs
+
+# Build rule for target.
+vda5050_connector__rs: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 vda5050_connector__rs
+.PHONY : vda5050_connector__rs
+
+# fast build rule for target.
+vda5050_connector__rs/fast:
+	$(MAKE) $(MAKESILENT) -f vda5050_connector__rs/CMakeFiles/vda5050_connector__rs.dir/build.make vda5050_connector__rs/CMakeFiles/vda5050_connector__rs.dir/build
+.PHONY : vda5050_connector__rs/fast
+
+#=============================================================================
 # Target rules for targets named test_plugins
 
 # Build rule for target.
@@ -1431,6 +1444,7 @@ help:
 	@echo "... vda5050_connector"
 	@echo "... vda5050_connector__cpp"
 	@echo "... vda5050_connector__py"
+	@echo "... vda5050_connector__rs"
 	@echo "... vda5050_connector_uninstall"
 	@echo "... adapter"
 	@echo "... gtest"

@@ -1,1 +1,10 @@
-/home/dbot2/dbot_vda5050_ilmatar/src/vda5050_connector/action/NavigateToNode.action
+# Goal
+vda5050_msgs/Edge edge
+vda5050_msgs/Node node
+---
+# Result
+std_msgs/Empty result
+---
+# Feedback
+vda5050_msgs/AGVPosition position
+vda5050_msgs/Velocity velocity

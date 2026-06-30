@@ -1,1 +1,22 @@
-/home/dbot2/dbot_vda5050_ilmatar/src/vda5050_tb3_adapter/config/connector_tb3.yaml
+mqtt_bridge:
+  ros__parameters:
+    mqtt_address: "192.168.1.115"
+    mqtt_port: 1883
+    mqtt_username: ""
+    mqtt_password: ""
+    manufacturer_name: "aaltoUniversity"
+    serial_number: "dbot_1"
+    vda5050_protocol_version: "2.1.0"
+
+controller:
+  ros__parameters:
+    robot_name: "dbot"
+    manufacturer_name: "aaltoUniversity"
+    serial_number: "dbot_1"
+    protocol_version: "2.1.0"
+
+tb3_adapter:
+  ros__parameters:
+    robot_name: "dbot"
+    manufacturer_name: "aaltoUniversity"
+    serial_number: "dbot_1"

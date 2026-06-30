@@ -1,3 +1,2 @@
 [console_scripts]
 dbot_bridge_node = dbot_bridge.dbot_bridge_node:main
-

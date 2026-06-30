@@ -1,1 +1,3 @@
-/home/dbot2/dbot_vda5050_ilmatar/src/vda5050_msgs/msg/Position.msg
+float64 x       # x-position [m] in AGV-coordinate system
+float64 y       # y-position [m] in AGV-coordinate system
+float64 theta   # orientation of wheel [rad] in AGV-coordinate system - necessary for fixed wheels

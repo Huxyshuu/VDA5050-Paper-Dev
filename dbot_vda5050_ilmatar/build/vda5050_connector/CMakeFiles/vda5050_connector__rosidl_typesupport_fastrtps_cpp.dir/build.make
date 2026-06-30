@@ -298,7 +298,7 @@ libvda5050_connector__rosidl_typesupport_fastrtps_cpp.so: /opt/ros/humble/lib/li
 libvda5050_connector__rosidl_typesupport_fastrtps_cpp.so: /opt/ros/humble/lib/libstd_msgs__rosidl_typesupport_fastrtps_cpp.so
 libvda5050_connector__rosidl_typesupport_fastrtps_cpp.so: /opt/ros/humble/lib/libbuiltin_interfaces__rosidl_typesupport_fastrtps_cpp.so
 libvda5050_connector__rosidl_typesupport_fastrtps_cpp.so: /opt/ros/humble/lib/librosidl_typesupport_fastrtps_cpp.so
-libvda5050_connector__rosidl_typesupport_fastrtps_cpp.so: /opt/ros/humble/lib/libfastcdr.so.1.0.24
+libvda5050_connector__rosidl_typesupport_fastrtps_cpp.so: /opt/ros/humble/lib/libfastcdr.so.1.0.29
 libvda5050_connector__rosidl_typesupport_fastrtps_cpp.so: /opt/ros/humble/lib/librmw.so
 libvda5050_connector__rosidl_typesupport_fastrtps_cpp.so: /opt/ros/humble/lib/librosidl_runtime_c.so
 libvda5050_connector__rosidl_typesupport_fastrtps_cpp.so: /opt/ros/humble/lib/librcutils.so

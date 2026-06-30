@@ -1,1 +1,5 @@
-/home/dbot2/dbot_vda5050_ilmatar/src/vda5050_msgs/msg/Envelope3D.msg
+string set          # Name of the envelope curve set
+string format
+string data
+string url          # Protocol and url-definition for downloading the 3D-envelope curve data
+string description

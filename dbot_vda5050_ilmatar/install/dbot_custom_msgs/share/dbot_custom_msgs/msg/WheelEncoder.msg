@@ -1,1 +1,3 @@
-/home/dbot2/dbot_vda5050_ilmatar/src/dbot_custom_msgs/msg/WheelEncoder.msg
+std_msgs/Header header
+float64 left
+float64 right

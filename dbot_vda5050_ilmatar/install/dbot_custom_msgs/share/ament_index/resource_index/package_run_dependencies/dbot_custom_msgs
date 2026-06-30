@@ -1,1 +1,1 @@
-/home/dbot2/dbot_vda5050_ilmatar/build/dbot_custom_msgs/ament_cmake_index/share/ament_index/resource_index/package_run_dependencies/dbot_custom_msgs
+rosidl_default_runtime;std_msgs;ament_lint_auto;ament_lint_common

@@ -1,13 +1,9 @@
 Metadata-Version: 2.1
-Name: motor-driver
+Name: motor_driver
 Version: 0.0.0
 Summary: Package to connect the motors to ROS2
-Home-page: UNKNOWN
 Maintainer: Pejman
 Maintainer-email: pejman.habibiroudkenar@aalto.fi
 License: Apache license -2.0
-Platform: UNKNOWN
 License-File: LICENSE
-
-UNKNOWN
-
+Requires-Dist: setuptools

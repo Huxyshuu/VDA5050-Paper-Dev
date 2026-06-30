@@ -405,6 +405,19 @@ vda5050_msgs__py/fast:
 	$(MAKE) $(MAKESILENT) -f vda5050_msgs__py/CMakeFiles/vda5050_msgs__py.dir/build.make vda5050_msgs__py/CMakeFiles/vda5050_msgs__py.dir/build
 .PHONY : vda5050_msgs__py/fast
 
+#=============================================================================
+# Target rules for targets named vda5050_msgs__rs
+
+# Build rule for target.
+vda5050_msgs__rs: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 vda5050_msgs__rs
+.PHONY : vda5050_msgs__rs
+
+# fast build rule for target.
+vda5050_msgs__rs/fast:
+	$(MAKE) $(MAKESILENT) -f vda5050_msgs__rs/CMakeFiles/vda5050_msgs__rs.dir/build.make vda5050_msgs__rs/CMakeFiles/vda5050_msgs__rs.dir/build
+.PHONY : vda5050_msgs__rs/fast
+
 rosidl_generator_c/vda5050_msgs/msg/detail/action__functions.o: rosidl_generator_c/vda5050_msgs/msg/detail/action__functions.c.o
 .PHONY : rosidl_generator_c/vda5050_msgs/msg/detail/action__functions.o
 
@@ -9328,6 +9341,7 @@ help:
 	@echo "... vda5050_msgs"
 	@echo "... vda5050_msgs__cpp"
 	@echo "... vda5050_msgs__py"
+	@echo "... vda5050_msgs__rs"
 	@echo "... vda5050_msgs_uninstall"
 	@echo "... vda5050_msgs__rosidl_generator_c"
 	@echo "... vda5050_msgs__rosidl_generator_py"

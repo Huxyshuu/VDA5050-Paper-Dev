@@ -157,7 +157,7 @@ odometry_estimator: /opt/ros/humble/lib/libbuiltin_interfaces__rosidl_typesuppor
 odometry_estimator: /opt/ros/humble/lib/libstd_msgs__rosidl_typesupport_fastrtps_cpp.so
 odometry_estimator: /opt/ros/humble/lib/libbuiltin_interfaces__rosidl_typesupport_fastrtps_cpp.so
 odometry_estimator: /opt/ros/humble/lib/librosidl_typesupport_fastrtps_cpp.so
-odometry_estimator: /opt/ros/humble/lib/libfastcdr.so.1.0.24
+odometry_estimator: /opt/ros/humble/lib/libfastcdr.so.1.0.29
 odometry_estimator: /opt/ros/humble/lib/librmw.so
 odometry_estimator: /opt/ros/humble/lib/libstd_msgs__rosidl_typesupport_introspection_cpp.so
 odometry_estimator: /opt/ros/humble/lib/libbuiltin_interfaces__rosidl_typesupport_introspection_cpp.so

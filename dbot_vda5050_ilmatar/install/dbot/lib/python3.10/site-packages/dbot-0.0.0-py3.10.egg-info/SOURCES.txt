@@ -4,7 +4,6 @@ setup.py
 ../../build/dbot/dbot.egg-info/PKG-INFO
 ../../build/dbot/dbot.egg-info/SOURCES.txt
 ../../build/dbot/dbot.egg-info/dependency_links.txt
-../../build/dbot/dbot.egg-info/entry_points.txt
 ../../build/dbot/dbot.egg-info/requires.txt
 ../../build/dbot/dbot.egg-info/top_level.txt
 ../../build/dbot/dbot.egg-info/zip-safe

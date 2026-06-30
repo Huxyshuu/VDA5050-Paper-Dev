@@ -1,1 +1,45 @@
-/home/dbot2/dbot_vda5050_ilmatar/build/vda5050_msgs/rosidl_adapter/vda5050_msgs/msg/CurrentAction.idl
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from vda5050_msgs/msg/CurrentAction.msg
+// generated code does not contain a copyright notice
+
+
+module vda5050_msgs {
+  module msg {
+    module CurrentAction_Constants {
+      @verbatim (language="comment", text=
+        "Enums for actionStatus")
+      const string WAITING = "WAITING";
+      const string INITIALIZING = "INITIALIZING";
+      const string RUNNING = "RUNNING";
+      const string PAUSED = "PAUSED";
+      const string FINISHED = "FINISHED";
+      const string FAILED = "FAILED";
+    };
+    struct CurrentAction {
+      @verbatim (language="comment", text=
+        "action_name_ID")
+      string action_id;
+
+      @verbatim (language="comment", text=
+        "actionType of the action." "\n"
+        "Optional: Only for informational or" "\n"
+        "visualization purposes. Order knows" "\n"
+        "the type.")
+      string action_type;
+
+      @verbatim (language="comment", text=
+        "Additional information on the current action")
+      string action_description;
+
+      @verbatim (language="comment", text=
+        "Enum {waiting; initializing; running; finished; failed} waiting: waiting for trigger" "\n"
+        "failed: action could not be performed.")
+      string action_status;
+
+      @verbatim (language="comment", text=
+        "Description of the result, e.g. the result of a RFID-read. Errors will be transmitted in" "\n"
+        "errors. Examples for results are given in 5.2")
+      string result_description;
+    };
+  };
+};

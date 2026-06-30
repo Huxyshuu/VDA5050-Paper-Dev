@@ -204,7 +204,7 @@ test/adapter/libtest_plugins.so: /opt/ros/humble/lib/librosidl_typesupport_fastr
 test/adapter/libtest_plugins.so: /opt/ros/humble/lib/libbuiltin_interfaces__rosidl_typesupport_introspection_c.so
 test/adapter/libtest_plugins.so: /opt/ros/humble/lib/libbuiltin_interfaces__rosidl_typesupport_fastrtps_cpp.so
 test/adapter/libtest_plugins.so: /opt/ros/humble/lib/librosidl_typesupport_fastrtps_cpp.so
-test/adapter/libtest_plugins.so: /opt/ros/humble/lib/libfastcdr.so.1.0.24
+test/adapter/libtest_plugins.so: /opt/ros/humble/lib/libfastcdr.so.1.0.29
 test/adapter/libtest_plugins.so: /opt/ros/humble/lib/librmw.so
 test/adapter/libtest_plugins.so: /opt/ros/humble/lib/libbuiltin_interfaces__rosidl_typesupport_introspection_cpp.so
 test/adapter/libtest_plugins.so: /opt/ros/humble/lib/librosidl_typesupport_introspection_cpp.so

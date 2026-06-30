@@ -1,1 +1,4 @@
-/home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector/ament_cmake_environment_hooks/local_setup.dsv
+source;share/vda5050_connector/environment/ament_prefix_path.sh
+source;share/vda5050_connector/environment/library_path.sh
+source;share/vda5050_connector/environment/path.sh
+source;share/vda5050_connector/environment/pythonpath.sh

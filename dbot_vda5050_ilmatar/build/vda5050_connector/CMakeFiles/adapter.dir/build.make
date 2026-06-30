@@ -188,7 +188,7 @@ libadapter.so: /opt/ros/humble/lib/librosidl_typesupport_fastrtps_c.so
 libadapter.so: /opt/ros/humble/lib/libbuiltin_interfaces__rosidl_typesupport_introspection_c.so
 libadapter.so: /opt/ros/humble/lib/libbuiltin_interfaces__rosidl_typesupport_fastrtps_cpp.so
 libadapter.so: /opt/ros/humble/lib/librosidl_typesupport_fastrtps_cpp.so
-libadapter.so: /opt/ros/humble/lib/libfastcdr.so.1.0.24
+libadapter.so: /opt/ros/humble/lib/libfastcdr.so.1.0.29
 libadapter.so: /opt/ros/humble/lib/librmw.so
 libadapter.so: /opt/ros/humble/lib/libbuiltin_interfaces__rosidl_typesupport_introspection_cpp.so
 libadapter.so: /opt/ros/humble/lib/librosidl_typesupport_introspection_cpp.so
