@@ -1,6 +1,0 @@
-{
-  "package_name": "dbot_custom_msgs",
-  "non_idl_tuples": [
-    "/home/dbot2/dbot_vda5050_ilmatar/src/dbot_custom_msgs:msg/WheelEncoder.msg"
-  ]
-}

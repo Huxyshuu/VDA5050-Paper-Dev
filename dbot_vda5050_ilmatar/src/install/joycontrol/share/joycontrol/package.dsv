@@ -1,9 +1,0 @@
-source;share/joycontrol/hook/pythonpath.ps1
-source;share/joycontrol/hook/pythonpath.dsv
-source;share/joycontrol/hook/pythonpath.sh
-source;share/joycontrol/hook/ament_prefix_path.ps1
-source;share/joycontrol/hook/ament_prefix_path.dsv
-source;share/joycontrol/hook/ament_prefix_path.sh
-source;../../build/joycontrol/share/joycontrol/hook/pythonpath_develop.ps1
-source;../../build/joycontrol/share/joycontrol/hook/pythonpath_develop.dsv
-source;../../build/joycontrol/share/joycontrol/hook/pythonpath_develop.sh

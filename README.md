@@ -1,758 +1,1177 @@
-# VDA5050-Paper Project Map and Migration README
+# VDA 5050 v3 AMR–Crane Case Study
 
-This README documents the uploaded `VDA5050-Paper-main.zip` project. It is based on a full static inspection of the ZIP contents. I did not run the ROS 2 nodes, MQTT broker, OPC UA crane connection, or hardware drivers because the runtime environment, crane PLC/OPC UA server, AMR hardware, and ROS workspace are not available in this sandbox.
+This repository is intended to support a VDA 5050 version 3.0 migration and warehouse case study based on an earlier AMR–overhead-crane project. The goal is to move from a VDA 5050 v2.x-style laboratory proof of concept toward a clearer VDA 5050 v3.0 architecture using:
 
-The current project is an older VDA 5050 v2.x mixed-fleet prototype for coordinating:
+- a fleet/master controller,
+- an overhead crane edge adapter,
+- a Neobotix ROX-Diff AMR running ROS 2/Nav2,
+- VDA 5050 v3.0 MQTT/JSON messages,
+- warehouse job scenarios,
+- zone-based orchestration,
+- simulation and event-tree evaluation.
 
-- an Ilmatar/Konecranes overhead crane through a Raspberry Pi, OPC UA, and a custom VDA 5050 adapter;
-- a Dbot/TurtleBot-style ROS 2 mobile robot stack through the InOrbit/Clearpath-style `vda5050_connector` and a custom `vda5050_tb3_adapter`;
-- a small Flask-based master-control UI that publishes VDA 5050 orders and instant actions to both devices over MQTT.
-
-The intended next research step is to migrate this architecture to VDA 5050 v3.0 and use it as a case study with the Ilmatar crane and a newer Neobotix ROX-Diff AMR in a warehouse-style scenario.
-
----
-
-## 1. What the Project Currently Does
-
-At a high level, the project demonstrates a task-level orchestration layer where both the crane and the mobile robot are treated as VDA 5050 participants. The master control publishes VDA 5050 orders to both assets. Each asset has an adapter that translates VDA 5050 messages into device-specific behaviour.
-
-```text
-              Browser UI / Flask master control
-                         |
-                         | MQTT orders + instantActions
-                         v
-                    MQTT broker
-                 /               \
-                /                 \
-  Crane VDA adapter              Dbot VDA connector
-  RaspberryPI/*.py               ROS 2 vda5050_connector
-        |                              |
-        | OPC UA                       | ROS 2 actions/services
-        v                              v
-  Ilmatar crane PLC              Nav2 / Dbot robot stack
-```
-
-The system is not a safety-rated controller. VDA 5050 is used as an orchestration interface. Low-level motion and safety remain with the crane PLC, the robot controller, Nav2, and local hardware systems.
+The project should be treated as a mixed-fleet orchestration case study, not only as a software migration. The research question is whether VDA 5050 v3.0 can represent warehouse jobs that require an AMR only, a crane only, or coordinated AMR–crane handover, including priority handling, postponement, cancellation, blocked zones, failures, retries, and recovery.
 
 ---
 
-## 2. Top-Level Repository Structure
+## 1. System idea
+
+The system is built around a task-level orchestration layer. The fleet controller receives or generates warehouse jobs, decides which resources are needed, and sends VDA 5050 v3.0 messages through MQTT. The crane and the AMR each keep their own local control systems.
 
 ```text
-VDA5050-Paper-main/
-├── RaspberryPI/
-│   ├── crane_vda5050_adapter_TEST.py
-│   ├── master_control_panel_TEST.py
-│   ├── new_crane.py
-│   ├── order_dbot_TEST.json
-│   ├── order_ilmatar_TEST.json
-│   ├── schemas/
-│   └── templates/index_TEST.html
-├── dbot_vda5050_ilmatar/
-│   ├── src/
-│   │   ├── dbot/
-│   │   ├── dbot_bridge/
-│   │   ├── dbot_custom_msgs/
-│   │   ├── dbot_nav_slam/
-│   │   ├── gesturecontrol/
-│   │   ├── joycontrol/
-│   │   ├── motor_driver/
-│   │   ├── odom_motion_model/
-│   │   ├── ros2_odometry_estimation/
-│   │   ├── tf2_dbot/
-│   │   ├── vda5050_connector/
-│   │   ├── vda5050_msgs/
-│   │   ├── vda5050_tb3_adapter/
-│   │   └── vda_dbot_nav_slam/
-│   ├── build/
-│   ├── install/
-│   └── log/
-├── readme_dbot.txt
-├── readme_ilmatar.txt
-└── readme_rpi.txt
+Warehouse job / scenario request
+        |
+        v
+Fleet control / master controller
+        |
+        v
+MQTT broker using VDA 5050 v3.0 topics
+        |
+        +--------------------------+
+        |                          |
+        v                          v
+Crane edge adapter             ROX-Diff AMR adapter
+Raspberry Pi / IPC             ROX-Diff onboard ROS 2 computer
+        |                          |
+        v                          v
+OPC UA / PLC                   ROS 2 / Nav2 / robot drivers
+        |                          |
+        v                          v
+Overhead crane                 Mobile robot
 ```
 
-The uploaded repository contains source code plus generated build, install, cache, and log artifacts. For a clean future Git repository, the following should normally be removed or ignored:
+The important separation is:
 
-```text
-dbot_vda5050_ilmatar/build/
-dbot_vda5050_ilmatar/install/
-dbot_vda5050_ilmatar/log/
-dbot_vda5050_ilmatar/src/*/build/
-dbot_vda5050_ilmatar/src/*/install/
-dbot_vda5050_ilmatar/src/*/log/
-__pycache__/
-*.pyc
-*.swp
-```
-
-`RaspberryPI/accesscode_url.txt` appears to contain crane connection/access data. Do not publish it in a public repository. Replace it with `accesscode_url.example.txt` and document the required format instead.
+- VDA 5050 is used for task-level communication.
+- ROS 2/Nav2 remains responsible for AMR navigation.
+- OPC UA/PLC remains responsible for crane control.
+- Local safety systems remain authoritative.
+- The fleet controller coordinates jobs, zones, states, and handover logic.
 
 ---
 
-## 3. Runtime Components and Responsibilities
+## 2. Recommended repository layout
 
-### 3.1 RaspberryPI Layer: Crane and Master Control
-
-#### `RaspberryPI/new_crane.py`
-
-Role: low-level Python interface to the Ilmatar crane through OPC UA.
-
-Main responsibilities:
-
-- connects to the crane OPC UA server using `asyncua.sync.Client`;
-- reads and writes OPC UA nodes under namespace `ns=5`;
-- handles crane watchdog and access code;
-- reads bridge, trolley, and hoist positions;
-- reads hoist load values;
-- writes direction booleans and speed values for bridge, trolley, and hoist;
-- implements motion helper functions such as:
-  - `move_bridge_to_target_p()`;
-  - `move_trolley_to_target_p()`;
-  - `move_hoist_to_target()`;
-  - `stop_all()`;
-  - `zero_*_position()`;
-  - speed scaling helpers.
-
-Conceptually, this is the hardware abstraction layer for the crane. It does not understand VDA 5050 itself. It exposes crane-specific operations that the VDA adapter calls.
-
-Important crane axes:
+The repository should be organized by deployment target. This makes it clear what runs on the fleet controller, what runs near the crane, what runs on the AMR, and what is only for simulation or research results.
 
 ```text
-Bridge  -> crane long-travel axis
-Trolley -> cross-travel axis
-Hoist   -> vertical lifting axis
+vda5050-v3-amr-crane-case-study/
+├── README.md
+├── docs/
+│   ├── architecture.md
+│   ├── deployment.md
+│   ├── vda5050_v2_to_v3_migration.md
+│   ├── crane_usage_profile.md
+│   ├── warehouse_case_study.md
+│   └── scenarios.md
+├── configs/
+│   ├── mqtt.env.example
+│   ├── fleet_control.env.example
+│   ├── crane_edge.env.example
+│   ├── rox_diff.env.example
+│   └── warehouse_layout.yaml
+├── schemas/
+│   └── vda5050_v3/
+├── fleet_control/
+│   ├── master_control.py
+│   ├── scheduler.py
+│   ├── zone_manager.py
+│   ├── scenario_runner.py
+│   └── requirements.txt
+├── crane_edge/
+│   ├── crane_vda5050_adapter.py
+│   ├── opcua_client.py
+│   ├── crane_state_mapper.py
+│   ├── crane_action_mapper.py
+│   └── requirements.txt
+├── ros2_ws/
+│   └── src/
+│       ├── rox_vda5050_adapter/
+│       ├── vda5050_msgs_v3/
+│       └── rox_navigation_config/
+├── simulation/
+│   ├── warehouse_sim.py
+│   ├── simulated_crane.py
+│   ├── simulated_rox.py
+│   ├── job_generator.py
+│   └── event_logger.py
+├── examples/
+│   ├── orders/
+│   ├── zone_sets/
+│   └── scenarios/
+├── scripts/
+│   ├── run_fleet_control.sh
+│   ├── run_crane_edge.sh
+│   ├── run_simulation.sh
+│   └── validate_messages.py
+└── results/
+    ├── logs/
+    ├── figures/
+    └── tables/
 ```
 
-#### `RaspberryPI/crane_vda5050_adapter_TEST.py`
-
-Role: VDA 5050-to-OPC UA adapter for the Ilmatar crane.
-
-Main responsibilities:
-
-- connects to MQTT broker at `VDA_MQTT_HOST`, default `192.168.1.115:1883`;
-- subscribes to crane VDA topics:
-  - `uagv/v2/konecranes/ilmatar_1/order`;
-  - `uagv/v2/konecranes/ilmatar_1/instantActions`;
-- publishes crane VDA topics:
-  - `/connection`;
-  - `/state`;
-  - `/visualization`;
-- validates VDA 5050 JSON payloads using local schemas in `RaspberryPI/schemas/`;
-- executes received VDA order nodes sequentially;
-- treats VDA node positions as crane bridge/trolley targets;
-- executes node actions as crane behaviours;
-- maintains VDA state fields such as `orderId`, `lastNodeId`, `actionStates`, `agvPosition`, `operatingMode`, `errors`, and `safetyState`;
-- reports hoist height through `information` entries with `infoType = HOIST_POSITION`;
-- supports pause, resume, cancel, and reset instant actions.
-
-Current crane action catalogue:
-
-| Action type | Current meaning | Typical parameters | Blocking type used |
-|---|---|---|---|
-| `lowerHoist` | Move hoist down to target height | `zd` in metres | `SOFT` |
-| `buttonPress` | Wait for UI/manual release or instant release | optional `timeout` | `HARD` |
-| `raiseHoist` | Raise hoist to target height | `zu` in metres | `SOFT` |
-| `pause` | Pause crane motion / speed scale to zero | none | `NONE` |
-| `resume` | Resume after pause | none | `NONE` |
-| `cancelOrder` | Stop motion, cancel current order, clear queued future work | none | `HARD` |
-| `resetHoist` | Return hoist to home height | none | `HARD` |
-| `resetBridgeTrolley` | Return bridge/trolley to home XY | none | `HARD` |
-| `resetAllHome` | Return hoist first, then bridge/trolley | none | `HARD` |
-
-Important implementation detail: the adapter currently ignores edge traversal/actions for the crane and executes nodes sequentially. Crane XY movement is derived from each node’s `nodePosition.x` and `nodePosition.y`.
-
-#### `RaspberryPI/master_control_panel_TEST.py`
-
-Role: Flask-based master-control UI and simple orchestration logic.
-
-Main responsibilities:
-
-- serves `templates/index_TEST.html` on port `5000`;
-- provides UI buttons for:
-  - automatic/init position;
-  - release;
-  - pause;
-  - resume;
-  - order;
-  - cancel;
-  - reset all;
-  - reset hoist;
-  - reset bridge/trolley;
-  - release hold;
-- publishes VDA 5050 orders to both crane and Dbot;
-- publishes VDA 5050 instant actions;
-- subscribes to crane and Dbot `/state` topics;
-- keeps a runtime cache of latest states;
-- indexes `actionId -> nodeId` mappings from orders;
-- coordinates handover between crane `buttonPress` and Dbot `holdPose` actions;
-- applies a hoist clearance gate using `HOIST_CLEARANCE_M`, default `1.0` m;
-- automatically sends crane `release` when both crane and Dbot are at the same rendezvous and hoist height is safe;
-- sends `releaseHold` to Dbot after manual release and safe hoist height.
-
-Current target configuration:
-
-```text
-Crane topic root: uagv/v2/konecranes/ilmatar_1
-Dbot topic root:  uagv/v2/aaltoUniversity/dbot_1
-Protocol version: 2.1.0 for both targets in the master config
-```
-
-Current rendezvous logic:
-
-```python
-RENDEZVOUS = [
-    {"crane_node": "node2", "dbot_node": "node2", "tag": "DROP_1"},
-]
-```
-
-This means the master only considers a coordinated handover valid when the crane is executing `buttonPress` at `node2` and Dbot is executing `holdPose` at `node2`.
-
-#### `RaspberryPI/templates/index_TEST.html`
-
-Role: browser-based operator panel for the Flask master control.
-
-It provides large coloured buttons for all master control actions. The JavaScript maps each button to a Flask POST route, e.g. `/order`, `/cancel`, `/release`, `/pause`, `/resume`, `/reset_all`.
-
-#### `RaspberryPI/order_dbot_TEST.json`
-
-Role: Dbot order template.
-
-Current behaviour:
-
-- Dbot moves through four released nodes;
-- node 2 and node 3 include `holdPose` actions;
-- `holdPose` is used to stop Dbot at a handover point until a `releaseHold` instant action is received.
-
-#### `RaspberryPI/order_ilmatar_TEST.json`
-
-Role: crane order template.
-
-Current behaviour:
-
-- crane moves between three nodes;
-- node actions perform hoist/lift interaction:
-  - lower hoist;
-  - wait for button press/release;
-  - raise hoist;
-- used together with Dbot `holdPose` for handover orchestration.
-
-#### `RaspberryPI/schemas/`
-
-Role: local VDA 5050 JSON Schema validation for the Raspberry Pi side.
-
-Files:
-
-```text
-connection.schema
-factsheet.schema
-instantActions.schema
-order.schema
-state.schema
-visualization.schema
-```
-
-These schemas correspond to the older v2.x message model used by the current system. They must be replaced or regenerated for VDA 5050 v3.0 migration.
+This layout is preferred over putting all adapters into one folder because the real crane adapter and real AMR adapter run in different environments with different dependencies.
 
 ---
 
-### 3.2 ROS 2 Workspace: `dbot_vda5050_ilmatar/src/`
+## 3. Runtime deployment split
 
-This folder is a ROS 2 workspace containing Dbot low-level packages, navigation packages, and VDA 5050 connector packages.
+### 3.1 Fleet control side
 
-#### `vda5050_connector/`
+**Runs on:**
 
-Role: generic ROS 2 VDA 5050 connector.
+- cloud service,
+- development laptop,
+- Raspberry Pi,
+- industrial PC,
+- server.
 
-This package is based on the InOrbit/Clearpath VDA5050 connector pattern. It has three core responsibilities:
-
-1. **MQTT bridge**
-   - translates MQTT VDA JSON messages into ROS 2 `vda5050_msgs`;
-   - publishes ROS 2 state/connection/visualization back to MQTT.
-
-2. **Controller**
-   - validates and processes VDA orders;
-   - accepts or rejects order updates;
-   - executes node actions;
-   - sends navigation goals to the adapter;
-   - publishes state, connection, visualization, and factsheet information.
-
-3. **Adapter interface**
-   - delegates robot-specific state, navigation, and action execution to an adapter package.
-
-Key files:
-
-| File | Responsibility |
-|---|---|
-| `vda5050_connector_py/mqtt_bridge.py` | MQTT-to-ROS and ROS-to-MQTT translation |
-| `vda5050_connector_py/vda5050_controller.py` | Main order/instantAction controller |
-| `scripts/mqtt_bridge.py` | executable wrapper |
-| `scripts/vda5050_controller.py` | executable wrapper |
-| `launch/mqtt_bridge.launch.py` | starts MQTT bridge node |
-| `launch/controller.launch.py` | starts VDA controller node |
-| `action/NavigateToNode.action` | ROS action for navigation to VDA node |
-| `action/ProcessVDAAction.action` | ROS action for executing VDA actions |
-| `srv/GetState.srv` | adapter state service |
-| `srv/SupportedActions.srv` | supported action service |
-
-The connector is currently configured for v2.x topics and messages. The default interface name is `uagv`, and the topic alias is generated from the protocol major version such as `v2`.
-
-#### `vda5050_msgs/`
-
-Role: ROS 2 message definitions for the VDA 5050 message model.
-
-This package defines ROS message equivalents of VDA 5050 entities such as:
+**Main folder:**
 
 ```text
-Order
-Node
-Edge
-Action
-CurrentAction
-OrderState
-Connection
-Factsheet
-Visualization
-BatteryState
-SafetyState
-Error
-Info
-Trajectory
+fleet_control/
 ```
 
-The current message definitions are v2.x style. For example, `Action.msg` contains only `NONE`, `SOFT`, and `HARD` blocking types. VDA 5050 v3.0 introduces new/changed semantics such as `SINGLE`, split action-state arrays, `RETRIABLE`, updated operating modes, zones, planned paths, and other breaking field changes. This package will need a major update or replacement for v3.0.
+**Main responsibilities:**
 
-#### `vda5050_tb3_adapter/`
+- accept or generate warehouse jobs,
+- classify jobs as AMR-only, crane-only, or AMR–crane,
+- schedule jobs using priority and resource availability,
+- reserve or release zones,
+- generate VDA 5050 v3.0 orders,
+- publish MQTT messages,
+- subscribe to AMR and crane state messages,
+- coordinate handover logic,
+- cancel, postpone, retry, or recover jobs.
 
-Role: Dbot/TurtleBot-style adapter between the generic VDA connector and ROS 2 Nav2.
+The fleet controller should not depend on ROS 2 or direct crane control libraries. It should communicate through MQTT and VDA 5050 messages only.
 
-Key file:
+---
+
+### 3.2 Crane edge side
+
+**Runs on:**
+
+- Raspberry Pi near the crane,
+- industrial PC,
+- edge device connected to the crane PLC or OPC UA server.
+
+**Main folder:**
 
 ```text
-vda5050_tb3_adapter/vda5050_tb3_adapter/tb3_adapter.py
+crane_edge/
 ```
 
-Main responsibilities:
+**Main responsibilities:**
 
-- exposes adapter services/actions used by `vda5050_connector`;
-- provides current robot state through `/odom` and TF lookup from `map` to `base_link`;
-- handles VDA `initPosition` by publishing `/initialpose`;
-- handles VDA `holdPose` by cancelling Nav2 and waiting until `releaseHold` is received;
-- handles VDA `releaseHold` by clearing the hold latch;
-- translates VDA node navigation requests into Nav2 `/navigate_to_pose` goals.
+- subscribe to VDA 5050 v3.0 crane orders/actions,
+- translate crane actions into OPC UA/PLC commands,
+- read bridge, trolley, hoist, and load state,
+- publish crane state as VDA 5050 messages,
+- report action progress and errors,
+- enforce crane-specific adapter rules,
+- keep unsafe or non-cancellable crane operations protected by local logic.
 
-Current custom AMR actions:
+The crane adapter is not a ROS 2 package in the normal real-crane deployment. It belongs in `crane_edge/` because the crane is usually controlled through OPC UA/PLC rather than ROS 2.
 
-| Action | Meaning |
-|---|---|
-| `initPosition` | publish initial pose to Nav2/AMCL |
-| `holdPose` | stop and wait at handover node |
-| `releaseHold` | release the hold and allow execution to continue |
+---
 
-Current config:
+### 3.3 ROX-Diff AMR side
+
+**Runs on:**
+
+- ROX-Diff onboard computer,
+- ROS 2 environment on the robot.
+
+**Main folder:**
 
 ```text
-vda5050_tb3_adapter/config/connector_tb3.yaml
+ros2_ws/src/rox_vda5050_adapter/
 ```
 
-This points the Dbot connector to MQTT broker `192.168.1.115:1883`, manufacturer `aaltoUniversity`, serial `dbot_1`, and protocol version `2.1.0`.
+**Main responsibilities:**
 
-#### `dbot_nav_slam/` and `vda_dbot_nav_slam/`
+- connect to the MQTT broker,
+- subscribe to VDA 5050 v3.0 AMR orders,
+- translate VDA 5050 nodes, edges, and actions into ROS 2/Nav2 commands,
+- publish robot state back to the fleet controller,
+- report position, velocity, battery, errors, current node/edge/action state,
+- handle pause/cancel/retry where supported by the robot stack,
+- optionally publish planned or intermediate path information if supported.
 
-Role: ROS 2 robot description, maps, SLAM/localization/Nav2 configuration, and helper scripts.
+The ROX-Diff adapter should live inside the ROS 2 workspace because it needs access to ROS 2 topics, actions, TF, odometry, Nav2, and robot drivers.
 
-These two packages are near-duplicates. `vda_dbot_nav_slam` appears to be a VDA-specific copy of `dbot_nav_slam`.
+---
 
-Important contents:
+### 3.4 Simulation side
 
-| Path | Responsibility |
-|---|---|
-| `description/*.xacro` | robot URDF/xacro description and ROS 2 control setup |
-| `config/nav2_params.yaml` | Nav2 configuration |
-| `config/mapper_params_online_async.yaml` | SLAM toolbox configuration |
-| `config/diff_drive_controller.yaml` / `my_controllers.yaml` | diff-drive and ROS 2 control configuration |
-| `config/twist_mux.yaml` | velocity command muxing |
-| `maps/*.yaml`, `maps/*.pgm` | saved maps such as `clean_df_map`, `cage`, `office_map` |
-| `launch/auto_nav_dbot_launch.py` | launches Dbot, TF, and Nav2 bringup |
-| `launch/navigation_launch.py` | Nav2 navigation stack launch |
-| `launch/localization_launch.py` | localization launch |
-| `scripts/nav_through_poses.py` | scripted multi-goal navigation |
-| `scripts/mqtt_dbot.py`, `mqtt_inspection.py` | MQTT helper/test scripts |
+**Runs on:**
 
-The main launch command in the old notes is:
+- development laptop,
+- CI environment,
+- research workstation.
+
+**Main folder:**
+
+```text
+simulation/
+```
+
+**Main responsibilities:**
+
+- simulate AMR movement times,
+- simulate crane movement/action times,
+- simulate job arrivals,
+- simulate zone occupation,
+- inject delays, cancellations, failures, and communication loss,
+- log state transitions and scenario outcomes,
+- generate data for tables and figures.
+
+Simulation is used for the conference-paper case study. It allows the event tree to be executed without needing the real crane or ROX-Diff available at all times.
+
+---
+
+## 4. Folder-by-folder documentation
+
+### 4.1 `README.md`
+
+The entry point for the repository.
+
+It should explain:
+
+- the project goal,
+- the relation to the older VDA 5050 v2.x AMR–crane implementation,
+- the VDA 5050 v3.0 migration target,
+- the system architecture,
+- deployment targets,
+- how to run simulation,
+- how to run the crane adapter,
+- how to run the ROX-Diff adapter,
+- where scenarios, schemas, logs, and results are stored.
+
+---
+
+### 4.2 `docs/`
+
+The documentation folder contains detailed design notes and paper-supporting material.
+
+```text
+docs/
+├── architecture.md
+├── deployment.md
+├── vda5050_v2_to_v3_migration.md
+├── crane_usage_profile.md
+├── warehouse_case_study.md
+└── scenarios.md
+```
+
+#### `docs/architecture.md`
+
+Explains the complete system architecture.
+
+It should include:
+
+- fleet control architecture,
+- MQTT topic flow,
+- AMR adapter architecture,
+- crane adapter architecture,
+- simulation architecture,
+- message sequence diagrams,
+- deployment diagrams.
+
+It should clearly show that VDA 5050 is the task-level interface, while ROS 2/Nav2 and OPC UA/PLC remain local asset-control layers.
+
+#### `docs/deployment.md`
+
+Explains how to deploy each part.
+
+Recommended sections:
+
+- fleet controller deployment,
+- crane edge deployment,
+- ROX-Diff ROS 2 deployment,
+- simulation-only deployment,
+- MQTT broker setup,
+- environment variables,
+- network assumptions,
+- troubleshooting.
+
+#### `docs/vda5050_v2_to_v3_migration.md`
+
+Documents the migration from the older implementation to VDA 5050 v3.0.
+
+It should cover:
+
+- old topic root such as `uagv/v2/...`,
+- new VDA 5050 v3.0 topic expectations,
+- order message changes,
+- state message changes,
+- action-state changes,
+- blocking-type changes,
+- cancellation behavior,
+- pause and retry behavior,
+- zone-set support,
+- planned/intermediate path support,
+- error-level changes,
+- factsheet/capability updates.
+
+This file is important for the conference paper because it becomes the technical migration evidence.
+
+#### `docs/crane_usage_profile.md`
+
+Defines how the overhead crane is represented as a VDA 5050 participant.
+
+This is one of the most important documents because VDA 5050 does not natively define overhead-crane semantics.
+
+It should define crane actions such as:
+
+```text
+moveBridge
+moveTrolley
+raiseHoist
+lowerHoist
+attachLoad
+releaseLoad
+moveToHandover
+waitForTrigger
+```
+
+It should define crane state fields such as:
+
+```text
+bridge_position
+trolley_position
+hoist_height
+load_attached
+safe_height_reached
+crane_busy
+handover_ready
+fault_active
+```
+
+It should also define whether each action can be paused or cancelled.
+
+Example:
+
+```text
+moveBridge:    pauseAllowed=true,  cancelAllowed=true
+moveTrolley:   pauseAllowed=true,  cancelAllowed=true
+lowerHoist:    pauseAllowed=true,  cancelAllowed=false
+raiseHoist:    pauseAllowed=true,  cancelAllowed=false
+attachLoad:    pauseAllowed=false, cancelAllowed=false
+releaseLoad:   pauseAllowed=false, cancelAllowed=false
+```
+
+These distinctions are important for VDA 5050 v3.0 because actions can have clearer pause, cancel, failed, and retriable behavior.
+
+#### `docs/warehouse_case_study.md`
+
+Describes the warehouse case study.
+
+It should define:
+
+- warehouse layout,
+- storage area,
+- shipping area,
+- AMR travel lanes,
+- crane workspace,
+- handover zone,
+- waiting zone,
+- restricted zones,
+- no-go zone under suspended load,
+- job types,
+- assumptions and limitations.
+
+The case study should be described honestly as a representative scenario-based simulation, not as a validated industrial deployment unless real industrial data is later added.
+
+#### `docs/scenarios.md`
+
+Documents all event-tree scenarios.
+
+Recommended scenarios:
+
+```text
+S1: Normal AMR-only transport
+S2: Normal crane-only lift or relocation
+S3: Normal AMR–crane handover
+S4: Priority AMR–crane job enters queue
+S5: Crane busy when AMR arrives
+S6: AMR delayed while crane waits
+S7: Handover zone occupied
+S8: Suspended-load zone active
+S9: Hoist below safe height blocks AMR release
+S10: Job cancelled before dispatch
+S11: Job cancelled during AMR movement
+S12: Job cancelled during crane action
+S13: Job postponed due to unavailable resource
+S14: Crane action timeout
+S15: Communication loss
+S16: Retriable crane action failure
+S17: Emergency or intervention state
+```
+
+Each scenario should specify:
+
+- initial conditions,
+- job request,
+- required resources,
+- expected VDA 5050 orders/actions,
+- expected state transitions,
+- expected result,
+- logs or metrics to collect.
+
+---
+
+### 4.3 `configs/`
+
+Stores environment and layout configuration templates.
+
+```text
+configs/
+├── mqtt.env.example
+├── fleet_control.env.example
+├── crane_edge.env.example
+├── rox_diff.env.example
+└── warehouse_layout.yaml
+```
+
+#### `mqtt.env.example`
+
+Shared MQTT settings.
+
+Example:
+
+```env
+MQTT_HOST=192.168.1.50
+MQTT_PORT=1883
+MQTT_USERNAME=
+MQTT_PASSWORD=
+VDA_VERSION=3.0.0
+```
+
+#### `fleet_control.env.example`
+
+Fleet controller settings.
+
+Example:
+
+```env
+FLEET_ID=aalto_case_study
+SCENARIO_FILE=examples/scenarios/s03_normal_robot_crane_handover.yaml
+WAREHOUSE_LAYOUT=configs/warehouse_layout.yaml
+MESSAGE_SCHEMA_DIR=schemas/vda5050_v3
+```
+
+#### `crane_edge.env.example`
+
+Crane adapter settings.
+
+Example:
+
+```env
+CRANE_ID=ilmatar
+MQTT_CLIENT_ID=crane_adapter_ilmatar
+OPCUA_ENDPOINT=opc.tcp://192.168.1.20:4840
+SAFE_HOIST_HEIGHT=1.5
+DEFAULT_BRIDGE_SPEED=0.3
+DEFAULT_TROLLEY_SPEED=0.3
+DEFAULT_HOIST_SPEED=0.1
+```
+
+#### `rox_diff.env.example`
+
+ROX-Diff AMR adapter settings.
+
+Example:
+
+```env
+ROBOT_ID=rox_diff_001
+MQTT_CLIENT_ID=rox_diff_adapter_001
+ROS_DOMAIN_ID=0
+NAV2_ACTION_SERVER=/navigate_to_pose
+BASE_FRAME=base_link
+MAP_FRAME=map
+ODOM_FRAME=odom
+```
+
+#### `warehouse_layout.yaml`
+
+Defines the case-study layout.
+
+Example structure:
+
+```yaml
+nodes:
+  - id: storage_A
+    x: 0.0
+    y: 0.0
+  - id: handover_1
+    x: 5.0
+    y: 2.0
+  - id: shipping_B
+    x: 10.0
+    y: 0.0
+
+zones:
+  - id: crane_workspace
+    type: restricted
+    polygon: [[4, 1], [8, 1], [8, 5], [4, 5]]
+  - id: handover_zone
+    type: release
+    polygon: [[4.5, 1.5], [5.5, 1.5], [5.5, 2.5], [4.5, 2.5]]
+  - id: suspended_load_zone
+    type: blocked
+    active_when: crane.load_attached == true
+```
+
+---
+
+### 4.4 `schemas/`
+
+Stores VDA 5050 v3.0 JSON schemas.
+
+```text
+schemas/
+└── vda5050_v3/
+```
+
+Used for:
+
+- validating generated orders,
+- validating state messages,
+- validating connection messages,
+- validating factsheets,
+- validating zone sets,
+- validating examples,
+- validating logs during simulation.
+
+Schema validation is useful for research results because the paper can report that generated messages were checked against VDA 5050 v3.0 schema definitions.
+
+---
+
+### 4.5 `fleet_control/`
+
+Contains the master-control logic.
+
+```text
+fleet_control/
+├── master_control.py
+├── scheduler.py
+├── zone_manager.py
+├── scenario_runner.py
+└── requirements.txt
+```
+
+#### `master_control.py`
+
+Main orchestration application.
+
+Responsible for:
+
+- MQTT connection,
+- VDA 5050 message publishing,
+- VDA 5050 state subscription,
+- job execution tracking,
+- AMR–crane coordination,
+- handover gating,
+- cancellation/postponement/retry handling,
+- event logging.
+
+Example logic:
+
+```text
+If AMR reaches handover zone and crane is ready:
+    start crane pickup sequence
+
+If hoist is below safe height:
+    keep AMR blocked
+
+If crane action fails and is retriable:
+    issue retry or mark job for recovery
+```
+
+#### `scheduler.py`
+
+Handles job queue and priority rules.
+
+Responsible for:
+
+- storing jobs,
+- sorting jobs by priority,
+- checking required resources,
+- deciding whether a job is ready,
+- postponing jobs,
+- dispatching the next feasible job.
+
+Example job classes:
+
+```text
+AMR_ONLY
+CRANE_ONLY
+AMR_CRANE
+AMR_CRANE_OPERATOR_CONFIRMATION
+```
+
+#### `zone_manager.py`
+
+Handles VDA 5050 v3.0 zone logic.
+
+Responsible for:
+
+- maintaining active zones,
+- activating blocked zones,
+- releasing handover zones,
+- checking whether a robot can enter a zone,
+- handling no-go zones under suspended load,
+- creating zone-set messages.
+
+Example:
+
+```text
+If crane.load_attached is true:
+    activate suspended_load_zone as BLOCKED
+
+If AMR requests entry into handover zone:
+    allow only if crane is ready and the zone is reserved for that job
+```
+
+#### `scenario_runner.py`
+
+Runs defined case-study scenarios.
+
+Responsible for:
+
+- loading scenario YAML files,
+- initializing job and resource states,
+- starting the scheduler,
+- injecting events,
+- collecting logs and metrics.
+
+Example usage:
 
 ```bash
-ros2 launch dbot_nav_slam auto_nav_dbot_launch.py
+python fleet_control/scenario_runner.py \
+  --scenario examples/scenarios/s03_normal_robot_crane_handover.yaml
 ```
-
-#### `dbot/`
-
-Role: lightweight ROS 2 package mostly containing launch files that start the Dbot base stack.
-
-Important files:
-
-```text
-launch/dbot_launch.py
-launch/remote_dbot_launch.py
-launch/remote_dbot_no_odom_launch.py
-```
-
-These are used by `dbot_nav_slam/launch/auto_nav_dbot_launch.py`.
-
-#### `motor_driver/`
-
-Role: ROS 2 interface to the Dbot motor controller.
-
-Main responsibilities:
-
-- connects to ZLAC8015D motor controller through CANopen;
-- subscribes to `cmd_vel`;
-- converts Twist commands to motor speeds;
-- publishes current speed and motor status;
-- publishes custom wheel encoder message `wheel_encoder_rpm`.
-
-Key files:
-
-| File | Responsibility |
-|---|---|
-| `ros2_wrapper.py` | ROS 2 node wrapping the motor driver |
-| `zlac8015d_canopen.py` / `zlac8015d_canopen_2.py` | CANopen motor driver abstraction |
-| `node_controls.py` | helper functions for configuration/network/speed conversion |
-| `dbot_config.yaml` | hardware configuration |
-| `od_definitions.py` | object dictionary definitions/helpers |
-
-#### `dbot_custom_msgs/`
-
-Role: custom ROS 2 message package.
-
-Defines:
-
-```text
-WheelEncoder.msg
-```
-
-The message contains left and right wheel encoder/RPM values used by odometry packages.
-
-#### `odom_motion_model/`
-
-Role: Python odometry estimation from wheel encoder values.
-
-Main responsibilities:
-
-- subscribes to `wheel_encoder_rpm`;
-- computes robot odometry using a vehicle model;
-- publishes `/odom`.
-
-#### `ros2_odometry_estimation/`
-
-Role: C++ odometry estimation package.
-
-This appears to be an alternative or previous odometry estimator implementation. It receives wheel encoder data and publishes odometry using vehicle model logic.
-
-#### `tf2_dbot/`
-
-Role: broadcasts the transform from `odom` to `base_link`.
-
-Main file:
-
-```text
-tf2_dbot/tf2_dbot/odom_baselink_broadcaster.py
-```
-
-It subscribes to `/odom` and broadcasts the dynamic transform required by Nav2 and TF lookup.
-
-#### `dbot_bridge/`
-
-Role: simpler direct MQTT-to-Nav2 bridge.
-
-This package is separate from the main `vda5050_connector` architecture. It subscribes to a hard-coded MQTT order topic, sends the first released node as a Nav2 goal, and publishes a simple VDA-style state message.
-
-It appears to be an experimental/debug bridge and should not be the main path for the new v3.0 case study.
-
-#### `joycontrol/` and `gesturecontrol/`
-
-Role: manual/control experiments.
-
-- `joycontrol` publishes `cmd_vel` from joystick input.
-- `gesturecontrol` uses a camera/hand gesture recognizer to control robot movement.
-
-These are not central to VDA 5050 orchestration and can be archived or moved to `experimental/`.
 
 ---
 
-## 4. Current VDA 5050 Topic Map
+### 4.6 `crane_edge/`
 
-### Crane
-
-```text
-uagv/v2/konecranes/ilmatar_1/order
-uagv/v2/konecranes/ilmatar_1/instantActions
-uagv/v2/konecranes/ilmatar_1/connection
-uagv/v2/konecranes/ilmatar_1/state
-uagv/v2/konecranes/ilmatar_1/visualization
-```
-
-### Dbot
+Contains the real crane-side adapter.
 
 ```text
-uagv/v2/aaltoUniversity/dbot_1/order
-uagv/v2/aaltoUniversity/dbot_1/instantActions
-uagv/v2/aaltoUniversity/dbot_1/connection
-uagv/v2/aaltoUniversity/dbot_1/state
-uagv/v2/aaltoUniversity/dbot_1/visualization
+crane_edge/
+├── crane_vda5050_adapter.py
+├── opcua_client.py
+├── crane_state_mapper.py
+├── crane_action_mapper.py
+└── requirements.txt
 ```
 
-Some older notes also refer to:
+#### `crane_vda5050_adapter.py`
+
+Main crane adapter.
+
+Responsible for:
+
+- connecting to MQTT,
+- subscribing to crane-related VDA 5050 orders,
+- parsing crane actions,
+- invoking crane action mapper,
+- publishing state/action updates,
+- reporting errors.
+
+#### `opcua_client.py`
+
+Handles OPC UA communication with the crane PLC or crane control interface.
+
+Responsible for:
+
+- connecting to OPC UA server,
+- reading bridge/trolley/hoist positions,
+- writing target commands,
+- reading load/fault/status flags,
+- handling reconnects.
+
+#### `crane_state_mapper.py`
+
+Maps crane PLC/OPC UA values to VDA 5050 state fields.
+
+Example mappings:
 
 ```text
-uagv/v2/OSRF/TB3_1/#
-uagv/v2/dbot/0001/#
-uagv/v1/OSRF/TB3_1/#
+PLC bridge position   -> crane state position/action feedback
+PLC hoist height      -> custom crane state / safe-height logic
+PLC load attached     -> load state
+PLC fault active      -> VDA 5050 errors
 ```
 
-For the migrated project, choose one consistent identity scheme and remove obsolete examples.
+#### `crane_action_mapper.py`
+
+Maps VDA 5050 actions to crane commands.
+
+Example mappings:
+
+```text
+moveBridge(target_x)  -> OPC UA bridge target write
+moveTrolley(target_y) -> OPC UA trolley target write
+raiseHoist(height)    -> OPC UA hoist target write
+lowerHoist(height)    -> OPC UA hoist target write
+attachLoad            -> crane load attach/confirmation sequence
+releaseLoad           -> crane load release sequence
+```
+
+This module should also decide whether an action is pauseable, cancellable, or retriable.
 
 ---
 
-## 5. Current End-to-End Handover Logic
+### 4.7 `ros2_ws/`
 
-The current test scenario is built around a synchronized handover between crane and Dbot.
-
-### Normal flow
+ROS 2 workspace for the ROX-Diff AMR.
 
 ```text
-1. Operator presses Order in the Flask UI.
-2. Master publishes one order to the crane and one order to Dbot.
-3. Dbot moves through its nodes using Nav2.
-4. At selected nodes, Dbot executes holdPose and waits.
-5. Crane moves to its nodePosition using bridge/trolley axes.
-6. Crane executes lowerHoist.
-7. Crane executes buttonPress and waits for release.
-8. Master observes crane buttonPress RUNNING and Dbot holdPose RUNNING at matching rendezvous nodes.
-9. If hoist height is above clearance threshold, master sends release to crane.
-10. Crane continues its action sequence and raises hoist.
-11. After manual release and safe hoist clearance, master sends releaseHold to Dbot.
-12. Dbot continues to next node.
+ros2_ws/
+└── src/
+    ├── rox_vda5050_adapter/
+    ├── vda5050_msgs_v3/
+    └── rox_navigation_config/
 ```
 
-### Safety/orchestration gate currently implemented
+#### `ros2_ws/src/rox_vda5050_adapter/`
+
+The real ROX-Diff VDA 5050 adapter.
+
+Responsible for:
+
+- MQTT connection,
+- receiving VDA 5050 v3.0 AMR orders,
+- converting order nodes/edges into Nav2 goals,
+- sending goals to Nav2,
+- monitoring goal execution,
+- publishing VDA 5050 state messages,
+- reporting robot pose, velocity, battery, and action states,
+- handling cancel/pause/retry when supported.
+
+Example flow:
 
 ```text
-DBot must not be released while the crane hoist is below HOIST_CLEARANCE_M.
+VDA 5050 order node: handover_1
+        |
+        v
+Nav2 NavigateToPose goal
+        |
+        v
+ROX-Diff drives to handover point
+        |
+        v
+Adapter publishes node reached / action finished
 ```
 
-This is implemented as non-safety-rated application logic in the Flask master control. It should be treated as an orchestration gate, not a certified safety function.
+#### `ros2_ws/src/vda5050_msgs_v3/`
+
+Optional ROS 2 message definitions mirroring VDA 5050 v3.0 structures.
+
+Important note:
+
+VDA 5050 itself is JSON over MQTT. ROS 2 messages are only an internal convenience for the robot-side implementation. The external interface remains VDA 5050 MQTT/JSON.
+
+#### `ros2_ws/src/rox_navigation_config/`
+
+Navigation configuration for ROX-Diff.
+
+May include:
+
+- Nav2 parameters,
+- maps,
+- costmap settings,
+- localization settings,
+- robot frames,
+- launch files.
+
+This is robot-specific and should stay separate from fleet-control logic.
 
 ---
 
-## 6. Current Limitations
+### 4.8 `simulation/`
 
-### Architectural limitations
+Contains fake AMR, fake crane, warehouse model, and event logging.
 
-- The crane is represented as if it were a VDA mobile robot, using `agvPosition` for bridge/trolley coordinates.
-- Edge traversal is ignored by the crane adapter.
-- The master control has hard-coded rendezvous logic.
-- The master control uses VDA `information` messages to parse hoist height; this is useful for debugging but should not be the long-term control interface.
-- Dbot action logic is tightly coupled to `holdPose`/`releaseHold`.
-- There is no generic job scheduler, priority queue, or warehouse task lifecycle.
-- The VDA factsheet/capability discovery is not systematically used.
-- Build, install, and logs are committed inside the repository.
+```text
+simulation/
+├── warehouse_sim.py
+├── simulated_crane.py
+├── simulated_rox.py
+├── job_generator.py
+└── event_logger.py
+```
 
-### VDA 5050 limitations in current implementation
+#### `warehouse_sim.py`
 
-- Current code is v2.x-oriented.
-- Topic roots use `uagv/v2/...`.
-- Protocol versions are set to `2.0.0` or `2.1.0` depending on file.
-- JSON schemas are older v2.x schemas.
-- ROS messages are older `vda5050_msgs` definitions.
-- Blocking types are old-style `NONE`, `SOFT`, `HARD`.
-- There are no v3.0 zone sets, responses, planned paths, intermediate paths, `SINGLE` blocking type, split action state arrays, or `RETRIABLE` state.
+Main simulation engine.
 
-### Hardware/runtime limitations
+Responsible for:
 
-- Crane operation depends on a real OPC UA connection and access code.
-- Dbot stack depends on hardware-specific paths such as `/home/dbot2/...`.
-- MQTT host is hard-coded in multiple places as `192.168.1.115`.
-- Some code assumes local maps and fixed coordinates.
-- The current system is not containerized or hardware-agnostic.
+- maintaining simulated time,
+- updating robot/crane states,
+- handling zone occupation,
+- checking handover conditions,
+- injecting failures and delays.
+
+#### `simulated_crane.py`
+
+Simulated crane participant.
+
+Responsible for:
+
+- simulating bridge/trolley/hoist movement,
+- simulating load pickup/release,
+- producing VDA 5050-like state updates,
+- simulating crane faults or timeouts.
+
+#### `simulated_rox.py`
+
+Simulated ROX-Diff participant.
+
+Responsible for:
+
+- simulating travel between warehouse nodes,
+- simulating arrival delays,
+- simulating blocked paths,
+- producing VDA 5050-like state updates.
+
+#### `job_generator.py`
+
+Generates warehouse jobs.
+
+Example jobs:
+
+```text
+Move pallet from storage A to shipping B
+Move load using crane only
+Move load through AMR–crane handover
+Cancel job after dispatch
+Inject high-priority job
+Delay crane availability
+```
+
+#### `event_logger.py`
+
+Records scenario execution.
+
+Should log:
+
+- job events,
+- VDA 5050 orders,
+- VDA 5050 state updates,
+- action-state transitions,
+- zone activations,
+- cancellations,
+- retries,
+- failures,
+- recovery outcomes,
+- completion times.
 
 ---
 
-## 7. Migration Target: VDA 5050 v3.0 + ROX-Diff AMR
+### 4.9 `examples/`
 
-The migration should not be treated as only changing `version = "3.0.0"`. VDA 5050 v3.0 is a major update. The new paper case study can be much stronger if the system is refactored around warehouse job logic, zones, path sharing, and explicit state transitions.
-
-### 7.1 New target architecture
+Stores reusable example messages and scenarios.
 
 ```text
-Warehouse scenario / job generator
-             |
-             v
-VDA 5050 v3.0 Fleet Control / Master
-             |
-             v
-         MQTT broker
-       /             \
-      /               \
-ROX-Diff adapter     Crane adapter
-ROS 2 / Nav2         OPC UA / PLC
-      |               |
-      v               v
-ROX-Diff AMR       Ilmatar crane
+examples/
+├── orders/
+├── zone_sets/
+└── scenarios/
 ```
 
-### 7.2 Replace Dbot/TB3 adapter with ROX-Diff adapter
+#### `examples/orders/`
 
-The current Dbot/TB3 adapter should become a reference, not the final AMR implementation.
+Example VDA 5050 v3.0 order messages.
 
-Migration tasks:
-
-1. Identify ROX-Diff ROS 2 interfaces:
-   - navigation action server;
-   - odometry topic;
-   - TF frames;
-   - localization/initial pose interface;
-   - footprint/contour data;
-   - battery/state topics;
-   - emergency/diagnostic topics.
-2. Create a new package, for example:
+Suggested files:
 
 ```text
-rox_vda5050_adapter/
+robot_only_transport_order.json
+crane_only_lift_order.json
+robot_crane_handover_order.json
+cancel_order.json
+retry_action.json
 ```
 
-3. Port useful logic from `vda5050_tb3_adapter/tb3_adapter.py`:
-   - `initPosition` equivalent if needed;
-   - navigation to VDA node;
-   - state reporting;
-   - action processing.
-4. Add ROX-specific support for VDA 5050 v3.0:
-   - `plannedPath` / `intermediatePath` if ROX/Nav2 can expose planned paths;
-   - robot contour/geometry for zone interaction;
-   - battery and diagnostics;
-   - current operating mode.
+#### `examples/zone_sets/`
 
-### 7.3 Update VDA 5050 packages to v3.0
+Example VDA 5050 v3.0 zone-set messages.
 
-Required changes:
-
-- replace old v2.x JSON schemas with v3.0 schemas;
-- update or regenerate `vda5050_msgs` for v3.0;
-- update MQTT topic major version from `v2` to `v3`;
-- update controller logic for v3.0 message changes;
-- add support for new topics and concepts:
-  - `zoneSet`;
-  - `responses`;
-  - zone requests/actions/states where applicable;
-  - planned and intermediate path sharing;
-  - split `actionStates`, `instantActionStates`, and `zoneActionStates`;
-  - `SINGLE` blocking type;
-  - `RETRIABLE` action state;
-  - `pauseAllowed` and `cancelAllowed`;
-  - new/changed operating modes such as `STARTUP` and `INTERVENED`;
-  - updated error levels and error descriptions.
-
-### 7.4 Update crane representation for v3.0
-
-The crane adapter should be refactored into a clearer usage profile.
-
-Current crane action catalogue can be migrated as follows:
-
-| Current action | v3.0 migration suggestion |
-|---|---|
-| `lowerHoist` | keep as crane-specific action; set `cancelAllowed` carefully |
-| `raiseHoist` | keep as crane-specific action; candidate for `SINGLE` or `HARD` depending on context |
-| `buttonPress` | replace or align with v3.0 `waitForTrigger` / trigger mechanism |
-| `pause` / `resume` | map to v3.0 mandatory pause actions if appropriate |
-| `cancelOrder` | add explicit order ID handling and safe cancellation rules |
-| `resetHoist` | crane-specific instant action, likely not generally cancellable |
-| `resetBridgeTrolley` | crane-specific instant action |
-| `resetAllHome` | crane-specific instant action |
-
-Recommended additional crane state fields/conventions:
+Suggested files:
 
 ```text
-bridgePosition
- trolleyPosition
-hoistHeight
-loadAttached
-loadWeight
-workspaceZoneId
-suspendedLoadZoneActive
-currentCraneAction
-safeForAMRRelease
+warehouse_zones_basic.json
+crane_handover_zone_set.json
+suspended_load_blocked_zone.json
+priority_corridor_zone.json
 ```
 
-These should not be hidden inside `information` if used for orchestration. For the paper, define a clear crane usage profile showing how these are represented in v3.0 messages or adapter-specific extensions.
+#### `examples/scenarios/`
 
-### 7.5 Use v3.0 zones for the warehouse case study
+Scenario definitions for the event-tree simulation.
 
-The key novelty of the new case study should be zone-based orchestration.
+Suggested files:
 
-Proposed zones:
-
-| Zone | Meaning |
-|---|---|
-| `AMR_TRAVEL_AISLE` | normal ROX-Diff travel area |
-| `CRANE_WORKSPACE` | area covered by bridge/trolley motion |
-| `HANDOVER_ZONE` | shared AMR-crane transfer area |
-| `AMR_WAITING_ZONE` | staging zone while crane is busy |
-| `SUSPENDED_LOAD_NO_GO` | dynamic exclusion zone under crane load |
-| `PRIORITY_CORRIDOR` | optional high-priority path for urgent jobs |
-| `BLOCKED_AISLE` | simulated obstacle/blocked area |
-
-For the research paper, the strongest question is whether VDA 5050 v3.0 zones can represent these mixed-fleet constraints cleanly, or whether crane-specific conventions are still needed.
+```text
+s01_normal_robot_only.yaml
+s02_normal_crane_only.yaml
+s03_normal_robot_crane_handover.yaml
+s04_priority_job.yaml
+s05_crane_busy.yaml
+s06_amr_delayed.yaml
+s07_handover_zone_occupied.yaml
+s08_suspended_load_zone_block.yaml
+s09_cancel_before_dispatch.yaml
+s10_cancel_during_amr_motion.yaml
+s11_cancel_during_crane_action.yaml
+s12_retriable_crane_failure.yaml
+s13_communication_loss.yaml
+```
 
 ---
 
-## 8. Proposed Warehouse Case Study
+### 4.10 `scripts/`
 
-The future case study should move beyond the single lab handover and simulate a small warehouse cell.
-
-### 8.1 Warehouse cell
-
-Minimal layout:
+Utility scripts.
 
 ```text
-Inbound / picking area
-    |
-    | AMR route
-    v
-AMR waiting zone ---- handover zone ---- crane workspace
-                                      |
-                                      v
-                           crane-served storage/drop area
+scripts/
+├── run_fleet_control.sh
+├── run_crane_edge.sh
+├── run_simulation.sh
+└── validate_messages.py
 ```
 
-### 8.2 Job types
+#### `run_fleet_control.sh`
 
-| Job type | Required resources | Example |
-|---|---|---|
-| Robot-only | ROX-Diff | move tote from inbound to packing |
-| Crane-only | Ilmatar crane | relocate heavy load inside crane workspace |
-| Robot + crane | ROX-Diff + crane | AMR delivers load to crane handover point, crane lifts/transfers it |
-| Robot + crane + operator | ROX-Diff + crane + trigger | handover requires manual confirmation |
+Starts fleet control with the correct environment variables.
 
-### 8.3 Job lifecycle
+#### `run_crane_edge.sh`
+
+Starts the crane edge adapter.
+
+#### `run_simulation.sh`
+
+Runs simulation scenarios.
+
+#### `validate_messages.py`
+
+Validates example and generated JSON messages against VDA 5050 v3.0 schemas.
+
+This script is useful for both development and research reporting.
+
+---
+
+### 4.11 `results/`
+
+Stores output for the conference paper.
+
+```text
+results/
+├── logs/
+├── figures/
+└── tables/
+```
+
+#### `results/logs/`
+
+Stores raw logs.
+
+Examples:
+
+```text
+s03_normal_handover_mqtt_log.jsonl
+s05_crane_busy_event_log.csv
+s12_retriable_failure_state_trace.json
+```
+
+#### `results/figures/`
+
+Stores generated figures.
+
+Examples:
+
+```text
+architecture_diagram.pdf
+job_state_machine.pdf
+event_tree.pdf
+zone_layout.pdf
+scenario_completion_times.pdf
+```
+
+#### `results/tables/`
+
+Stores tables for the paper.
+
+Examples:
+
+```text
+scenario_outcome_matrix.csv
+v2_to_v3_migration_matrix.csv
+crane_action_profile.csv
+state_coverage_table.csv
+```
+
+---
+
+## 5. Why deployment separation matters
+
+The separation matters because each part has different dependencies.
+
+| Component | Folder | Deployment target | Main dependencies |
+|---|---|---|---|
+| Fleet control | `fleet_control/` | Cloud, laptop, server, or Raspberry Pi | Python, MQTT, JSON schema |
+| Crane edge adapter | `crane_edge/` | Raspberry Pi or industrial PC near crane | Python, MQTT, OPC UA |
+| ROX-Diff adapter | `ros2_ws/src/rox_vda5050_adapter/` | ROX-Diff onboard computer | ROS 2, Nav2, MQTT |
+| Simulation | `simulation/` | Development laptop or CI | Python, logging, optional MQTT |
+| Schemas/config/examples | `schemas/`, `configs/`, `examples/` | Shared | No heavy runtime dependency |
+| Results | `results/` | Research output | Logs, figures, tables |
+
+This avoids unnecessary dependencies. The crane Pi should not need ROS 2. The ROX-Diff should not need OPC UA crane libraries. The fleet controller should not depend on robot drivers. Simulation should be able to run without real hardware.
+
+---
+
+## 6. VDA 5050 v3.0 concepts used in this project
+
+The migration should use VDA 5050 v3.0 as more than a schema update. The useful v3.0 concepts for this project are:
+
+### 6.1 Zones
+
+Zones can represent:
+
+```text
+AMR waiting zone
+Crane workspace
+Crane handover zone
+No-go zone under suspended load
+Blocked aisle
+Priority corridor
+Release zone
+```
+
+This is central to the warehouse case study because AMR–crane handover is mostly about allowing or preventing access to shared space at the correct time.
+
+### 6.2 Planned and intermediate paths
+
+For a more autonomous AMR such as ROX-Diff, the adapter may allow the robot to report planned or intermediate path information back to the fleet controller. This helps the fleet controller understand the robot's movement intention near the crane workspace.
+
+### 6.3 Action states
+
+Crane and AMR actions should be tracked using action-state transitions.
+
+Typical states:
+
+```text
+WAITING
+INITIALIZING
+RUNNING
+PAUSED
+FINISHED
+FAILED
+RETRIABLE
+```
+
+`RETRIABLE` is especially useful for crane handover failures where retry is possible.
+
+### 6.4 Blocking types
+
+Blocking types should be used to describe how actions affect driving or parallel action execution.
+
+For crane handover:
+
+- some actions may allow AMR movement,
+- some actions should block only related actions,
+- some actions should block the entire workflow.
+
+### 6.5 Pause and cancel behavior
+
+Crane actions must be carefully classified.
+
+Some actions may be safe to cancel:
+
+```text
+moveBridge
+moveTrolley
+```
+
+Some actions may not be safe to cancel once started:
+
+```text
+lowerHoist
+attachLoad
+releaseLoad
+```
+
+This distinction should be documented in `docs/crane_usage_profile.md`.
+
+### 6.6 Error levels and recovery
+
+The simulation should include:
+
+```text
+warning
+normal failure
+urgent fault
+critical fault
+communication loss
+timeout
+retriable action failure
+non-retriable action failure
+```
+
+The case study should report how the system reacts to each.
+
+---
+
+## 7. Case-study job lifecycle
+
+The project should model the full job lifecycle, not only robot movement.
 
 ```text
 NEW_JOB
-  -> VALIDATED
-  -> CLASSIFIED
-  -> QUEUED
-  -> RESOURCE_CHECK
-  -> ZONE_CHECK
-  -> ASSIGNED
-  -> DISPATCHED
-  -> EXECUTING
-  -> WAITING_FOR_RESOURCE / WAITING_FOR_HANDOVER / WAITING_FOR_TRIGGER
-  -> COMPLETED
+  |
+  v
+VALIDATED
+  |
+  v
+CLASSIFIED
+  |
+  v
+QUEUED
+  |
+  v
+RESOURCE_CHECK
+  |
+  v
+ZONE_CHECK
+  |
+  v
+ASSIGNED
+  |
+  v
+DISPATCHED
+  |
+  v
+EXECUTING
+  |
+  +-------------------------+
+  |                         |
+  v                         v
+WAITING_FOR_HANDOVER     WAITING_FOR_RESOURCE
+  |                         |
+  v                         v
+COMPLETED              POSTPONED / FAILED / RECOVERING
 ```
 
-Exceptional states:
+Exception states:
 
 ```text
-POSTPONED
 CANCEL_REQUESTED
 CANCELLING
 CANCELLED
@@ -764,170 +1183,263 @@ RECOVERING
 ABORTED
 ```
 
-### 8.4 Scenarios to execute
-
-| ID | Scenario | What it tests |
-|---|---|---|
-| S1 | Robot-only transport | baseline ROX-Diff VDA order/state/path logic |
-| S2 | Crane-only relocation | crane action catalogue without AMR |
-| S3 | Normal AMR-crane handover | full mixed-fleet workflow |
-| S4 | Crane busy when AMR arrives | waiting zone and postponement |
-| S5 | AMR delayed while crane ready | timeout and recovery |
-| S6 | Handover zone occupied | zone reservation/conflict |
-| S7 | Suspended load active | no-go zone under crane load |
-| S8 | Hoist below safe height | block AMR release |
-| S9 | Priority job arrives | queue and priority policy |
-| S10 | Cancel before dispatch | job-level cancellation |
-| S11 | Cancel during AMR motion | v3.0 cancel semantics and safe stop |
-| S12 | Cancel during crane hoist | non-cancellable/safety-boundary action |
-| S13 | Crane action fails but is retriable | `RETRIABLE` action state |
-| S14 | Communication loss | connection/error handling |
-| S15 | Blocked aisle / replanning | path sharing and zone constraints |
+This lifecycle should be implemented in the scheduler and scenario runner.
 
 ---
 
-## 9. Recommended New Repository Layout
+## 8. Recommended scenario set
 
-For the migration, refactor the repository so it is easier to understand and publish.
+The project should execute a finite set of representative scenarios rather than trying to model every possible warehouse state.
+
+| ID | Scenario | Main purpose |
+|---|---|---|
+| S1 | Normal AMR-only transport | Baseline robot order execution |
+| S2 | Normal crane-only operation | Crane action profile |
+| S3 | Normal AMR–crane handover | Full mixed-fleet workflow |
+| S4 | Priority job enters queue | Scheduler and priority logic |
+| S5 | Crane busy when AMR arrives | Waiting/staging logic |
+| S6 | AMR delayed while crane waits | Timeout/postponement logic |
+| S7 | Handover zone occupied | Zone reservation logic |
+| S8 | Suspended-load zone active | No-go zone under load |
+| S9 | Hoist below safe height | AMR release gating |
+| S10 | Cancel before dispatch | Queue cancellation |
+| S11 | Cancel during AMR movement | Cancel order and recovery |
+| S12 | Cancel during crane action | Safety boundary |
+| S13 | Postpone due to resource unavailability | Rescheduling |
+| S14 | Crane action timeout | Failure and retry logic |
+| S15 | Communication loss | Connection/error handling |
+| S16 | Retriable crane action failure | `RETRIABLE` action flow |
+| S17 | Emergency or intervention state | Safe halt boundary |
+
+---
+
+## 9. Expected research outputs
+
+The repository should support the following paper outputs:
+
+### 9.1 Architecture diagram
+
+Shows:
 
 ```text
-vda5050-v3-amr-crane-case-study/
-├── README.md
-├── docs/
-│   ├── architecture.md
-│   ├── vda5050_v2_to_v3_migration.md
-│   ├── crane_usage_profile.md
-│   ├── warehouse_case_study.md
-│   └── scenarios.md
-├── configs/
-│   ├── mqtt.env.example
-│   ├── crane.env.example
-│   ├── rox.env.example
-│   └── warehouse_layout.yaml
-├── schemas/
-│   └── vda5050_v3/
-├── fleet_control/
-│   ├── master_control.py
-│   ├── scheduler.py
-│   ├── zone_manager.py
-│   └── scenario_runner.py
-├── adapters/
-│   ├── crane_adapter/
-│   └── rox_diff_adapter/
-├── simulation/
-│   ├── warehouse_sim.py
-│   ├── job_generator.py
-│   └── event_logger.py
-├── ros2_ws/
-│   └── src/
-│       ├── rox_vda5050_adapter/
-│       ├── crane_vda5050_adapter/
-│       └── vda5050_msgs_v3/
-├── examples/
-│   ├── orders/
-│   ├── zone_sets/
-│   └── scenarios/
-└── results/
-    ├── logs/
-    ├── figures/
-    └── tables/
+Fleet control -> MQTT broker -> ROX-Diff adapter / crane adapter
+```
+
+### 9.2 VDA 5050 v2.x to v3.0 migration matrix
+
+Compares:
+
+- topics,
+- message fields,
+- order structure,
+- state structure,
+- action states,
+- zones,
+- cancellation,
+- retry logic,
+- factsheet/capabilities.
+
+### 9.3 Crane usage profile
+
+Defines:
+
+- crane action catalogue,
+- crane state variables,
+- pause/cancel/retry rules,
+- handover conditions,
+- safety-related limits.
+
+### 9.4 Warehouse scenario model
+
+Defines:
+
+- layout,
+- nodes,
+- zones,
+- job types,
+- assumptions.
+
+### 9.5 Event tree and state machine
+
+Shows:
+
+- job lifecycle,
+- normal execution,
+- cancellation branches,
+- postponement branches,
+- failure/retry/recovery branches.
+
+### 9.6 Scenario outcome matrix
+
+Records:
+
+- which scenarios completed,
+- which were cancelled,
+- which were postponed,
+- which failed,
+- which required recovery,
+- which VDA 5050 v3.0 concepts were used.
+
+### 9.7 Logs and metrics
+
+Possible metrics:
+
+```text
+schema-valid message count
+job completion outcome
+number of state transitions
+number of zone conflicts
+number of retries
+handover wait time
+simulated mission duration
+failure recovery result
+```
+
+Avoid claiming real industrial throughput improvement unless real operational data is added.
+
+---
+
+## 10. Suggested development order
+
+Recommended implementation order:
+
+1. Create `schemas/vda5050_v3/`.
+2. Create example VDA 5050 v3.0 messages in `examples/`.
+3. Implement `scripts/validate_messages.py`.
+4. Implement `configs/warehouse_layout.yaml`.
+5. Implement simulation-only `simulated_rox.py` and `simulated_crane.py`.
+6. Implement `fleet_control/scheduler.py`.
+7. Implement `fleet_control/zone_manager.py`.
+8. Implement `fleet_control/scenario_runner.py`.
+9. Generate results for the paper.
+10. Replace simulated ROX with real `ros2_ws/src/rox_vda5050_adapter/`.
+11. Replace simulated crane with real `crane_edge/crane_vda5050_adapter.py`.
+12. Compare VDA 5050 v2.x and v3.0 behavior.
+
+This order gives useful research results early, before full hardware integration is complete.
+
+---
+
+## 11. Notes on older project migration
+
+The older project contained two major runtime sides:
+
+1. Raspberry Pi / crane side:
+   - crane OPC UA client,
+   - VDA 5050 crane adapter,
+   - simple master-control panel,
+   - old order templates,
+   - older VDA 5050 schemas.
+
+2. ROS 2 / Dbot side:
+   - VDA 5050 connector,
+   - TurtleBot/Dbot adapter,
+   - Nav2 and SLAM packages,
+   - low-level motion and odometry packages.
+
+The new project should not simply copy the old structure. It should separate components by deployment target and update the design for VDA 5050 v3.0 and the ROX-Diff AMR.
+
+Main migration changes:
+
+```text
+Dbot-specific ROS 2 adapter      -> ROX-Diff ROS 2/Nav2 adapter
+Ilmatar crane adapter            -> crane_edge VDA 5050 v3 adapter
+old master control panel         -> fleet_control scheduler + zone manager
+old static handover workflow     -> scenario/event-tree job lifecycle
+old VDA 5050 v2.x schemas        -> VDA 5050 v3.0 schemas
+hard-coded handover logic        -> documented crane usage profile
+limited lab test                 -> warehouse simulation case study
 ```
 
 ---
 
-## 10. Old-System Quick Start Notes
+## 12. Design principles
 
-These commands are reconstructed from the old README notes and inspected launch files.
+Use these principles throughout the repository:
 
-### Crane/Raspberry Pi side
+1. Keep VDA 5050 as the external communication layer.
+2. Keep ROS 2-specific code inside `ros2_ws/`.
+3. Keep crane OPC UA/PLC code inside `crane_edge/`.
+4. Keep fleet scheduling independent of robot and crane drivers.
+5. Make simulation runnable without hardware.
+6. Validate VDA 5050 messages against schemas.
+7. Store all example orders, zones, and scenarios.
+8. Log every scenario in a reproducible format.
+9. Document crane-specific conventions as a usage profile.
+10. Do not claim safety certification; local safety systems remain authoritative.
+
+---
+
+## 13. Quick start: simulation mode
+
+A future implementation should support a flow like this:
 
 ```bash
-cd ~/masters_thesis/ilmatar/vda5050_adapter/ON-GOING_TEST
-source opcua-env/bin/activate
-python3 crane_vda5050_adapter_TEST.py
-python3 master_control_panel_TEST.py
+# 1. Install Python dependencies
+pip install -r fleet_control/requirements.txt
+
+# 2. Run message validation
+python scripts/validate_messages.py examples/orders/ schemas/vda5050_v3/
+
+# 3. Run a scenario
+python fleet_control/scenario_runner.py \
+  --scenario examples/scenarios/s03_normal_robot_crane_handover.yaml
+
+# 4. Inspect results
+ls results/logs/
+ls results/tables/
+ls results/figures/
 ```
 
-Subscribe to crane topics:
+---
+
+## 14. Quick start: real crane edge
+
+A future real-crane deployment should support:
 
 ```bash
-mosquitto_sub -h 192.168.1.115 -p 1883 -t 'uagv/v2/konecranes/ilmatar_1/#' -v
+cd crane_edge
+cp ../configs/crane_edge.env.example .env
+# edit .env with OPC UA endpoint and crane parameters
+pip install -r requirements.txt
+python crane_vda5050_adapter.py
 ```
 
-Publish a crane order:
+This should be run on the Raspberry Pi or industrial PC connected to the crane control system.
+
+---
+
+## 15. Quick start: ROX-Diff AMR
+
+A future ROX-Diff deployment should support:
 
 ```bash
-mosquitto_pub -h 192.168.1.115 -p 1883 \
-  -t 'uagv/v2/konecranes/ilmatar_1/order' \
-  -f order_ilmatar_TEST.json
-```
-
-### Dbot side
-
-```bash
-cd dbot_vda5050_ilmatar/
+cd ros2_ws
 colcon build
 source install/setup.bash
-
-ros2 launch dbot_nav_slam auto_nav_dbot_launch.py
-ros2 launch vda5050_tb3_adapter connector_tb3.launch.py
+ros2 launch rox_vda5050_adapter rox_vda5050_adapter.launch.py
 ```
 
-Subscribe to Dbot topics:
+This should be run on the ROX-Diff onboard computer in the same network as the MQTT broker.
 
-```bash
-mosquitto_sub -h 192.168.1.115 -p 1883 -t 'uagv/v2/aaltoUniversity/dbot_1/#' -v
+---
+
+## 16. Final recommended interpretation
+
+This repository should be understood as a research and implementation framework for:
+
+```text
+VDA 5050 v3.0 mixed-fleet warehouse orchestration
+with a ROX-Diff AMR and an overhead crane.
 ```
 
----
+The project is strongest if it does not only update old code. It should demonstrate how VDA 5050 v3.0 concepts such as zones, action states, path sharing, cancellation, pause, retry, and error handling can be used to model realistic warehouse job logic.
 
-## 11. Paper-Relevant Interpretation
+The main conference-paper contribution should be:
 
-The current project already supports the basic claim that crane and AMR orchestration can be expressed through VDA 5050-style order/action/state messages. The next conference paper should not only say that the old project was updated to v3.0. A stronger contribution is:
-
-> A VDA 5050 v3.0 scenario-based simulation and migration study for mixed warehouse jobs involving robot-only, crane-only, and coordinated AMR-crane workflows, using zones, path sharing, priority handling, cancellation, postponement, and recovery logic.
-
-The old project provides:
-
-- working VDA-to-crane action mapping;
-- working VDA-to-ROS/Nav2 adapter concept;
-- example orders for AMR and crane;
-- master control orchestration logic;
-- hoist-height-based AMR release gating;
-- pause/resume/cancel/reset behaviours;
-- MQTT topic structure and schema validation.
-
-The new case study should add:
-
-- VDA 5050 v3.0 message compliance;
-- ROX-Diff AMR adapter;
-- warehouse job scheduler;
-- event tree for job outcomes;
-- zone manager;
-- scenario logs and outcome matrix;
-- v2.x vs v3.0 migration comparison;
-- crane usage profile for v3.0.
-
----
-
-## 12. Immediate To-Do List
-
-1. Clean repository: remove build/install/log/cache artifacts.
-2. Move old notes into `docs/legacy/`.
-3. Replace sensitive files with `.example` templates.
-4. Freeze the old v2.x implementation under `legacy_v2/`.
-5. Download/add official VDA 5050 v3.0 schemas under `schemas/vda5050_v3/`.
-6. Create a `warehouse_case_study.yaml` layout with zones and job types.
-7. Implement a pure Python message-level simulator first.
-8. Define a ROX-Diff adapter interface from the current TB3 adapter.
-9. Define a crane usage profile for v3.0 actions and states.
-10. Run all scenarios and export logs/tables for the paper.
-
----
-
-## 13. External References for Migration Context
-
-- VDA5050 GitHub repository, current main version 3.0.0: https://github.com/VDA5050/VDA5050
-- VDA5050 v3.0.0 release notes: https://github.com/VDA5050/VDA5050/releases
-- Neobotix ROX-Diff product page: https://www.neobotix-robots.com/products/mobile-robots/mobile-robot-rox/rox-diff
-- Neobotix ROX data sheet: https://www.neobotix-roboter.de/fileadmin/images/downloads/Datenbl%C3%A4tter/Data-Sheet_ROX.pdf
+```text
+A scenario-based VDA 5050 v3.0 simulation and migration framework
+for AMR–overhead-crane warehouse orchestration,
+including job-state logic, zone handling, crane usage profiles,
+and comparison against the older AMR–crane VDA 5050 implementation.
+```

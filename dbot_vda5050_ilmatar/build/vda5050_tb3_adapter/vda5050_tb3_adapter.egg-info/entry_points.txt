@@ -1,2 +1,0 @@
-[console_scripts]
-tb3_adapter = vda5050_tb3_adapter.tb3_adapter:main

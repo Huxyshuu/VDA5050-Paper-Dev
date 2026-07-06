@@ -1,9 +1,0 @@
-Metadata-Version: 2.1
-Name: tf2_dbot
-Version: 0.0.0
-Summary: A package for publishing the static and dynamic transforms in the environment and robot
-Maintainer: Hari Prasanth SM
-Maintainer-email: sm.hariprasanth@gmail.com
-License: MIT
-License-File: LICENSE
-Requires-Dist: setuptools
