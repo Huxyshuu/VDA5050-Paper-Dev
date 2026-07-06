@@ -1,0 +1,11 @@
+source;share/vda5050_connector/hook/cmake_prefix_path.ps1
+source;share/vda5050_connector/hook/cmake_prefix_path.dsv
+source;share/vda5050_connector/hook/cmake_prefix_path.sh
+source;share/vda5050_connector/hook/ld_library_path_lib.ps1
+source;share/vda5050_connector/hook/ld_library_path_lib.dsv
+source;share/vda5050_connector/hook/ld_library_path_lib.sh
+source;share/vda5050_connector/local_setup.bash
+source;share/vda5050_connector/local_setup.dsv
+source;share/vda5050_connector/local_setup.ps1
+source;share/vda5050_connector/local_setup.sh
+source;share/vda5050_connector/local_setup.zsh

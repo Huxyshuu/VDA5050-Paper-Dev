@@ -1,0 +1,74 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from vda5050_msgs/msg/MaxArrayLens.msg
+// generated code does not contain a copyright notice
+
+
+module vda5050_msgs {
+  module msg {
+    struct MaxArrayLens {
+      @verbatim (language="comment", text=
+        "Maximum number of nodes per order processable by the AGV")
+      uint32 order_nodes;
+
+      @verbatim (language="comment", text=
+        "Maximum number of edges per order processable by the AGV")
+      uint32 order_edges;
+
+      @verbatim (language="comment", text=
+        "Maximum number of action per node processable by the AGV")
+      uint32 node_actions;
+
+      @verbatim (language="comment", text=
+        "Maximum number of action per edge processable by the AGV")
+      uint32 edge_actions;
+
+      @verbatim (language="comment", text=
+        "Maximum number of parameters per action processable by the AGV")
+      uint32 actions_parameters;
+
+      @verbatim (language="comment", text=
+        "Maximum number of instant actions per message processable by the AGV")
+      uint32 instant_actions;
+
+      @verbatim (language="comment", text=
+        "Maximum number of knots per trajectory processable by the AGV")
+      uint32 trajectory_knot_vector;
+
+      @verbatim (language="comment", text=
+        "Maximum number of control points per trajectory processable by the AGV")
+      uint32 trajectory_control_points;
+
+      @verbatim (language="comment", text=
+        "Maximum number of nodeStates sent by the AGV, maximum number of nodes in base of AGV")
+      uint32 state_node_states;
+
+      @verbatim (language="comment", text=
+        "Maximum number of edgeStates sent by the AGV, maximum number of edges in base of AGV")
+      uint32 state_edge_states;
+
+      @verbatim (language="comment", text=
+        "Maximum number of load-objects sent by the AGV")
+      uint32 state_loads;
+
+      @verbatim (language="comment", text=
+        "Maximum number of actionStates sent by the AGV")
+      uint32 state_action_states;
+
+      @verbatim (language="comment", text=
+        "Maximum number of errors sent by the AGV in one state-message")
+      uint32 state_errors;
+
+      @verbatim (language="comment", text=
+        "Maximum number of information objects sent by the AGV in one state-message")
+      uint32 state_information;
+
+      @verbatim (language="comment", text=
+        "Maximum number of error references sent by the AGV for each error")
+      uint32 error_references;
+
+      @verbatim (language="comment", text=
+        "Maximum number of info references sent by the AGV for each information")
+      uint32 info_references;
+    };
+  };
+};

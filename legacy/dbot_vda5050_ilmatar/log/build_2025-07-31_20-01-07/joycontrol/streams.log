@@ -1,0 +1,17 @@
+[2.518s] Invoking command in '/home/dbot2/dbot_vda5050_ilmatar/build/joycontrol': PYTHONPATH=/home/dbot2/dbot_vda5050_ilmatar/build/joycontrol/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/dbot2/dbot_vda5050_ilmatar/install/joycontrol/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/dbot2/dbot_vda5050_ilmatar/build/joycontrol/build --no-deps symlink_data
+[3.085s] running develop
+[3.388s] running egg_info
+[3.388s] writing joycontrol.egg-info/PKG-INFO
+[3.389s] writing dependency_links to joycontrol.egg-info/dependency_links.txt
+[3.389s] writing entry points to joycontrol.egg-info/entry_points.txt
+[3.389s] writing requirements to joycontrol.egg-info/requires.txt
+[3.389s] writing top-level names to joycontrol.egg-info/top_level.txt
+[3.392s] reading manifest file 'joycontrol.egg-info/SOURCES.txt'
+[3.392s] writing manifest file 'joycontrol.egg-info/SOURCES.txt'
+[3.394s] running build_ext
+[3.394s] Creating /home/dbot2/dbot_vda5050_ilmatar/install/joycontrol/lib/python3.10/site-packages/joycontrol.egg-link (link to .)
+[3.395s] Installing joycontrol script to /home/dbot2/dbot_vda5050_ilmatar/install/joycontrol/lib/joycontrol
+[3.395s] 
+[3.395s] Installed /home/dbot2/dbot_vda5050_ilmatar/build/joycontrol
+[3.395s] running symlink_data
+[3.564s] Invoked command in '/home/dbot2/dbot_vda5050_ilmatar/build/joycontrol' returned '0': PYTHONPATH=/home/dbot2/dbot_vda5050_ilmatar/build/joycontrol/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/dbot2/dbot_vda5050_ilmatar/install/joycontrol/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/dbot2/dbot_vda5050_ilmatar/build/joycontrol/build --no-deps symlink_data

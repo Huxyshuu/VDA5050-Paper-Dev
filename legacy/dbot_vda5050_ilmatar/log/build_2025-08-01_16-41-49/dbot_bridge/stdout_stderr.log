@@ -1,0 +1,15 @@
+running develop
+running egg_info
+writing dbot_bridge.egg-info/PKG-INFO
+writing dependency_links to dbot_bridge.egg-info/dependency_links.txt
+writing entry points to dbot_bridge.egg-info/entry_points.txt
+writing requirements to dbot_bridge.egg-info/requires.txt
+writing top-level names to dbot_bridge.egg-info/top_level.txt
+reading manifest file 'dbot_bridge.egg-info/SOURCES.txt'
+writing manifest file 'dbot_bridge.egg-info/SOURCES.txt'
+running build_ext
+Creating /home/dbot2/dbot_vda5050_ilmatar/install/dbot_bridge/lib/python3.10/site-packages/dbot-bridge.egg-link (link to .)
+Installing dbot_bridge_node script to /home/dbot2/dbot_vda5050_ilmatar/install/dbot_bridge/lib/dbot_bridge
+
+Installed /home/dbot2/dbot_vda5050_ilmatar/build/dbot_bridge
+running symlink_data

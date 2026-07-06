@@ -1,0 +1,26 @@
+// generated from rosidl_adapter/resource/action.idl.em
+// with input from vda5050_connector/action/ProcessVDAAction.action
+// generated code does not contain a copyright notice
+
+#include "vda5050_msgs/msg/Action.idl"
+#include "vda5050_msgs/msg/CurrentAction.idl"
+
+module vda5050_connector {
+  module action {
+    @verbatim (language="comment", text=
+      "Goal")
+    struct ProcessVDAAction_Goal {
+      vda5050_msgs::msg::Action action;
+    };
+    @verbatim (language="comment", text=
+      "Result")
+    struct ProcessVDAAction_Result {
+      vda5050_msgs::msg::CurrentAction result;
+    };
+    @verbatim (language="comment", text=
+      "Feedback")
+    struct ProcessVDAAction_Feedback {
+      vda5050_msgs::msg::CurrentAction current_action;
+    };
+  };
+};

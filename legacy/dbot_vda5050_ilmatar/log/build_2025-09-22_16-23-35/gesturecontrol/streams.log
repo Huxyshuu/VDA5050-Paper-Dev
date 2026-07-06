@@ -1,0 +1,22 @@
+[2.161s] Invoking command in '/home/dbot2/dbot_vda5050_ilmatar/src/gesturecontrol': PYTHONPATH=/home/dbot2/dbot_vda5050_ilmatar/build/gesturecontrol/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/gesturecontrol build --build-base /home/dbot2/dbot_vda5050_ilmatar/build/gesturecontrol/build install --record /home/dbot2/dbot_vda5050_ilmatar/build/gesturecontrol/install.log --single-version-externally-managed install_data
+[2.570s] running egg_info
+[2.571s] writing ../../build/gesturecontrol/gesturecontrol.egg-info/PKG-INFO
+[2.571s] writing dependency_links to ../../build/gesturecontrol/gesturecontrol.egg-info/dependency_links.txt
+[2.571s] writing entry points to ../../build/gesturecontrol/gesturecontrol.egg-info/entry_points.txt
+[2.571s] writing requirements to ../../build/gesturecontrol/gesturecontrol.egg-info/requires.txt
+[2.571s] writing top-level names to ../../build/gesturecontrol/gesturecontrol.egg-info/top_level.txt
+[2.577s] reading manifest file '../../build/gesturecontrol/gesturecontrol.egg-info/SOURCES.txt'
+[2.577s] adding license file 'LICENSE'
+[2.578s] writing manifest file '../../build/gesturecontrol/gesturecontrol.egg-info/SOURCES.txt'
+[2.578s] running build
+[2.578s] running build_py
+[2.579s] running install
+[2.579s] running install_lib
+[2.582s] running install_data
+[2.582s] running install_egg_info
+[2.585s] removing '/home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol/lib/python3.10/site-packages/gesturecontrol-0.0.0-py3.10.egg-info' (and everything under it)
+[2.585s] Copying ../../build/gesturecontrol/gesturecontrol.egg-info to /home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol/lib/python3.10/site-packages/gesturecontrol-0.0.0-py3.10.egg-info
+[2.586s] running install_scripts
+[2.618s] Installing gesturecontrol script to /home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol/lib/gesturecontrol
+[2.619s] writing list of installed files to '/home/dbot2/dbot_vda5050_ilmatar/build/gesturecontrol/install.log'
+[2.763s] Invoked command in '/home/dbot2/dbot_vda5050_ilmatar/src/gesturecontrol' returned '0': PYTHONPATH=/home/dbot2/dbot_vda5050_ilmatar/build/gesturecontrol/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/gesturecontrol build --build-base /home/dbot2/dbot_vda5050_ilmatar/build/gesturecontrol/build install --record /home/dbot2/dbot_vda5050_ilmatar/build/gesturecontrol/install.log --single-version-externally-managed install_data

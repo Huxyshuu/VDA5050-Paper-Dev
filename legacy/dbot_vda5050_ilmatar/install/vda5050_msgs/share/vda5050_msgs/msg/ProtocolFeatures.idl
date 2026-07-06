@@ -1,0 +1,20 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from vda5050_msgs/msg/ProtocolFeatures.msg
+// generated code does not contain a copyright notice
+
+#include "vda5050_msgs/msg/AGVAction.idl"
+#include "vda5050_msgs/msg/OptionalParameter.idl"
+
+module vda5050_msgs {
+  module msg {
+    struct ProtocolFeatures {
+      @verbatim (language="comment", text=
+        "List of supported and/or required optional parameters")
+      sequence<vda5050_msgs::msg::OptionalParameter> optional_parameters;
+
+      @verbatim (language="comment", text=
+        "List of all actions with parameters supported by this AGV")
+      sequence<vda5050_msgs::msg::AGVAction> agv_actions;
+    };
+  };
+};

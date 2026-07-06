@@ -1,0 +1,68 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from vda5050_msgs/msg/Factsheet.msg
+// generated code does not contain a copyright notice
+
+#include "vda5050_msgs/msg/AGVGeometry.idl"
+#include "vda5050_msgs/msg/LoadSpecification.idl"
+#include "vda5050_msgs/msg/PhysicalParameters.idl"
+#include "vda5050_msgs/msg/ProtocolFeatures.idl"
+#include "vda5050_msgs/msg/ProtocolLimits.idl"
+#include "vda5050_msgs/msg/TypeSpecification.idl"
+
+module vda5050_msgs {
+  module msg {
+    @verbatim (language="comment", text=
+      "HEADER")
+    struct Factsheet {
+      @verbatim (language="comment", text=
+        "header ID of the message. The headerId is defined per topic and incremented by 1 with each sent" "\n"
+        "(but not necessarily received) message.")
+      uint32 header_id;
+
+      @verbatim (language="comment", text=
+        "Timestamp after ISO8601 in the format YYYY-MM-DDTHH:mm:ss.ssZ (e.g.“2017-04-15T11:40:03.12Z”)")
+      string timestamp;
+
+      @verbatim (language="comment", text=
+        "Version of the protocol [Major].[Minor].[Patch] (e.g. 1.3.2)")
+      string version;
+
+      @verbatim (language="comment", text=
+        "Manufacturer of the AGV")
+      string manufacturer;
+
+      @verbatim (language="comment", text=
+        "Serial Number of the AGV")
+      string serial_number;
+
+      @verbatim (language="comment", text=
+        "CONTENTS" "\n"
+        "Class and capabilities of the AGV")
+      vda5050_msgs::msg::TypeSpecification type_specification;
+
+      @verbatim (language="comment", text=
+        "Physical properties of the AGV")
+      vda5050_msgs::msg::PhysicalParameters physical_parameters;
+
+      @verbatim (language="comment", text=
+        "Protocol limitations of the AGV")
+      vda5050_msgs::msg::ProtocolLimits protocol_limits;
+
+      @verbatim (language="comment", text=
+        "Supported and/or required optional parameters")
+      vda5050_msgs::msg::ProtocolFeatures protocol_features;
+
+      @verbatim (language="comment", text=
+        "Detailed definition of AGV geometry")
+      vda5050_msgs::msg::AGVGeometry agv_geometry;
+
+      @verbatim (language="comment", text=
+        "Load positions / load handling devices")
+      vda5050_msgs::msg::LoadSpecification load_specification;
+
+      @verbatim (language="comment", text=
+        "Detailed specification of localization")
+      int32 localization_parameters;
+    };
+  };
+};

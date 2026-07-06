@@ -1,0 +1,2 @@
+[console_scripts]
+motor_bringup = motor_driver.ros2_wrapper:main

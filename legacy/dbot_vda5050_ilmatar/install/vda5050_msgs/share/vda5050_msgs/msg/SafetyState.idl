@@ -1,0 +1,30 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from vda5050_msgs/msg/SafetyState.msg
+// generated code does not contain a copyright notice
+
+
+module vda5050_msgs {
+  module msg {
+    module SafetyState_Constants {
+      @verbatim (language="comment", text=
+        "Enums for eStop")
+      const string AUTO_ACK = "AUTOACK";
+      const string MANUAL = "MANUAL";
+      const string REMOTE = "REMOTE";
+      const string NONE = "NONE";
+    };
+    struct SafetyState {
+      @verbatim (language="comment", text=
+        "Enum {autoAck, manual, remote, none} Acknowledge-Type of eStop:" "\n"
+        "autoAck: autoacknowledgeable e-stop is activated e.g. by bumper or protective field" "\n"
+        "manual: e-stop has to be acknowledged manually at the vehicle" "\n"
+        "remote: facility estop has to be acknowledged remotely" "\n"
+        "none: no e-stop activated")
+      string e_stop;
+
+      @verbatim (language="comment", text=
+        "Protective field violation. True: field is violated False: field is not violated")
+      boolean field_violation;
+    };
+  };
+};

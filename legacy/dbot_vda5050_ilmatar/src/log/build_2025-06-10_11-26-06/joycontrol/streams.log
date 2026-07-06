@@ -1,0 +1,26 @@
+[1.348s] Invoking command in '/home/dbot2/ros2_ws/src/build/joycontrol': PYTHONPATH=/home/dbot2/ros2_ws/src/build/joycontrol/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/dbot2/ros2_ws/src/install/joycontrol/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py develop --editable --build-directory /home/dbot2/ros2_ws/src/build/joycontrol/build --no-deps symlink_data
+[1.699s] running develop
+[1.700s] /usr/lib/python3/dist-packages/setuptools/command/easy_install.py:158: EasyInstallDeprecationWarning: easy_install command is deprecated. Use build and pip and other standards-based tools.
+[1.700s]   warnings.warn(
+[1.903s] running egg_info
+[1.903s] creating joycontrol.egg-info
+[1.904s] writing joycontrol.egg-info/PKG-INFO
+[1.905s] writing dependency_links to joycontrol.egg-info/dependency_links.txt
+[1.905s] writing entry points to joycontrol.egg-info/entry_points.txt
+[1.905s] writing requirements to joycontrol.egg-info/requires.txt
+[1.905s] writing top-level names to joycontrol.egg-info/top_level.txt
+[1.905s] writing manifest file 'joycontrol.egg-info/SOURCES.txt'
+[1.910s] reading manifest file 'joycontrol.egg-info/SOURCES.txt'
+[1.910s] writing manifest file 'joycontrol.egg-info/SOURCES.txt'
+[1.912s] running build_ext
+[1.912s] Creating /home/dbot2/ros2_ws/src/install/joycontrol/lib/python3.10/site-packages/joycontrol.egg-link (link to .)
+[1.914s] Installing joycontrol script to /home/dbot2/ros2_ws/src/install/joycontrol/lib/joycontrol
+[1.915s] 
+[1.915s] Installed /home/dbot2/ros2_ws/src/build/joycontrol
+[1.915s] running symlink_data
+[1.915s] creating /home/dbot2/ros2_ws/src/install/joycontrol/share/ament_index
+[1.915s] creating /home/dbot2/ros2_ws/src/install/joycontrol/share/ament_index/resource_index
+[1.915s] creating /home/dbot2/ros2_ws/src/install/joycontrol/share/ament_index/resource_index/packages
+[1.915s] symbolically linking /home/dbot2/ros2_ws/src/build/joycontrol/resource/joycontrol -> /home/dbot2/ros2_ws/src/install/joycontrol/share/ament_index/resource_index/packages
+[1.915s] symbolically linking /home/dbot2/ros2_ws/src/build/joycontrol/package.xml -> /home/dbot2/ros2_ws/src/install/joycontrol/share/joycontrol
+[1.980s] Invoked command in '/home/dbot2/ros2_ws/src/build/joycontrol' returned '0': PYTHONPATH=/home/dbot2/ros2_ws/src/build/joycontrol/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/dbot2/ros2_ws/src/install/joycontrol/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py develop --editable --build-directory /home/dbot2/ros2_ws/src/build/joycontrol/build --no-deps symlink_data

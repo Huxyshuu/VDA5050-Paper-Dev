@@ -1,0 +1,34 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from vda5050_msgs/msg/NodeState.msg
+// generated code does not contain a copyright notice
+
+#include "vda5050_msgs/msg/NodePosition.idl"
+
+module vda5050_msgs {
+  module msg {
+    @verbatim (language="comment", text=
+      "Array of nodes to be traversed for fulfilling the order")
+    struct NodeState {
+      @verbatim (language="comment", text=
+        "Unique node identification")
+      string node_id;
+
+      @verbatim (language="comment", text=
+        "sequenceId to discern multiple nodes with same nodeId.")
+      uint32 sequence_id;
+
+      @verbatim (language="comment", text=
+        "Additional information on the node")
+      string node_description;
+
+      @verbatim (language="comment", text=
+        "Node position (see Topic: Order)")
+      vda5050_msgs::msg::NodePosition node_position;
+
+      @verbatim (language="comment", text=
+        "true indicates that the node is part of the base." "\n"
+        "false indicates that the node is part of the horizon.")
+      boolean released;
+    };
+  };
+};

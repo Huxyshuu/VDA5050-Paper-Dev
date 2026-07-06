@@ -1,0 +1,8 @@
+setup.cfg
+setup.py
+crane_dbot/__init__.py
+crane_dbot/modules_import.py
+crane_dbot.egg-info/PKG-INFO
+crane_dbot.egg-info/SOURCES.txt
+crane_dbot.egg-info/dependency_links.txt
+crane_dbot.egg-info/top_level.txt

@@ -1,0 +1,6 @@
+source;share/gesturecontrol/hook/pythonpath.ps1
+source;share/gesturecontrol/hook/pythonpath.dsv
+source;share/gesturecontrol/hook/pythonpath.sh
+source;share/gesturecontrol/hook/ament_prefix_path.ps1
+source;share/gesturecontrol/hook/ament_prefix_path.dsv
+source;share/gesturecontrol/hook/ament_prefix_path.sh

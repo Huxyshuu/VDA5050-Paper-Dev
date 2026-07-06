@@ -1,0 +1,28 @@
+[0.461s] Invoking command in '/home/dbot2/ros2_ws/src/build/odom_motion_model': AMENT_PREFIX_PATH=/home/dbot2/ros2_ws/src/install/odometry_estimator:/home/dbot2/ros2_ws/src/install/dbot_custom_msgs:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/dbot2/ros2_ws/src/install/odometry_estimator:/home/dbot2/ros2_ws/src/install/dbot_custom_msgs:${CMAKE_PREFIX_PATH} LD_LIBRARY_PATH=/home/dbot2/ros2_ws/src/install/dbot_custom_msgs/lib:${LD_LIBRARY_PATH} PYTHONPATH=/home/dbot2/ros2_ws/src/build/odom_motion_model/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/dbot2/ros2_ws/src/install/odom_motion_model/lib/python3.10/site-packages:/home/dbot2/ros2_ws/src/install/dbot_custom_msgs/local/lib/python3.10/dist-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py develop --editable --build-directory /home/dbot2/ros2_ws/src/build/odom_motion_model/build --no-deps symlink_data
+[0.632s] /usr/lib/python3/dist-packages/setuptools/dist.py:723: UserWarning: Usage of dash-separated 'script-dir' will not be supported in future versions. Please use the underscore name 'script_dir' instead
+[0.632s]   warnings.warn(
+[0.653s] running develop
+[0.653s] /usr/lib/python3/dist-packages/setuptools/command/easy_install.py:158: EasyInstallDeprecationWarning: easy_install command is deprecated. Use build and pip and other standards-based tools.
+[0.653s]   warnings.warn(
+[0.765s] running egg_info
+[0.765s] creating odom_motion_model.egg-info
+[0.765s] writing odom_motion_model.egg-info/PKG-INFO
+[0.765s] writing dependency_links to odom_motion_model.egg-info/dependency_links.txt
+[0.765s] writing entry points to odom_motion_model.egg-info/entry_points.txt
+[0.766s] writing requirements to odom_motion_model.egg-info/requires.txt
+[0.766s] writing top-level names to odom_motion_model.egg-info/top_level.txt
+[0.766s] writing manifest file 'odom_motion_model.egg-info/SOURCES.txt'
+[0.767s] reading manifest file 'odom_motion_model.egg-info/SOURCES.txt'
+[0.768s] writing manifest file 'odom_motion_model.egg-info/SOURCES.txt'
+[0.769s] running build_ext
+[0.769s] Creating /home/dbot2/ros2_ws/src/install/odom_motion_model/lib/python3.10/site-packages/odom-motion-model.egg-link (link to .)
+[0.769s] Installing odom_motion_model script to /home/dbot2/ros2_ws/src/install/odom_motion_model/lib/odom_motion_model
+[0.770s] 
+[0.770s] Installed /home/dbot2/ros2_ws/src/build/odom_motion_model
+[0.770s] running symlink_data
+[0.770s] creating /home/dbot2/ros2_ws/src/install/odom_motion_model/share/ament_index
+[0.770s] creating /home/dbot2/ros2_ws/src/install/odom_motion_model/share/ament_index/resource_index
+[0.770s] creating /home/dbot2/ros2_ws/src/install/odom_motion_model/share/ament_index/resource_index/packages
+[0.770s] symbolically linking /home/dbot2/ros2_ws/src/build/odom_motion_model/resource/odom_motion_model -> /home/dbot2/ros2_ws/src/install/odom_motion_model/share/ament_index/resource_index/packages
+[0.770s] symbolically linking /home/dbot2/ros2_ws/src/build/odom_motion_model/package.xml -> /home/dbot2/ros2_ws/src/install/odom_motion_model/share/odom_motion_model
+[0.791s] Invoked command in '/home/dbot2/ros2_ws/src/build/odom_motion_model' returned '0': AMENT_PREFIX_PATH=/home/dbot2/ros2_ws/src/install/odometry_estimator:/home/dbot2/ros2_ws/src/install/dbot_custom_msgs:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/dbot2/ros2_ws/src/install/odometry_estimator:/home/dbot2/ros2_ws/src/install/dbot_custom_msgs:${CMAKE_PREFIX_PATH} LD_LIBRARY_PATH=/home/dbot2/ros2_ws/src/install/dbot_custom_msgs/lib:${LD_LIBRARY_PATH} PYTHONPATH=/home/dbot2/ros2_ws/src/build/odom_motion_model/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/dbot2/ros2_ws/src/install/odom_motion_model/lib/python3.10/site-packages:/home/dbot2/ros2_ws/src/install/dbot_custom_msgs/local/lib/python3.10/dist-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py develop --editable --build-directory /home/dbot2/ros2_ws/src/build/odom_motion_model/build --no-deps symlink_data

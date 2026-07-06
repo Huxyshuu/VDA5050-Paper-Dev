@@ -1,0 +1,4 @@
+source;share/vda5050_connector/local_setup.bash
+source;share/vda5050_connector/local_setup.dsv
+source;share/vda5050_connector/local_setup.sh
+source;share/vda5050_connector/local_setup.zsh

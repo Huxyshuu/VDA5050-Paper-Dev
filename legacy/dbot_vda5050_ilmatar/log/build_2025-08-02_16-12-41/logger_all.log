@@ -1,0 +1,316 @@
+[0.101s] DEBUG:colcon:Command line arguments: ['/usr/bin/colcon', 'build', '--packages-select', 'vda5050_connector']
+[0.101s] DEBUG:colcon:Parsed command line arguments: Namespace(log_base=None, log_level=None, verb_name='build', build_base='build', install_base='install', merge_install=False, symlink_install=False, test_result_base=None, continue_on_error=False, executor='parallel', parallel_workers=8, event_handlers=None, ignore_user_meta=False, metas=['./colcon.meta'], base_paths=['.'], packages_ignore=None, packages_ignore_regex=None, paths=None, packages_up_to=None, packages_up_to_regex=None, packages_above=None, packages_above_and_dependencies=None, packages_above_depth=None, packages_select_by_dep=None, packages_skip_by_dep=None, packages_skip_up_to=None, packages_select_build_failed=False, packages_skip_build_finished=False, packages_select_test_failures=False, packages_skip_test_passed=False, packages_select=['vda5050_connector'], packages_skip=None, packages_select_regex=None, packages_skip_regex=None, packages_start=None, packages_end=None, allow_overriding=[], cmake_args=None, cmake_target=None, cmake_target_skip_unavailable=False, cmake_clean_cache=False, cmake_clean_first=False, cmake_force_configure=False, ament_cmake_args=None, catkin_cmake_args=None, catkin_skip_building_tests=False, mixin_files=None, mixin=None, verb_parser=<colcon_mixin.mixin.mixin_argument.MixinArgumentDecorator object at 0x7aa5082bba30>, verb_extension=<colcon_core.verb.build.BuildVerb object at 0x7aa5082bae30>, main=<bound method BuildVerb.main of <colcon_core.verb.build.BuildVerb object at 0x7aa5082bae30>>, mixin_verb=('build',))
+[0.269s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) check parameters
+[0.269s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) check parameters
+[0.269s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) check parameters
+[0.269s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) check parameters
+[0.269s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) discover
+[0.269s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) discover
+[0.270s] INFO:colcon.colcon_core.package_discovery:Crawling recursively for packages in '/home/dbot2/dbot_vda5050_ilmatar'
+[0.270s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ignore', 'ignore_ament_install']
+[0.270s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore'
+[0.270s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore_ament_install'
+[0.270s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_pkg']
+[0.270s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_pkg'
+[0.270s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_meta']
+[0.270s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_meta'
+[0.270s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ros']
+[0.270s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ros'
+[0.278s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['cmake', 'python']
+[0.278s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'cmake'
+[0.278s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'python'
+[0.278s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['python_setup_py']
+[0.278s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'python_setup_py'
+[0.278s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extensions ['ignore', 'ignore_ament_install']
+[0.278s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extension 'ignore'
+[0.278s] Level 1:colcon.colcon_core.package_identification:_identify(build) ignored
+[0.278s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extensions ['ignore', 'ignore_ament_install']
+[0.278s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extension 'ignore'
+[0.278s] Level 1:colcon.colcon_core.package_identification:_identify(install) ignored
+[0.278s] Level 1:colcon.colcon_core.package_identification:_identify(log) by extensions ['ignore', 'ignore_ament_install']
+[0.278s] Level 1:colcon.colcon_core.package_identification:_identify(log) by extension 'ignore'
+[0.278s] Level 1:colcon.colcon_core.package_identification:_identify(log) ignored
+[0.278s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['ignore', 'ignore_ament_install']
+[0.279s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'ignore'
+[0.279s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'ignore_ament_install'
+[0.279s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['colcon_pkg']
+[0.279s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'colcon_pkg'
+[0.279s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['colcon_meta']
+[0.279s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'colcon_meta'
+[0.279s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['ros']
+[0.279s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'ros'
+[0.279s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['cmake', 'python']
+[0.279s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'cmake'
+[0.279s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'python'
+[0.279s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['python_setup_py']
+[0.279s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'python_setup_py'
+[0.279s] Level 1:colcon.colcon_core.package_identification:_identify(src/build) by extensions ['ignore', 'ignore_ament_install']
+[0.279s] Level 1:colcon.colcon_core.package_identification:_identify(src/build) by extension 'ignore'
+[0.279s] Level 1:colcon.colcon_core.package_identification:_identify(src/build) ignored
+[0.279s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot) by extensions ['ignore', 'ignore_ament_install']
+[0.279s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot) by extension 'ignore'
+[0.279s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot) by extension 'ignore_ament_install'
+[0.279s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot) by extensions ['colcon_pkg']
+[0.279s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot) by extension 'colcon_pkg'
+[0.279s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot) by extensions ['colcon_meta']
+[0.279s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot) by extension 'colcon_meta'
+[0.279s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot) by extensions ['ros']
+[0.279s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot) by extension 'ros'
+[0.281s] DEBUG:colcon.colcon_core.package_identification:Package 'src/dbot' with type 'ros.ament_python' and name 'dbot'
+[0.281s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot_bridge) by extensions ['ignore', 'ignore_ament_install']
+[0.281s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot_bridge) by extension 'ignore'
+[0.281s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot_bridge) by extension 'ignore_ament_install'
+[0.281s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot_bridge) by extensions ['colcon_pkg']
+[0.281s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot_bridge) by extension 'colcon_pkg'
+[0.281s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot_bridge) by extensions ['colcon_meta']
+[0.281s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot_bridge) by extension 'colcon_meta'
+[0.281s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot_bridge) by extensions ['ros']
+[0.281s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot_bridge) by extension 'ros'
+[0.282s] DEBUG:colcon.colcon_core.package_identification:Package 'src/dbot_bridge' with type 'ros.ament_python' and name 'dbot_bridge'
+[0.282s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot_custom_msgs) by extensions ['ignore', 'ignore_ament_install']
+[0.282s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot_custom_msgs) by extension 'ignore'
+[0.282s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot_custom_msgs) by extension 'ignore_ament_install'
+[0.282s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot_custom_msgs) by extensions ['colcon_pkg']
+[0.282s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot_custom_msgs) by extension 'colcon_pkg'
+[0.282s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot_custom_msgs) by extensions ['colcon_meta']
+[0.282s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot_custom_msgs) by extension 'colcon_meta'
+[0.282s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot_custom_msgs) by extensions ['ros']
+[0.282s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot_custom_msgs) by extension 'ros'
+[0.282s] DEBUG:colcon.colcon_core.package_identification:Package 'src/dbot_custom_msgs' with type 'ros.ament_cmake' and name 'dbot_custom_msgs'
+[0.282s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot_nav_slam) by extensions ['ignore', 'ignore_ament_install']
+[0.282s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot_nav_slam) by extension 'ignore'
+[0.282s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot_nav_slam) by extension 'ignore_ament_install'
+[0.282s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot_nav_slam) by extensions ['colcon_pkg']
+[0.282s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot_nav_slam) by extension 'colcon_pkg'
+[0.282s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot_nav_slam) by extensions ['colcon_meta']
+[0.282s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot_nav_slam) by extension 'colcon_meta'
+[0.282s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot_nav_slam) by extensions ['ros']
+[0.282s] Level 1:colcon.colcon_core.package_identification:_identify(src/dbot_nav_slam) by extension 'ros'
+[0.283s] DEBUG:colcon.colcon_core.package_identification:Package 'src/dbot_nav_slam' with type 'ros.ament_cmake' and name 'dbot_nav_slam'
+[0.283s] Level 1:colcon.colcon_core.package_identification:_identify(src/gesturecontrol) by extensions ['ignore', 'ignore_ament_install']
+[0.283s] Level 1:colcon.colcon_core.package_identification:_identify(src/gesturecontrol) by extension 'ignore'
+[0.283s] Level 1:colcon.colcon_core.package_identification:_identify(src/gesturecontrol) by extension 'ignore_ament_install'
+[0.283s] Level 1:colcon.colcon_core.package_identification:_identify(src/gesturecontrol) by extensions ['colcon_pkg']
+[0.283s] Level 1:colcon.colcon_core.package_identification:_identify(src/gesturecontrol) by extension 'colcon_pkg'
+[0.283s] Level 1:colcon.colcon_core.package_identification:_identify(src/gesturecontrol) by extensions ['colcon_meta']
+[0.283s] Level 1:colcon.colcon_core.package_identification:_identify(src/gesturecontrol) by extension 'colcon_meta'
+[0.283s] Level 1:colcon.colcon_core.package_identification:_identify(src/gesturecontrol) by extensions ['ros']
+[0.283s] Level 1:colcon.colcon_core.package_identification:_identify(src/gesturecontrol) by extension 'ros'
+[0.284s] DEBUG:colcon.colcon_core.package_identification:Package 'src/gesturecontrol' with type 'ros.ament_python' and name 'gesturecontrol'
+[0.284s] Level 1:colcon.colcon_core.package_identification:_identify(src/install) by extensions ['ignore', 'ignore_ament_install']
+[0.284s] Level 1:colcon.colcon_core.package_identification:_identify(src/install) by extension 'ignore'
+[0.284s] Level 1:colcon.colcon_core.package_identification:_identify(src/install) ignored
+[0.284s] Level 1:colcon.colcon_core.package_identification:_identify(src/joycontrol) by extensions ['ignore', 'ignore_ament_install']
+[0.284s] Level 1:colcon.colcon_core.package_identification:_identify(src/joycontrol) by extension 'ignore'
+[0.284s] Level 1:colcon.colcon_core.package_identification:_identify(src/joycontrol) by extension 'ignore_ament_install'
+[0.284s] Level 1:colcon.colcon_core.package_identification:_identify(src/joycontrol) by extensions ['colcon_pkg']
+[0.284s] Level 1:colcon.colcon_core.package_identification:_identify(src/joycontrol) by extension 'colcon_pkg'
+[0.284s] Level 1:colcon.colcon_core.package_identification:_identify(src/joycontrol) by extensions ['colcon_meta']
+[0.284s] Level 1:colcon.colcon_core.package_identification:_identify(src/joycontrol) by extension 'colcon_meta'
+[0.284s] Level 1:colcon.colcon_core.package_identification:_identify(src/joycontrol) by extensions ['ros']
+[0.284s] Level 1:colcon.colcon_core.package_identification:_identify(src/joycontrol) by extension 'ros'
+[0.284s] DEBUG:colcon.colcon_core.package_identification:Package 'src/joycontrol' with type 'ros.ament_python' and name 'joycontrol'
+[0.284s] Level 1:colcon.colcon_core.package_identification:_identify(src/log) by extensions ['ignore', 'ignore_ament_install']
+[0.284s] Level 1:colcon.colcon_core.package_identification:_identify(src/log) by extension 'ignore'
+[0.284s] Level 1:colcon.colcon_core.package_identification:_identify(src/log) ignored
+[0.285s] Level 1:colcon.colcon_core.package_identification:_identify(src/motor_driver) by extensions ['ignore', 'ignore_ament_install']
+[0.285s] Level 1:colcon.colcon_core.package_identification:_identify(src/motor_driver) by extension 'ignore'
+[0.285s] Level 1:colcon.colcon_core.package_identification:_identify(src/motor_driver) by extension 'ignore_ament_install'
+[0.285s] Level 1:colcon.colcon_core.package_identification:_identify(src/motor_driver) by extensions ['colcon_pkg']
+[0.285s] Level 1:colcon.colcon_core.package_identification:_identify(src/motor_driver) by extension 'colcon_pkg'
+[0.285s] Level 1:colcon.colcon_core.package_identification:_identify(src/motor_driver) by extensions ['colcon_meta']
+[0.285s] Level 1:colcon.colcon_core.package_identification:_identify(src/motor_driver) by extension 'colcon_meta'
+[0.285s] Level 1:colcon.colcon_core.package_identification:_identify(src/motor_driver) by extensions ['ros']
+[0.285s] Level 1:colcon.colcon_core.package_identification:_identify(src/motor_driver) by extension 'ros'
+[0.285s] DEBUG:colcon.colcon_core.package_identification:Package 'src/motor_driver' with type 'ros.ament_python' and name 'motor_driver'
+[0.285s] Level 1:colcon.colcon_core.package_identification:_identify(src/odom_motion_model) by extensions ['ignore', 'ignore_ament_install']
+[0.285s] Level 1:colcon.colcon_core.package_identification:_identify(src/odom_motion_model) by extension 'ignore'
+[0.285s] Level 1:colcon.colcon_core.package_identification:_identify(src/odom_motion_model) by extension 'ignore_ament_install'
+[0.285s] Level 1:colcon.colcon_core.package_identification:_identify(src/odom_motion_model) by extensions ['colcon_pkg']
+[0.285s] Level 1:colcon.colcon_core.package_identification:_identify(src/odom_motion_model) by extension 'colcon_pkg'
+[0.285s] Level 1:colcon.colcon_core.package_identification:_identify(src/odom_motion_model) by extensions ['colcon_meta']
+[0.285s] Level 1:colcon.colcon_core.package_identification:_identify(src/odom_motion_model) by extension 'colcon_meta'
+[0.285s] Level 1:colcon.colcon_core.package_identification:_identify(src/odom_motion_model) by extensions ['ros']
+[0.285s] Level 1:colcon.colcon_core.package_identification:_identify(src/odom_motion_model) by extension 'ros'
+[0.286s] DEBUG:colcon.colcon_core.package_identification:Package 'src/odom_motion_model' with type 'ros.ament_python' and name 'odom_motion_model'
+[0.286s] Level 1:colcon.colcon_core.package_identification:_identify(src/ros2_odometry_estimation) by extensions ['ignore', 'ignore_ament_install']
+[0.286s] Level 1:colcon.colcon_core.package_identification:_identify(src/ros2_odometry_estimation) by extension 'ignore'
+[0.286s] Level 1:colcon.colcon_core.package_identification:_identify(src/ros2_odometry_estimation) by extension 'ignore_ament_install'
+[0.286s] Level 1:colcon.colcon_core.package_identification:_identify(src/ros2_odometry_estimation) by extensions ['colcon_pkg']
+[0.286s] Level 1:colcon.colcon_core.package_identification:_identify(src/ros2_odometry_estimation) by extension 'colcon_pkg'
+[0.286s] Level 1:colcon.colcon_core.package_identification:_identify(src/ros2_odometry_estimation) by extensions ['colcon_meta']
+[0.286s] Level 1:colcon.colcon_core.package_identification:_identify(src/ros2_odometry_estimation) by extension 'colcon_meta'
+[0.286s] Level 1:colcon.colcon_core.package_identification:_identify(src/ros2_odometry_estimation) by extensions ['ros']
+[0.286s] Level 1:colcon.colcon_core.package_identification:_identify(src/ros2_odometry_estimation) by extension 'ros'
+[0.287s] DEBUG:colcon.colcon_core.package_identification:Package 'src/ros2_odometry_estimation' with type 'ros.ament_cmake' and name 'odometry_estimator'
+[0.287s] Level 1:colcon.colcon_core.package_identification:_identify(src/tf2_dbot) by extensions ['ignore', 'ignore_ament_install']
+[0.287s] Level 1:colcon.colcon_core.package_identification:_identify(src/tf2_dbot) by extension 'ignore'
+[0.287s] Level 1:colcon.colcon_core.package_identification:_identify(src/tf2_dbot) by extension 'ignore_ament_install'
+[0.287s] Level 1:colcon.colcon_core.package_identification:_identify(src/tf2_dbot) by extensions ['colcon_pkg']
+[0.287s] Level 1:colcon.colcon_core.package_identification:_identify(src/tf2_dbot) by extension 'colcon_pkg'
+[0.287s] Level 1:colcon.colcon_core.package_identification:_identify(src/tf2_dbot) by extensions ['colcon_meta']
+[0.287s] Level 1:colcon.colcon_core.package_identification:_identify(src/tf2_dbot) by extension 'colcon_meta'
+[0.287s] Level 1:colcon.colcon_core.package_identification:_identify(src/tf2_dbot) by extensions ['ros']
+[0.287s] Level 1:colcon.colcon_core.package_identification:_identify(src/tf2_dbot) by extension 'ros'
+[0.287s] DEBUG:colcon.colcon_core.package_identification:Package 'src/tf2_dbot' with type 'ros.ament_python' and name 'tf2_dbot'
+[0.288s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda5050_connector) by extensions ['ignore', 'ignore_ament_install']
+[0.288s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda5050_connector) by extension 'ignore'
+[0.288s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda5050_connector) by extension 'ignore_ament_install'
+[0.288s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda5050_connector) by extensions ['colcon_pkg']
+[0.288s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda5050_connector) by extension 'colcon_pkg'
+[0.288s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda5050_connector) by extensions ['colcon_meta']
+[0.288s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda5050_connector) by extension 'colcon_meta'
+[0.288s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda5050_connector) by extensions ['ros']
+[0.288s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda5050_connector) by extension 'ros'
+[0.289s] DEBUG:colcon.colcon_core.package_identification:Package 'src/vda5050_connector' with type 'ros.ament_cmake' and name 'vda5050_connector'
+[0.289s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda5050_msgs) by extensions ['ignore', 'ignore_ament_install']
+[0.289s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda5050_msgs) by extension 'ignore'
+[0.289s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda5050_msgs) by extension 'ignore_ament_install'
+[0.289s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda5050_msgs) by extensions ['colcon_pkg']
+[0.289s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda5050_msgs) by extension 'colcon_pkg'
+[0.289s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda5050_msgs) by extensions ['colcon_meta']
+[0.289s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda5050_msgs) by extension 'colcon_meta'
+[0.289s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda5050_msgs) by extensions ['ros']
+[0.289s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda5050_msgs) by extension 'ros'
+[0.290s] DEBUG:colcon.colcon_core.package_identification:Package 'src/vda5050_msgs' with type 'ros.ament_cmake' and name 'vda5050_msgs'
+[0.290s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda5050_tb3_adapter) by extensions ['ignore', 'ignore_ament_install']
+[0.290s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda5050_tb3_adapter) by extension 'ignore'
+[0.290s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda5050_tb3_adapter) by extension 'ignore_ament_install'
+[0.290s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda5050_tb3_adapter) by extensions ['colcon_pkg']
+[0.290s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda5050_tb3_adapter) by extension 'colcon_pkg'
+[0.290s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda5050_tb3_adapter) by extensions ['colcon_meta']
+[0.290s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda5050_tb3_adapter) by extension 'colcon_meta'
+[0.290s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda5050_tb3_adapter) by extensions ['ros']
+[0.290s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda5050_tb3_adapter) by extension 'ros'
+[0.291s] DEBUG:colcon.colcon_core.package_identification:Package 'src/vda5050_tb3_adapter' with type 'ros.ament_python' and name 'vda5050_tb3_adapter'
+[0.291s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda_dbot_nav_slam) by extensions ['ignore', 'ignore_ament_install']
+[0.291s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda_dbot_nav_slam) by extension 'ignore'
+[0.291s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda_dbot_nav_slam) by extension 'ignore_ament_install'
+[0.291s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda_dbot_nav_slam) by extensions ['colcon_pkg']
+[0.291s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda_dbot_nav_slam) by extension 'colcon_pkg'
+[0.291s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda_dbot_nav_slam) by extensions ['colcon_meta']
+[0.291s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda_dbot_nav_slam) by extension 'colcon_meta'
+[0.291s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda_dbot_nav_slam) by extensions ['ros']
+[0.291s] Level 1:colcon.colcon_core.package_identification:_identify(src/vda_dbot_nav_slam) by extension 'ros'
+[0.292s] DEBUG:colcon.colcon_core.package_identification:Package 'src/vda_dbot_nav_slam' with type 'ros.ament_cmake' and name 'vda_dbot_nav_slam'
+[0.292s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) using defaults
+[0.292s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) discover
+[0.292s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) using defaults
+[0.292s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) discover
+[0.292s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) using defaults
+[0.311s] INFO:colcon.colcon_core.package_selection:Skipping not selected package 'dbot' in 'src/dbot'
+[0.312s] INFO:colcon.colcon_core.package_selection:Skipping not selected package 'dbot_bridge' in 'src/dbot_bridge'
+[0.312s] INFO:colcon.colcon_core.package_selection:Skipping not selected package 'dbot_custom_msgs' in 'src/dbot_custom_msgs'
+[0.312s] INFO:colcon.colcon_core.package_selection:Skipping not selected package 'dbot_nav_slam' in 'src/dbot_nav_slam'
+[0.312s] INFO:colcon.colcon_core.package_selection:Skipping not selected package 'gesturecontrol' in 'src/gesturecontrol'
+[0.312s] INFO:colcon.colcon_core.package_selection:Skipping not selected package 'joycontrol' in 'src/joycontrol'
+[0.312s] INFO:colcon.colcon_core.package_selection:Skipping not selected package 'tf2_dbot' in 'src/tf2_dbot'
+[0.312s] INFO:colcon.colcon_core.package_selection:Skipping not selected package 'vda5050_msgs' in 'src/vda5050_msgs'
+[0.312s] INFO:colcon.colcon_core.package_selection:Skipping not selected package 'vda_dbot_nav_slam' in 'src/vda_dbot_nav_slam'
+[0.312s] INFO:colcon.colcon_core.package_selection:Skipping not selected package 'motor_driver' in 'src/motor_driver'
+[0.312s] INFO:colcon.colcon_core.package_selection:Skipping not selected package 'odometry_estimator' in 'src/ros2_odometry_estimation'
+[0.312s] INFO:colcon.colcon_core.package_selection:Skipping not selected package 'odom_motion_model' in 'src/odom_motion_model'
+[0.312s] INFO:colcon.colcon_core.package_selection:Skipping not selected package 'vda5050_tb3_adapter' in 'src/vda5050_tb3_adapter'
+[0.312s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) check parameters
+[0.312s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) discover
+[0.314s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 14 installed packages in /home/dbot2/dbot_vda5050_ilmatar/install
+[0.315s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 7 installed packages in /home/dbot2/dbot_src/install
+[0.315s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 2 installed packages in /home/dbot2/dbot_remote/install
+[0.315s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 3 installed packages in /home/dbot2/circus_demo/install
+[0.316s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 41 installed packages in /home/dbot2/ros2_ws/install
+[0.318s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 414 installed packages in /opt/ros/humble
+[0.320s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) using defaults
+[0.355s] WARNING:colcon.colcon_core.package_selection:Some selected packages are already built in one or more underlay workspaces:
+	'vda5050_connector' is in: /home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector
+If a package in a merged underlay workspace is overridden and it installs headers, then all packages in the overlay must sort their include directories by workspace order. Failure to do so may result in build failures or undefined behavior at run time.
+If the overridden package is used by another package in any underlay, then the overriding package in the overlay must be API and ABI compatible or undefined behavior at run time may occur.
+
+If you understand the risks and want to override a package anyways, add the following to the command line:
+	--allow-overriding vda5050_connector
+
+This may be promoted to an error in a future release of colcon-override-check.
+[0.356s] Level 5:colcon.colcon_core.verb:set package 'vda5050_connector' build argument 'cmake_args' from command line to 'None'
+[0.356s] Level 5:colcon.colcon_core.verb:set package 'vda5050_connector' build argument 'cmake_target' from command line to 'None'
+[0.356s] Level 5:colcon.colcon_core.verb:set package 'vda5050_connector' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[0.356s] Level 5:colcon.colcon_core.verb:set package 'vda5050_connector' build argument 'cmake_clean_cache' from command line to 'False'
+[0.356s] Level 5:colcon.colcon_core.verb:set package 'vda5050_connector' build argument 'cmake_clean_first' from command line to 'False'
+[0.356s] Level 5:colcon.colcon_core.verb:set package 'vda5050_connector' build argument 'cmake_force_configure' from command line to 'False'
+[0.356s] Level 5:colcon.colcon_core.verb:set package 'vda5050_connector' build argument 'ament_cmake_args' from command line to 'None'
+[0.356s] Level 5:colcon.colcon_core.verb:set package 'vda5050_connector' build argument 'catkin_cmake_args' from command line to 'None'
+[0.356s] Level 5:colcon.colcon_core.verb:set package 'vda5050_connector' build argument 'catkin_skip_building_tests' from command line to 'False'
+[0.356s] DEBUG:colcon.colcon_core.verb:Building package 'vda5050_connector' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector', 'merge_install': False, 'path': '/home/dbot2/dbot_vda5050_ilmatar/src/vda5050_connector', 'symlink_install': False, 'test_result_base': None}
+[0.356s] INFO:colcon.colcon_core.executor:Executing jobs using 'parallel' executor
+[0.357s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete
+[0.357s] INFO:colcon.colcon_ros.task.ament_cmake.build:Building ROS package in '/home/dbot2/dbot_vda5050_ilmatar/src/vda5050_connector' with build type 'ament_cmake'
+[0.357s] INFO:colcon.colcon_cmake.task.cmake.build:Building CMake package in '/home/dbot2/dbot_vda5050_ilmatar/src/vda5050_connector'
+[0.359s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_core.shell.bat': Not used on non-Windows systems
+[0.359s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[0.359s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[0.372s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector': CMAKE_PREFIX_PATH=/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_msgs:/home/dbot2/dbot_vda5050_ilmatar/install/vda_dbot_nav_slam:/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector:/home/dbot2/dbot_vda5050_ilmatar/install/odometry_estimator:/home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam:/home/dbot2/dbot_vda5050_ilmatar/install/dbot_custom_msgs:/home/dbot2/dbot_src/install/odometry_estimator:/home/dbot2/dbot_src/install/dbot_custom_msgs:/home/dbot2/dbot_remote/install/pointcloud_saver:/home/dbot2/circus_demo/install/pcl_localization_ros2:/home/dbot2/circus_demo/install/ndt_omp_ros2:/home/dbot2/ros2_ws/install/odometry_estimator:/home/dbot2/ros2_ws/install/dbot_nav_slam:/home/dbot2/ros2_ws/install/dbot_custom_msgs:/home/dbot2/ros2_ws/install/ament_lint_common:/home/dbot2/ros2_ws/install/ament_cmake_xmllint:/home/dbot2/ros2_ws/install/ament_cmake_uncrustify:/home/dbot2/ros2_ws/install/ament_cmake_pyflakes:/home/dbot2/ros2_ws/install/ament_cmake_pycodestyle:/home/dbot2/ros2_ws/install/ament_cmake_pep257:/home/dbot2/ros2_ws/install/ament_cmake_pclint:/home/dbot2/ros2_ws/install/ament_cmake_mypy:/home/dbot2/ros2_ws/install/ament_cmake_lint_cmake:/home/dbot2/ros2_ws/install/ament_lint_auto:/home/dbot2/ros2_ws/install/ament_cmake_flake8:/home/dbot2/ros2_ws/install/ament_cmake_copyright:/home/dbot2/ros2_ws/install/ament_cmake_cpplint:/home/dbot2/ros2_ws/install/ament_cmake_cppcheck:/home/dbot2/ros2_ws/install/ament_cmake_clang_tidy:/home/dbot2/ros2_ws/install/ament_cmake_clang_format:/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_tb3_adapter:/home/dbot2/dbot_vda5050_ilmatar/install/tf2_dbot:/home/dbot2/dbot_vda5050_ilmatar/install/odom_motion_model:/home/dbot2/dbot_vda5050_ilmatar/install/motor_driver:/home/dbot2/dbot_vda5050_ilmatar/install/joycontrol:/home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol:/home/dbot2/dbot_vda5050_ilmatar/install/dbot_bridge:/home/dbot2/dbot_vda5050_ilmatar/install/dbot:/home/dbot2/dbot_src/install/tf2_dbot:/home/dbot2/dbot_src/install/odom_motion_model:/home/dbot2/dbot_src/install/motor_driver:/home/dbot2/dbot_src/install/joycontrol:/home/dbot2/dbot_src/install/dbot:/home/dbot2/dbot_remote/install/pcd_joy_trigger:/home/dbot2/circus_demo/install/circus_demo:/home/dbot2/ros2_ws/install/tf2_dbot:/home/dbot2/ros2_ws/install/odom_motion_model:/home/dbot2/ros2_ws/install/motor_driver:/home/dbot2/ros2_ws/install/joycontrol:/home/dbot2/ros2_ws/install/gesturecontrol:/home/dbot2/ros2_ws/install/dbot_bridge:/home/dbot2/ros2_ws/install/dbot:/home/dbot2/ros2_ws/install/ament_xmllint:/home/dbot2/ros2_ws/install/ament_uncrustify:/home/dbot2/ros2_ws/install/ament_pyflakes:/home/dbot2/ros2_ws/install/ament_pycodestyle:/home/dbot2/ros2_ws/install/ament_pep257:/home/dbot2/ros2_ws/install/ament_pclint:/home/dbot2/ros2_ws/install/ament_mypy:/home/dbot2/ros2_ws/install/ament_lint_cmake:/home/dbot2/ros2_ws/install/ament_flake8:/home/dbot2/ros2_ws/install/ament_copyright:/home/dbot2/ros2_ws/install/ament_lint:/home/dbot2/ros2_ws/install/ament_cpplint:/home/dbot2/ros2_ws/install/ament_cppcheck:/home/dbot2/ros2_ws/install/ament_clang_tidy:/home/dbot2/ros2_ws/install/ament_clang_format:/opt/ros/humble LD_LIBRARY_PATH=/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_msgs/lib:/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/lib:/home/dbot2/dbot_vda5050_ilmatar/install/dbot_custom_msgs/lib:/home/dbot2/dbot_src/install/dbot_custom_msgs/lib:/home/dbot2/circus_demo/install/pcl_localization_ros2/lib:/home/dbot2/ros2_ws/install/dbot_custom_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib /usr/bin/cmake /home/dbot2/dbot_vda5050_ilmatar/src/vda5050_connector -DCMAKE_INSTALL_PREFIX=/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector
+[2.395s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector' returned '0': CMAKE_PREFIX_PATH=/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_msgs:/home/dbot2/dbot_vda5050_ilmatar/install/vda_dbot_nav_slam:/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector:/home/dbot2/dbot_vda5050_ilmatar/install/odometry_estimator:/home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam:/home/dbot2/dbot_vda5050_ilmatar/install/dbot_custom_msgs:/home/dbot2/dbot_src/install/odometry_estimator:/home/dbot2/dbot_src/install/dbot_custom_msgs:/home/dbot2/dbot_remote/install/pointcloud_saver:/home/dbot2/circus_demo/install/pcl_localization_ros2:/home/dbot2/circus_demo/install/ndt_omp_ros2:/home/dbot2/ros2_ws/install/odometry_estimator:/home/dbot2/ros2_ws/install/dbot_nav_slam:/home/dbot2/ros2_ws/install/dbot_custom_msgs:/home/dbot2/ros2_ws/install/ament_lint_common:/home/dbot2/ros2_ws/install/ament_cmake_xmllint:/home/dbot2/ros2_ws/install/ament_cmake_uncrustify:/home/dbot2/ros2_ws/install/ament_cmake_pyflakes:/home/dbot2/ros2_ws/install/ament_cmake_pycodestyle:/home/dbot2/ros2_ws/install/ament_cmake_pep257:/home/dbot2/ros2_ws/install/ament_cmake_pclint:/home/dbot2/ros2_ws/install/ament_cmake_mypy:/home/dbot2/ros2_ws/install/ament_cmake_lint_cmake:/home/dbot2/ros2_ws/install/ament_lint_auto:/home/dbot2/ros2_ws/install/ament_cmake_flake8:/home/dbot2/ros2_ws/install/ament_cmake_copyright:/home/dbot2/ros2_ws/install/ament_cmake_cpplint:/home/dbot2/ros2_ws/install/ament_cmake_cppcheck:/home/dbot2/ros2_ws/install/ament_cmake_clang_tidy:/home/dbot2/ros2_ws/install/ament_cmake_clang_format:/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_tb3_adapter:/home/dbot2/dbot_vda5050_ilmatar/install/tf2_dbot:/home/dbot2/dbot_vda5050_ilmatar/install/odom_motion_model:/home/dbot2/dbot_vda5050_ilmatar/install/motor_driver:/home/dbot2/dbot_vda5050_ilmatar/install/joycontrol:/home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol:/home/dbot2/dbot_vda5050_ilmatar/install/dbot_bridge:/home/dbot2/dbot_vda5050_ilmatar/install/dbot:/home/dbot2/dbot_src/install/tf2_dbot:/home/dbot2/dbot_src/install/odom_motion_model:/home/dbot2/dbot_src/install/motor_driver:/home/dbot2/dbot_src/install/joycontrol:/home/dbot2/dbot_src/install/dbot:/home/dbot2/dbot_remote/install/pcd_joy_trigger:/home/dbot2/circus_demo/install/circus_demo:/home/dbot2/ros2_ws/install/tf2_dbot:/home/dbot2/ros2_ws/install/odom_motion_model:/home/dbot2/ros2_ws/install/motor_driver:/home/dbot2/ros2_ws/install/joycontrol:/home/dbot2/ros2_ws/install/gesturecontrol:/home/dbot2/ros2_ws/install/dbot_bridge:/home/dbot2/ros2_ws/install/dbot:/home/dbot2/ros2_ws/install/ament_xmllint:/home/dbot2/ros2_ws/install/ament_uncrustify:/home/dbot2/ros2_ws/install/ament_pyflakes:/home/dbot2/ros2_ws/install/ament_pycodestyle:/home/dbot2/ros2_ws/install/ament_pep257:/home/dbot2/ros2_ws/install/ament_pclint:/home/dbot2/ros2_ws/install/ament_mypy:/home/dbot2/ros2_ws/install/ament_lint_cmake:/home/dbot2/ros2_ws/install/ament_flake8:/home/dbot2/ros2_ws/install/ament_copyright:/home/dbot2/ros2_ws/install/ament_lint:/home/dbot2/ros2_ws/install/ament_cpplint:/home/dbot2/ros2_ws/install/ament_cppcheck:/home/dbot2/ros2_ws/install/ament_clang_tidy:/home/dbot2/ros2_ws/install/ament_clang_format:/opt/ros/humble LD_LIBRARY_PATH=/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_msgs/lib:/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/lib:/home/dbot2/dbot_vda5050_ilmatar/install/dbot_custom_msgs/lib:/home/dbot2/dbot_src/install/dbot_custom_msgs/lib:/home/dbot2/circus_demo/install/pcl_localization_ros2/lib:/home/dbot2/ros2_ws/install/dbot_custom_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib /usr/bin/cmake /home/dbot2/dbot_vda5050_ilmatar/src/vda5050_connector -DCMAKE_INSTALL_PREFIX=/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector
+[2.397s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector': CMAKE_PREFIX_PATH=/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_msgs:/home/dbot2/dbot_vda5050_ilmatar/install/vda_dbot_nav_slam:/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector:/home/dbot2/dbot_vda5050_ilmatar/install/odometry_estimator:/home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam:/home/dbot2/dbot_vda5050_ilmatar/install/dbot_custom_msgs:/home/dbot2/dbot_src/install/odometry_estimator:/home/dbot2/dbot_src/install/dbot_custom_msgs:/home/dbot2/dbot_remote/install/pointcloud_saver:/home/dbot2/circus_demo/install/pcl_localization_ros2:/home/dbot2/circus_demo/install/ndt_omp_ros2:/home/dbot2/ros2_ws/install/odometry_estimator:/home/dbot2/ros2_ws/install/dbot_nav_slam:/home/dbot2/ros2_ws/install/dbot_custom_msgs:/home/dbot2/ros2_ws/install/ament_lint_common:/home/dbot2/ros2_ws/install/ament_cmake_xmllint:/home/dbot2/ros2_ws/install/ament_cmake_uncrustify:/home/dbot2/ros2_ws/install/ament_cmake_pyflakes:/home/dbot2/ros2_ws/install/ament_cmake_pycodestyle:/home/dbot2/ros2_ws/install/ament_cmake_pep257:/home/dbot2/ros2_ws/install/ament_cmake_pclint:/home/dbot2/ros2_ws/install/ament_cmake_mypy:/home/dbot2/ros2_ws/install/ament_cmake_lint_cmake:/home/dbot2/ros2_ws/install/ament_lint_auto:/home/dbot2/ros2_ws/install/ament_cmake_flake8:/home/dbot2/ros2_ws/install/ament_cmake_copyright:/home/dbot2/ros2_ws/install/ament_cmake_cpplint:/home/dbot2/ros2_ws/install/ament_cmake_cppcheck:/home/dbot2/ros2_ws/install/ament_cmake_clang_tidy:/home/dbot2/ros2_ws/install/ament_cmake_clang_format:/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_tb3_adapter:/home/dbot2/dbot_vda5050_ilmatar/install/tf2_dbot:/home/dbot2/dbot_vda5050_ilmatar/install/odom_motion_model:/home/dbot2/dbot_vda5050_ilmatar/install/motor_driver:/home/dbot2/dbot_vda5050_ilmatar/install/joycontrol:/home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol:/home/dbot2/dbot_vda5050_ilmatar/install/dbot_bridge:/home/dbot2/dbot_vda5050_ilmatar/install/dbot:/home/dbot2/dbot_src/install/tf2_dbot:/home/dbot2/dbot_src/install/odom_motion_model:/home/dbot2/dbot_src/install/motor_driver:/home/dbot2/dbot_src/install/joycontrol:/home/dbot2/dbot_src/install/dbot:/home/dbot2/dbot_remote/install/pcd_joy_trigger:/home/dbot2/circus_demo/install/circus_demo:/home/dbot2/ros2_ws/install/tf2_dbot:/home/dbot2/ros2_ws/install/odom_motion_model:/home/dbot2/ros2_ws/install/motor_driver:/home/dbot2/ros2_ws/install/joycontrol:/home/dbot2/ros2_ws/install/gesturecontrol:/home/dbot2/ros2_ws/install/dbot_bridge:/home/dbot2/ros2_ws/install/dbot:/home/dbot2/ros2_ws/install/ament_xmllint:/home/dbot2/ros2_ws/install/ament_uncrustify:/home/dbot2/ros2_ws/install/ament_pyflakes:/home/dbot2/ros2_ws/install/ament_pycodestyle:/home/dbot2/ros2_ws/install/ament_pep257:/home/dbot2/ros2_ws/install/ament_pclint:/home/dbot2/ros2_ws/install/ament_mypy:/home/dbot2/ros2_ws/install/ament_lint_cmake:/home/dbot2/ros2_ws/install/ament_flake8:/home/dbot2/ros2_ws/install/ament_copyright:/home/dbot2/ros2_ws/install/ament_lint:/home/dbot2/ros2_ws/install/ament_cpplint:/home/dbot2/ros2_ws/install/ament_cppcheck:/home/dbot2/ros2_ws/install/ament_clang_tidy:/home/dbot2/ros2_ws/install/ament_clang_format:/opt/ros/humble LD_LIBRARY_PATH=/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_msgs/lib:/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/lib:/home/dbot2/dbot_vda5050_ilmatar/install/dbot_custom_msgs/lib:/home/dbot2/dbot_src/install/dbot_custom_msgs/lib:/home/dbot2/circus_demo/install/pcl_localization_ros2/lib:/home/dbot2/ros2_ws/install/dbot_custom_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib /usr/bin/cmake --build /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector -- -j8 -l8
+[2.781s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector' returned '0': CMAKE_PREFIX_PATH=/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_msgs:/home/dbot2/dbot_vda5050_ilmatar/install/vda_dbot_nav_slam:/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector:/home/dbot2/dbot_vda5050_ilmatar/install/odometry_estimator:/home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam:/home/dbot2/dbot_vda5050_ilmatar/install/dbot_custom_msgs:/home/dbot2/dbot_src/install/odometry_estimator:/home/dbot2/dbot_src/install/dbot_custom_msgs:/home/dbot2/dbot_remote/install/pointcloud_saver:/home/dbot2/circus_demo/install/pcl_localization_ros2:/home/dbot2/circus_demo/install/ndt_omp_ros2:/home/dbot2/ros2_ws/install/odometry_estimator:/home/dbot2/ros2_ws/install/dbot_nav_slam:/home/dbot2/ros2_ws/install/dbot_custom_msgs:/home/dbot2/ros2_ws/install/ament_lint_common:/home/dbot2/ros2_ws/install/ament_cmake_xmllint:/home/dbot2/ros2_ws/install/ament_cmake_uncrustify:/home/dbot2/ros2_ws/install/ament_cmake_pyflakes:/home/dbot2/ros2_ws/install/ament_cmake_pycodestyle:/home/dbot2/ros2_ws/install/ament_cmake_pep257:/home/dbot2/ros2_ws/install/ament_cmake_pclint:/home/dbot2/ros2_ws/install/ament_cmake_mypy:/home/dbot2/ros2_ws/install/ament_cmake_lint_cmake:/home/dbot2/ros2_ws/install/ament_lint_auto:/home/dbot2/ros2_ws/install/ament_cmake_flake8:/home/dbot2/ros2_ws/install/ament_cmake_copyright:/home/dbot2/ros2_ws/install/ament_cmake_cpplint:/home/dbot2/ros2_ws/install/ament_cmake_cppcheck:/home/dbot2/ros2_ws/install/ament_cmake_clang_tidy:/home/dbot2/ros2_ws/install/ament_cmake_clang_format:/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_tb3_adapter:/home/dbot2/dbot_vda5050_ilmatar/install/tf2_dbot:/home/dbot2/dbot_vda5050_ilmatar/install/odom_motion_model:/home/dbot2/dbot_vda5050_ilmatar/install/motor_driver:/home/dbot2/dbot_vda5050_ilmatar/install/joycontrol:/home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol:/home/dbot2/dbot_vda5050_ilmatar/install/dbot_bridge:/home/dbot2/dbot_vda5050_ilmatar/install/dbot:/home/dbot2/dbot_src/install/tf2_dbot:/home/dbot2/dbot_src/install/odom_motion_model:/home/dbot2/dbot_src/install/motor_driver:/home/dbot2/dbot_src/install/joycontrol:/home/dbot2/dbot_src/install/dbot:/home/dbot2/dbot_remote/install/pcd_joy_trigger:/home/dbot2/circus_demo/install/circus_demo:/home/dbot2/ros2_ws/install/tf2_dbot:/home/dbot2/ros2_ws/install/odom_motion_model:/home/dbot2/ros2_ws/install/motor_driver:/home/dbot2/ros2_ws/install/joycontrol:/home/dbot2/ros2_ws/install/gesturecontrol:/home/dbot2/ros2_ws/install/dbot_bridge:/home/dbot2/ros2_ws/install/dbot:/home/dbot2/ros2_ws/install/ament_xmllint:/home/dbot2/ros2_ws/install/ament_uncrustify:/home/dbot2/ros2_ws/install/ament_pyflakes:/home/dbot2/ros2_ws/install/ament_pycodestyle:/home/dbot2/ros2_ws/install/ament_pep257:/home/dbot2/ros2_ws/install/ament_pclint:/home/dbot2/ros2_ws/install/ament_mypy:/home/dbot2/ros2_ws/install/ament_lint_cmake:/home/dbot2/ros2_ws/install/ament_flake8:/home/dbot2/ros2_ws/install/ament_copyright:/home/dbot2/ros2_ws/install/ament_lint:/home/dbot2/ros2_ws/install/ament_cpplint:/home/dbot2/ros2_ws/install/ament_cppcheck:/home/dbot2/ros2_ws/install/ament_clang_tidy:/home/dbot2/ros2_ws/install/ament_clang_format:/opt/ros/humble LD_LIBRARY_PATH=/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_msgs/lib:/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/lib:/home/dbot2/dbot_vda5050_ilmatar/install/dbot_custom_msgs/lib:/home/dbot2/dbot_src/install/dbot_custom_msgs/lib:/home/dbot2/circus_demo/install/pcl_localization_ros2/lib:/home/dbot2/ros2_ws/install/dbot_custom_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib /usr/bin/cmake --build /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector -- -j8 -l8
+[2.788s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector': CMAKE_PREFIX_PATH=/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_msgs:/home/dbot2/dbot_vda5050_ilmatar/install/vda_dbot_nav_slam:/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector:/home/dbot2/dbot_vda5050_ilmatar/install/odometry_estimator:/home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam:/home/dbot2/dbot_vda5050_ilmatar/install/dbot_custom_msgs:/home/dbot2/dbot_src/install/odometry_estimator:/home/dbot2/dbot_src/install/dbot_custom_msgs:/home/dbot2/dbot_remote/install/pointcloud_saver:/home/dbot2/circus_demo/install/pcl_localization_ros2:/home/dbot2/circus_demo/install/ndt_omp_ros2:/home/dbot2/ros2_ws/install/odometry_estimator:/home/dbot2/ros2_ws/install/dbot_nav_slam:/home/dbot2/ros2_ws/install/dbot_custom_msgs:/home/dbot2/ros2_ws/install/ament_lint_common:/home/dbot2/ros2_ws/install/ament_cmake_xmllint:/home/dbot2/ros2_ws/install/ament_cmake_uncrustify:/home/dbot2/ros2_ws/install/ament_cmake_pyflakes:/home/dbot2/ros2_ws/install/ament_cmake_pycodestyle:/home/dbot2/ros2_ws/install/ament_cmake_pep257:/home/dbot2/ros2_ws/install/ament_cmake_pclint:/home/dbot2/ros2_ws/install/ament_cmake_mypy:/home/dbot2/ros2_ws/install/ament_cmake_lint_cmake:/home/dbot2/ros2_ws/install/ament_lint_auto:/home/dbot2/ros2_ws/install/ament_cmake_flake8:/home/dbot2/ros2_ws/install/ament_cmake_copyright:/home/dbot2/ros2_ws/install/ament_cmake_cpplint:/home/dbot2/ros2_ws/install/ament_cmake_cppcheck:/home/dbot2/ros2_ws/install/ament_cmake_clang_tidy:/home/dbot2/ros2_ws/install/ament_cmake_clang_format:/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_tb3_adapter:/home/dbot2/dbot_vda5050_ilmatar/install/tf2_dbot:/home/dbot2/dbot_vda5050_ilmatar/install/odom_motion_model:/home/dbot2/dbot_vda5050_ilmatar/install/motor_driver:/home/dbot2/dbot_vda5050_ilmatar/install/joycontrol:/home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol:/home/dbot2/dbot_vda5050_ilmatar/install/dbot_bridge:/home/dbot2/dbot_vda5050_ilmatar/install/dbot:/home/dbot2/dbot_src/install/tf2_dbot:/home/dbot2/dbot_src/install/odom_motion_model:/home/dbot2/dbot_src/install/motor_driver:/home/dbot2/dbot_src/install/joycontrol:/home/dbot2/dbot_src/install/dbot:/home/dbot2/dbot_remote/install/pcd_joy_trigger:/home/dbot2/circus_demo/install/circus_demo:/home/dbot2/ros2_ws/install/tf2_dbot:/home/dbot2/ros2_ws/install/odom_motion_model:/home/dbot2/ros2_ws/install/motor_driver:/home/dbot2/ros2_ws/install/joycontrol:/home/dbot2/ros2_ws/install/gesturecontrol:/home/dbot2/ros2_ws/install/dbot_bridge:/home/dbot2/ros2_ws/install/dbot:/home/dbot2/ros2_ws/install/ament_xmllint:/home/dbot2/ros2_ws/install/ament_uncrustify:/home/dbot2/ros2_ws/install/ament_pyflakes:/home/dbot2/ros2_ws/install/ament_pycodestyle:/home/dbot2/ros2_ws/install/ament_pep257:/home/dbot2/ros2_ws/install/ament_pclint:/home/dbot2/ros2_ws/install/ament_mypy:/home/dbot2/ros2_ws/install/ament_lint_cmake:/home/dbot2/ros2_ws/install/ament_flake8:/home/dbot2/ros2_ws/install/ament_copyright:/home/dbot2/ros2_ws/install/ament_lint:/home/dbot2/ros2_ws/install/ament_cpplint:/home/dbot2/ros2_ws/install/ament_cppcheck:/home/dbot2/ros2_ws/install/ament_clang_tidy:/home/dbot2/ros2_ws/install/ament_clang_format:/opt/ros/humble LD_LIBRARY_PATH=/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_msgs/lib:/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/lib:/home/dbot2/dbot_vda5050_ilmatar/install/dbot_custom_msgs/lib:/home/dbot2/dbot_src/install/dbot_custom_msgs/lib:/home/dbot2/circus_demo/install/pcl_localization_ros2/lib:/home/dbot2/ros2_ws/install/dbot_custom_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib /usr/bin/cmake --install /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector
+[2.920s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(vda5050_connector)
+[2.921s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector' returned '0': CMAKE_PREFIX_PATH=/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_msgs:/home/dbot2/dbot_vda5050_ilmatar/install/vda_dbot_nav_slam:/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector:/home/dbot2/dbot_vda5050_ilmatar/install/odometry_estimator:/home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam:/home/dbot2/dbot_vda5050_ilmatar/install/dbot_custom_msgs:/home/dbot2/dbot_src/install/odometry_estimator:/home/dbot2/dbot_src/install/dbot_custom_msgs:/home/dbot2/dbot_remote/install/pointcloud_saver:/home/dbot2/circus_demo/install/pcl_localization_ros2:/home/dbot2/circus_demo/install/ndt_omp_ros2:/home/dbot2/ros2_ws/install/odometry_estimator:/home/dbot2/ros2_ws/install/dbot_nav_slam:/home/dbot2/ros2_ws/install/dbot_custom_msgs:/home/dbot2/ros2_ws/install/ament_lint_common:/home/dbot2/ros2_ws/install/ament_cmake_xmllint:/home/dbot2/ros2_ws/install/ament_cmake_uncrustify:/home/dbot2/ros2_ws/install/ament_cmake_pyflakes:/home/dbot2/ros2_ws/install/ament_cmake_pycodestyle:/home/dbot2/ros2_ws/install/ament_cmake_pep257:/home/dbot2/ros2_ws/install/ament_cmake_pclint:/home/dbot2/ros2_ws/install/ament_cmake_mypy:/home/dbot2/ros2_ws/install/ament_cmake_lint_cmake:/home/dbot2/ros2_ws/install/ament_lint_auto:/home/dbot2/ros2_ws/install/ament_cmake_flake8:/home/dbot2/ros2_ws/install/ament_cmake_copyright:/home/dbot2/ros2_ws/install/ament_cmake_cpplint:/home/dbot2/ros2_ws/install/ament_cmake_cppcheck:/home/dbot2/ros2_ws/install/ament_cmake_clang_tidy:/home/dbot2/ros2_ws/install/ament_cmake_clang_format:/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_tb3_adapter:/home/dbot2/dbot_vda5050_ilmatar/install/tf2_dbot:/home/dbot2/dbot_vda5050_ilmatar/install/odom_motion_model:/home/dbot2/dbot_vda5050_ilmatar/install/motor_driver:/home/dbot2/dbot_vda5050_ilmatar/install/joycontrol:/home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol:/home/dbot2/dbot_vda5050_ilmatar/install/dbot_bridge:/home/dbot2/dbot_vda5050_ilmatar/install/dbot:/home/dbot2/dbot_src/install/tf2_dbot:/home/dbot2/dbot_src/install/odom_motion_model:/home/dbot2/dbot_src/install/motor_driver:/home/dbot2/dbot_src/install/joycontrol:/home/dbot2/dbot_src/install/dbot:/home/dbot2/dbot_remote/install/pcd_joy_trigger:/home/dbot2/circus_demo/install/circus_demo:/home/dbot2/ros2_ws/install/tf2_dbot:/home/dbot2/ros2_ws/install/odom_motion_model:/home/dbot2/ros2_ws/install/motor_driver:/home/dbot2/ros2_ws/install/joycontrol:/home/dbot2/ros2_ws/install/gesturecontrol:/home/dbot2/ros2_ws/install/dbot_bridge:/home/dbot2/ros2_ws/install/dbot:/home/dbot2/ros2_ws/install/ament_xmllint:/home/dbot2/ros2_ws/install/ament_uncrustify:/home/dbot2/ros2_ws/install/ament_pyflakes:/home/dbot2/ros2_ws/install/ament_pycodestyle:/home/dbot2/ros2_ws/install/ament_pep257:/home/dbot2/ros2_ws/install/ament_pclint:/home/dbot2/ros2_ws/install/ament_mypy:/home/dbot2/ros2_ws/install/ament_lint_cmake:/home/dbot2/ros2_ws/install/ament_flake8:/home/dbot2/ros2_ws/install/ament_copyright:/home/dbot2/ros2_ws/install/ament_lint:/home/dbot2/ros2_ws/install/ament_cpplint:/home/dbot2/ros2_ws/install/ament_cppcheck:/home/dbot2/ros2_ws/install/ament_clang_tidy:/home/dbot2/ros2_ws/install/ament_clang_format:/opt/ros/humble LD_LIBRARY_PATH=/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_msgs/lib:/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/lib:/home/dbot2/dbot_vda5050_ilmatar/install/dbot_custom_msgs/lib:/home/dbot2/dbot_src/install/dbot_custom_msgs/lib:/home/dbot2/circus_demo/install/pcl_localization_ros2/lib:/home/dbot2/ros2_ws/install/dbot_custom_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib /usr/bin/cmake --install /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_connector
+[2.923s] Level 1:colcon.colcon_core.environment:checking '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector' for CMake module files
+[2.923s] Level 1:colcon.colcon_core.environment:checking '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector' for CMake config files
+[2.924s] Level 1:colcon.colcon_core.shell:create_environment_hook('vda5050_connector', 'cmake_prefix_path')
+[2.924s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/hook/cmake_prefix_path.ps1'
+[2.925s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/hook/cmake_prefix_path.dsv'
+[2.925s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/hook/cmake_prefix_path.sh'
+[2.925s] Level 1:colcon.colcon_core.environment:checking '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/lib'
+[2.926s] Level 1:colcon.colcon_core.shell:create_environment_hook('vda5050_connector', 'ld_library_path_lib')
+[2.926s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/hook/ld_library_path_lib.ps1'
+[2.926s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/hook/ld_library_path_lib.dsv'
+[2.926s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/hook/ld_library_path_lib.sh'
+[2.926s] Level 1:colcon.colcon_core.environment:checking '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/bin'
+[2.926s] Level 1:colcon.colcon_core.environment:checking '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/lib/pkgconfig/vda5050_connector.pc'
+[2.927s] Level 1:colcon.colcon_core.environment:checking '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/lib/python3.10/site-packages'
+[2.927s] Level 1:colcon.colcon_core.environment:checking '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/bin'
+[2.927s] INFO:colcon.colcon_core.shell:Creating package script '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/package.ps1'
+[2.927s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/package.dsv'
+[2.928s] INFO:colcon.colcon_core.shell:Creating package script '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/package.sh'
+[2.928s] INFO:colcon.colcon_core.shell:Creating package script '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/package.bash'
+[2.929s] INFO:colcon.colcon_core.shell:Creating package script '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/package.zsh'
+[2.929s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/colcon-core/packages/vda5050_connector)
+[2.929s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(vda5050_connector)
+[2.930s] Level 1:colcon.colcon_core.environment:checking '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector' for CMake module files
+[2.930s] Level 1:colcon.colcon_core.environment:checking '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector' for CMake config files
+[2.931s] Level 1:colcon.colcon_core.shell:create_environment_hook('vda5050_connector', 'cmake_prefix_path')
+[2.931s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/hook/cmake_prefix_path.ps1'
+[2.931s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/hook/cmake_prefix_path.dsv'
+[2.931s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/hook/cmake_prefix_path.sh'
+[2.931s] Level 1:colcon.colcon_core.environment:checking '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/lib'
+[2.931s] Level 1:colcon.colcon_core.shell:create_environment_hook('vda5050_connector', 'ld_library_path_lib')
+[2.932s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/hook/ld_library_path_lib.ps1'
+[2.932s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/hook/ld_library_path_lib.dsv'
+[2.932s] INFO:colcon.colcon_core.shell:Creating environment hook '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/hook/ld_library_path_lib.sh'
+[2.932s] Level 1:colcon.colcon_core.environment:checking '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/bin'
+[2.932s] Level 1:colcon.colcon_core.environment:checking '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/lib/pkgconfig/vda5050_connector.pc'
+[2.932s] Level 1:colcon.colcon_core.environment:checking '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/lib/python3.10/site-packages'
+[2.933s] Level 1:colcon.colcon_core.environment:checking '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/bin'
+[2.933s] INFO:colcon.colcon_core.shell:Creating package script '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/package.ps1'
+[2.934s] INFO:colcon.colcon_core.shell:Creating package descriptor '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/package.dsv'
+[2.934s] INFO:colcon.colcon_core.shell:Creating package script '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/package.sh'
+[2.934s] INFO:colcon.colcon_core.shell:Creating package script '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/package.bash'
+[2.935s] INFO:colcon.colcon_core.shell:Creating package script '/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/vda5050_connector/package.zsh'
+[2.935s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_connector/share/colcon-core/packages/vda5050_connector)
+[2.935s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:closing loop
+[2.935s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:loop closed
+[2.935s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete finished with '0'
+[2.935s] DEBUG:colcon.colcon_core.event_reactor:joining thread
+[2.940s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.terminal_notifier': Not used on non-Darwin systems
+[2.940s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.win32': Not used on non-Windows systems
+[2.940s] INFO:colcon.colcon_notification.desktop_notification:Sending desktop notification using 'notify2'
+[2.948s] DEBUG:colcon.colcon_core.event_reactor:joined thread
+[2.948s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/dbot2/dbot_vda5050_ilmatar/install/local_setup.ps1'
+[2.949s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/dbot2/dbot_vda5050_ilmatar/install/_local_setup_util_ps1.py'
+[2.951s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/dbot2/dbot_vda5050_ilmatar/install/setup.ps1'
+[2.953s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/dbot2/dbot_vda5050_ilmatar/install/local_setup.sh'
+[2.953s] INFO:colcon.colcon_core.shell:Creating prefix util module '/home/dbot2/dbot_vda5050_ilmatar/install/_local_setup_util_sh.py'
+[2.954s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/dbot2/dbot_vda5050_ilmatar/install/setup.sh'
+[2.956s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/dbot2/dbot_vda5050_ilmatar/install/local_setup.bash'
+[2.957s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/dbot2/dbot_vda5050_ilmatar/install/setup.bash'
+[2.960s] INFO:colcon.colcon_core.shell:Creating prefix script '/home/dbot2/dbot_vda5050_ilmatar/install/local_setup.zsh'
+[2.960s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/home/dbot2/dbot_vda5050_ilmatar/install/setup.zsh'

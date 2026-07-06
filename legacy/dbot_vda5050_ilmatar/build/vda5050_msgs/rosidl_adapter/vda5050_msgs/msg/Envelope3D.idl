@@ -1,0 +1,24 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from vda5050_msgs/msg/Envelope3D.msg
+// generated code does not contain a copyright notice
+
+
+module vda5050_msgs {
+  module msg {
+    struct Envelope3D {
+      @verbatim (language="comment", text=
+        "Name of the envelope curve set")
+      string set;
+
+      string format;
+
+      string data;
+
+      @verbatim (language="comment", text=
+        "Protocol and url-definition for downloading the 3D-envelope curve data")
+      string url;
+
+      string description;
+    };
+  };
+};

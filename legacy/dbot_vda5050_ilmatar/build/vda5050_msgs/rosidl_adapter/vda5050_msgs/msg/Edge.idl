@@ -1,0 +1,106 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from vda5050_msgs/msg/Edge.msg
+// generated code does not contain a copyright notice
+
+#include "vda5050_msgs/msg/Action.idl"
+#include "vda5050_msgs/msg/Trajectory.idl"
+
+module vda5050_msgs {
+  module msg {
+    @verbatim (language="comment", text=
+      "Directional connection between two nodes")
+    struct Edge {
+      @verbatim (language="comment", text=
+        "Unique edge identification")
+      string edge_id;
+
+      @verbatim (language="comment", text=
+        "Id to track the sequence of nodes and edges in an order and to simplify order" "\n"
+        "updates. The variable sequence_id runs across all nodes and edges of the same order" "\n"
+        "and is reset when a new order_id is issued.")
+      uint32 sequence_id;
+
+      @verbatim (language="comment", text=
+        "Additional information on the edge")
+      string edge_description;
+
+      @verbatim (language="comment", text=
+        "True indicates that the edge is part of the base. False indicates that the edge is" "\n"
+        "part of the horizon.")
+      boolean released;
+
+      @verbatim (language="comment", text=
+        "nodeID of startNode")
+      string start_node_id;
+
+      @verbatim (language="comment", text=
+        "nodeID of endNode")
+      string end_node_id;
+
+      @verbatim (language="comment", text=
+        "Permitted maximum speed on the edge. Speed is defined by the fastest point of the" "\n"
+        "vehicle.")
+      @unit (value="m/s")
+      double max_speed;
+
+      @verbatim (language="comment", text=
+        "Permitted maximum height of the vehicle, including the load, on edge")
+      @unit (value="m")
+      double max_height;
+
+      @verbatim (language="comment", text=
+        "Permitted minimal height of the edge measured at the bottom of the load")
+      @unit (value="m")
+      double min_height;
+
+      @verbatim (language="comment", text=
+        "Orientation of the AGV on the edge relative to the global project specific" "\n"
+        "map coordinate origin (for holonomic vehicles with more than one driving" "\n"
+        "direction)." "\n"
+        "Example: orientation Pi/2 rad will lead to a rotation of 90 degrees." "\n"
+        "If AGVstarts in different orientation, rotate the vehicle on the edge to the" "\n"
+        "desired orientation if rotationAllowed is set to “true”. If rotationAllowed" "\n"
+        "is “false\", rotate before entering the edge. If that is not possible, reject" "\n"
+        "the order." "\n"
+        "If a trajectory with orientation is defined, follow the trajectories orientation." "\n"
+        "If a trajectory without orientation and the orientation field here is defined," "\n"
+        "apply the orientation to the tangent of the trajectory.")
+      @unit (value="rad")
+      double orientation;
+
+      @verbatim (language="comment", text=
+        "Sets direction at junctions for line-guided vehicles, to be defined initially" "\n"
+        "(vehicle individual) Example: left, right, straight, 433MHz")
+      string direction;
+
+      @verbatim (language="comment", text=
+        "“true”: rotation is allowed on the edge. “false”: rotation is not allowed on the edge." "\n"
+        "Optional: Default to “false”. If this value is set, rotation is allowed on the edge.")
+      boolean rotation_allowed;
+
+      @verbatim (language="comment", text=
+        "Maximum rotation speed Optional: No limit if not set")
+      @unit (value="rad/s")
+      double max_rotation_speed;
+
+      @verbatim (language="comment", text=
+        "Trajectory JSON-object for this edge as a NURBS. Defines the curve on which the" "\n"
+        "AGV should move between start_node and end_node. Optional: Can be omitted if AGV" "\n"
+        "cannot process trajectories or if AGV plans its own trajectory.")
+      vda5050_msgs::msg::Trajectory trajectory;
+
+      @verbatim (language="comment", text=
+        "Length of the path from startNode to endNode. Optional: This value is used" "\n"
+        "by lineguided AGVs to decrease their speed before reaching a stop position.")
+      @unit (value="m")
+      double length;
+
+      @verbatim (language="comment", text=
+        "Array of action_ids to be executed on the edge. An action triggered by an edge will" "\n"
+        "only be active for the time that the AGV is traversing the edge which triggered" "\n"
+        "the action. When the AGV leaves the edge, the action will stop and the state" "\n"
+        "before entering the edge will be restored.")
+      sequence<vda5050_msgs::msg::Action> actions;
+    };
+  };
+};

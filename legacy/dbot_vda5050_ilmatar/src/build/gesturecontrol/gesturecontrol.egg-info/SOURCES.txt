@@ -1,0 +1,14 @@
+package.xml
+setup.cfg
+setup.py
+gesturecontrol/__init__.py
+gesturecontrol/cameratest.py
+gesturecontrol/handcontrol.py
+gesturecontrol.egg-info/PKG-INFO
+gesturecontrol.egg-info/SOURCES.txt
+gesturecontrol.egg-info/dependency_links.txt
+gesturecontrol.egg-info/entry_points.txt
+gesturecontrol.egg-info/requires.txt
+gesturecontrol.egg-info/top_level.txt
+gesturecontrol.egg-info/zip-safe
+resource/gesturecontrol

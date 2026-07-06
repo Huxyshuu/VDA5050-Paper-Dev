@@ -1,0 +1,20 @@
+running develop
+running egg_info
+writing vda5050_tb3_adapter.egg-info/PKG-INFO
+writing dependency_links to vda5050_tb3_adapter.egg-info/dependency_links.txt
+writing entry points to vda5050_tb3_adapter.egg-info/entry_points.txt
+writing requirements to vda5050_tb3_adapter.egg-info/requires.txt
+writing top-level names to vda5050_tb3_adapter.egg-info/top_level.txt
+reading manifest file 'vda5050_tb3_adapter.egg-info/SOURCES.txt'
+writing manifest file 'vda5050_tb3_adapter.egg-info/SOURCES.txt'
+running build_ext
+Creating /home/dbot2/dbot_vda5050_ilmatar/install/vda5050_tb3_adapter/lib/python3.10/site-packages/vda5050-tb3-adapter.egg-link (link to .)
+Installing tb3_adapter script to /home/dbot2/dbot_vda5050_ilmatar/install/vda5050_tb3_adapter/lib/vda5050_tb3_adapter
+
+Installed /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_tb3_adapter
+running symlink_data
+symbolically linking /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_tb3_adapter/resource/vda5050_tb3_adapter -> /home/dbot2/dbot_vda5050_ilmatar/install/vda5050_tb3_adapter/share/ament_index/resource_index/packages
+symbolically linking /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_tb3_adapter/package.xml -> /home/dbot2/dbot_vda5050_ilmatar/install/vda5050_tb3_adapter/share/vda5050_tb3_adapter
+symbolically linking /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_tb3_adapter/launch/connector_tb3.launch.py -> /home/dbot2/dbot_vda5050_ilmatar/install/vda5050_tb3_adapter/share/vda5050_tb3_adapter/launch
+symbolically linking /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_tb3_adapter/launch/adapter_tb3.launch.py -> /home/dbot2/dbot_vda5050_ilmatar/install/vda5050_tb3_adapter/share/vda5050_tb3_adapter/launch
+symbolically linking /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_tb3_adapter/config/connector_tb3.yaml -> /home/dbot2/dbot_vda5050_ilmatar/install/vda5050_tb3_adapter/share/vda5050_tb3_adapter/config

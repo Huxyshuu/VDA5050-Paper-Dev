@@ -1,0 +1,21 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from vda5050_msgs/msg/Envelope2D.msg
+// generated code does not contain a copyright notice
+
+#include "vda5050_msgs/msg/PolygonPoint.idl"
+
+module vda5050_msgs {
+  module msg {
+    struct Envelope2D {
+      @verbatim (language="comment", text=
+        "Name of the envelope curve set")
+      string set;
+
+      @verbatim (language="comment", text=
+        "Envelope curve as a x/y-polygon")
+      sequence<vda5050_msgs::msg::PolygonPoint> polygon_points;
+
+      string description;
+    };
+  };
+};

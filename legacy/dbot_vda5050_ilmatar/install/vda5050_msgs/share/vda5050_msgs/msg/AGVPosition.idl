@@ -1,0 +1,54 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from vda5050_msgs/msg/AGVPosition.msg
+// generated code does not contain a copyright notice
+
+
+module vda5050_msgs {
+  module msg {
+    @verbatim (language="comment", text=
+      "Defines the position on a map in world coordinates. Each floor has its own map.")
+    struct AGVPosition {
+      @verbatim (language="comment", text=
+        "False: position is not initialized True: position is initialized")
+      boolean position_initialized;
+
+      @verbatim (language="comment", text=
+        "Range: Describes the quality of the localization and therefore, can be used" "\n"
+        "e. g. by SLAMAGVs to describe how accurate the current position information is." "\n"
+        "0.0: position unknown 1.0: position known")
+      @unit (value="0.0 … 1.0")
+      double localization_score;
+
+      @verbatim (language="comment", text=
+        "Value for the deviation range of the position in meters.")
+      double deviation_range;
+
+      @verbatim (language="comment", text=
+        "X-position on the map in reference to the map coordinate system. Precision is up to" "\n"
+        "the specific implementation")
+      @unit (value="m")
+      double x;
+
+      @verbatim (language="comment", text=
+        "Y-position on the map in reference to the map coordinate system. Precision is up to" "\n"
+        "the specific implementation.")
+      @unit (value="m")
+      double y;
+
+      @verbatim (language="comment", text=
+        "[rad] Range: [-Pi … Pi] Orientation of the AGV.")
+      double theta;
+
+      @verbatim (language="comment", text=
+        "Unique identification of the map in which the position is referenced. Each map has the" "\n"
+        "same origin of coordinates. When an AGV uses an elevator, e. g. leading from a departure" "\n"
+        "floor to a target floor, it will disappear off the map of the departure floor and spawn" "\n"
+        "in the related lift node on the map of the target floor.")
+      string map_id;
+
+      @verbatim (language="comment", text=
+        "Additional information on the map.")
+      string map_description;
+    };
+  };
+};

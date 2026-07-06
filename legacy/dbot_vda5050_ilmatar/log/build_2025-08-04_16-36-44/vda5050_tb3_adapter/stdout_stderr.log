@@ -1,0 +1,30 @@
+running develop
+Removing /home/dbot2/dbot_vda5050_ilmatar/install/vda5050_tb3_adapter/lib/python3.10/site-packages/vda5050-tb3-adapter.egg-link (link to .)
+running egg_info
+writing ../../build/vda5050_tb3_adapter/vda5050_tb3_adapter.egg-info/PKG-INFO
+writing dependency_links to ../../build/vda5050_tb3_adapter/vda5050_tb3_adapter.egg-info/dependency_links.txt
+writing entry points to ../../build/vda5050_tb3_adapter/vda5050_tb3_adapter.egg-info/entry_points.txt
+writing requirements to ../../build/vda5050_tb3_adapter/vda5050_tb3_adapter.egg-info/requires.txt
+writing top-level names to ../../build/vda5050_tb3_adapter/vda5050_tb3_adapter.egg-info/top_level.txt
+reading manifest file '../../build/vda5050_tb3_adapter/vda5050_tb3_adapter.egg-info/SOURCES.txt'
+writing manifest file '../../build/vda5050_tb3_adapter/vda5050_tb3_adapter.egg-info/SOURCES.txt'
+running build
+running build_py
+running install
+running install_lib
+creating /home/dbot2/dbot_vda5050_ilmatar/install/vda5050_tb3_adapter/lib/python3.10/site-packages/vda5050_tb3_adapter
+copying /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_tb3_adapter/build/lib/vda5050_tb3_adapter/__init__.py -> /home/dbot2/dbot_vda5050_ilmatar/install/vda5050_tb3_adapter/lib/python3.10/site-packages/vda5050_tb3_adapter
+copying /home/dbot2/dbot_vda5050_ilmatar/build/vda5050_tb3_adapter/build/lib/vda5050_tb3_adapter/tb3_adapter.py -> /home/dbot2/dbot_vda5050_ilmatar/install/vda5050_tb3_adapter/lib/python3.10/site-packages/vda5050_tb3_adapter
+byte-compiling /home/dbot2/dbot_vda5050_ilmatar/install/vda5050_tb3_adapter/lib/python3.10/site-packages/vda5050_tb3_adapter/__init__.py to __init__.cpython-310.pyc
+byte-compiling /home/dbot2/dbot_vda5050_ilmatar/install/vda5050_tb3_adapter/lib/python3.10/site-packages/vda5050_tb3_adapter/tb3_adapter.py to tb3_adapter.cpython-310.pyc
+running install_data
+copying resource/vda5050_tb3_adapter -> /home/dbot2/dbot_vda5050_ilmatar/install/vda5050_tb3_adapter/share/ament_index/resource_index/packages
+copying package.xml -> /home/dbot2/dbot_vda5050_ilmatar/install/vda5050_tb3_adapter/share/vda5050_tb3_adapter
+copying launch/connector_tb3.launch.py -> /home/dbot2/dbot_vda5050_ilmatar/install/vda5050_tb3_adapter/share/vda5050_tb3_adapter/launch
+copying launch/adapter_tb3.launch.py -> /home/dbot2/dbot_vda5050_ilmatar/install/vda5050_tb3_adapter/share/vda5050_tb3_adapter/launch
+copying config/connector_tb3.yaml -> /home/dbot2/dbot_vda5050_ilmatar/install/vda5050_tb3_adapter/share/vda5050_tb3_adapter/config
+running install_egg_info
+Copying ../../build/vda5050_tb3_adapter/vda5050_tb3_adapter.egg-info to /home/dbot2/dbot_vda5050_ilmatar/install/vda5050_tb3_adapter/lib/python3.10/site-packages/vda5050_tb3_adapter-0.0.0-py3.10.egg-info
+running install_scripts
+Installing tb3_adapter script to /home/dbot2/dbot_vda5050_ilmatar/install/vda5050_tb3_adapter/lib/vda5050_tb3_adapter
+writing list of installed files to '/home/dbot2/dbot_vda5050_ilmatar/build/vda5050_tb3_adapter/install.log'

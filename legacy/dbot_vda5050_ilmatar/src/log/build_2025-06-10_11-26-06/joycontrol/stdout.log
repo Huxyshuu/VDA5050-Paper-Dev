@@ -1,0 +1,22 @@
+running develop
+running egg_info
+creating joycontrol.egg-info
+writing joycontrol.egg-info/PKG-INFO
+writing dependency_links to joycontrol.egg-info/dependency_links.txt
+writing entry points to joycontrol.egg-info/entry_points.txt
+writing requirements to joycontrol.egg-info/requires.txt
+writing top-level names to joycontrol.egg-info/top_level.txt
+writing manifest file 'joycontrol.egg-info/SOURCES.txt'
+reading manifest file 'joycontrol.egg-info/SOURCES.txt'
+writing manifest file 'joycontrol.egg-info/SOURCES.txt'
+running build_ext
+Creating /home/dbot2/ros2_ws/src/install/joycontrol/lib/python3.10/site-packages/joycontrol.egg-link (link to .)
+Installing joycontrol script to /home/dbot2/ros2_ws/src/install/joycontrol/lib/joycontrol
+
+Installed /home/dbot2/ros2_ws/src/build/joycontrol
+running symlink_data
+creating /home/dbot2/ros2_ws/src/install/joycontrol/share/ament_index
+creating /home/dbot2/ros2_ws/src/install/joycontrol/share/ament_index/resource_index
+creating /home/dbot2/ros2_ws/src/install/joycontrol/share/ament_index/resource_index/packages
+symbolically linking /home/dbot2/ros2_ws/src/build/joycontrol/resource/joycontrol -> /home/dbot2/ros2_ws/src/install/joycontrol/share/ament_index/resource_index/packages
+symbolically linking /home/dbot2/ros2_ws/src/build/joycontrol/package.xml -> /home/dbot2/ros2_ws/src/install/joycontrol/share/joycontrol

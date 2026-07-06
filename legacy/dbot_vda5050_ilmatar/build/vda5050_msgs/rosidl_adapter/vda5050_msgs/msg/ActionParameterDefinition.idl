@@ -1,0 +1,29 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from vda5050_msgs/msg/ActionParameterDefinition.msg
+// generated code does not contain a copyright notice
+
+
+module vda5050_msgs {
+  module msg {
+    module ActionParameterDefinition_Constants {
+      @verbatim (language="comment", text=
+        "Enums for valueDataType")
+      const string BOOL = "BOOL";
+      const string NUMBER = "NUMBER";
+      const string INTEGER = "INTEGER";
+      const string FLOAT = "FLOAT";
+      const string STRING = "STRING";
+      const string OBJECT = "OBJECT";
+      const string ARRAY = "ARRAY";
+    };
+    struct ActionParameterDefinition {
+      string key;
+
+      string value_data_type;
+
+      string description;
+
+      boolean is_optional;
+    };
+  };
+};

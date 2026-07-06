@@ -1,0 +1,37 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from vda5050_msgs/msg/Error.msg
+// generated code does not contain a copyright notice
+
+#include "vda5050_msgs/msg/ErrorReference.idl"
+
+module vda5050_msgs {
+  module msg {
+    module Error_Constants {
+      @verbatim (language="comment", text=
+        "Enums for error_level")
+      const string WARNING = "WARNING";
+      const string FATAL = "FATAL";
+    };
+    struct Error {
+      @verbatim (language="comment", text=
+        "Type / name of error")
+      string error_type;
+
+      @verbatim (language="comment", text=
+        "Array of references to identify the source of the error (e. g. header_id," "\n"
+        "order_id, action_id, …). For additional information see best practice" "\n"
+        "chapter 6.3")
+      sequence<vda5050_msgs::msg::ErrorReference> error_references;
+
+      @verbatim (language="comment", text=
+        "Error description")
+      string error_description;
+
+      @verbatim (language="comment", text=
+        "Enum {warning, fatal} warning: AGV is ready to start (e.g. maintenance" "\n"
+        "cycle expiration warning) fatal: AGV is not in running condition, user" "\n"
+        "intervention required (e.g. laser scanner is contaminated)")
+      string error_level;
+    };
+  };
+};

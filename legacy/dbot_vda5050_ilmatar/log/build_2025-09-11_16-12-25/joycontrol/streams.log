@@ -1,0 +1,22 @@
+[4.798s] Invoking command in '/home/dbot2/dbot_vda5050_ilmatar/src/joycontrol': PYTHONPATH=/home/dbot2/dbot_vda5050_ilmatar/build/joycontrol/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/dbot2/dbot_vda5050_ilmatar/install/joycontrol/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/joycontrol build --build-base /home/dbot2/dbot_vda5050_ilmatar/build/joycontrol/build install --record /home/dbot2/dbot_vda5050_ilmatar/build/joycontrol/install.log --single-version-externally-managed install_data
+[5.888s] running egg_info
+[5.890s] writing ../../build/joycontrol/joycontrol.egg-info/PKG-INFO
+[5.895s] writing dependency_links to ../../build/joycontrol/joycontrol.egg-info/dependency_links.txt
+[5.895s] writing entry points to ../../build/joycontrol/joycontrol.egg-info/entry_points.txt
+[5.895s] writing requirements to ../../build/joycontrol/joycontrol.egg-info/requires.txt
+[5.895s] writing top-level names to ../../build/joycontrol/joycontrol.egg-info/top_level.txt
+[5.902s] reading manifest file '../../build/joycontrol/joycontrol.egg-info/SOURCES.txt'
+[5.903s] adding license file 'LICENSE'
+[5.904s] writing manifest file '../../build/joycontrol/joycontrol.egg-info/SOURCES.txt'
+[5.910s] running build
+[5.910s] running build_py
+[5.910s] running install
+[5.910s] running install_lib
+[5.912s] running install_data
+[5.912s] running install_egg_info
+[5.918s] removing '/home/dbot2/dbot_vda5050_ilmatar/install/joycontrol/lib/python3.10/site-packages/joycontrol-0.0.0-py3.10.egg-info' (and everything under it)
+[5.918s] Copying ../../build/joycontrol/joycontrol.egg-info to /home/dbot2/dbot_vda5050_ilmatar/install/joycontrol/lib/python3.10/site-packages/joycontrol-0.0.0-py3.10.egg-info
+[5.926s] running install_scripts
+[6.000s] Installing joycontrol script to /home/dbot2/dbot_vda5050_ilmatar/install/joycontrol/lib/joycontrol
+[6.004s] writing list of installed files to '/home/dbot2/dbot_vda5050_ilmatar/build/joycontrol/install.log'
+[6.158s] Invoked command in '/home/dbot2/dbot_vda5050_ilmatar/src/joycontrol' returned '0': PYTHONPATH=/home/dbot2/dbot_vda5050_ilmatar/build/joycontrol/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/dbot2/dbot_vda5050_ilmatar/install/joycontrol/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/joycontrol build --build-base /home/dbot2/dbot_vda5050_ilmatar/build/joycontrol/build install --record /home/dbot2/dbot_vda5050_ilmatar/build/joycontrol/install.log --single-version-externally-managed install_data

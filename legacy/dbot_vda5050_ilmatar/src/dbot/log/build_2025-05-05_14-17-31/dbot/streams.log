@@ -1,0 +1,18 @@
+[0.403s] Invoking command in '/home/dbot2/ros2_ws/src/dbot/build/dbot': PYTHONPATH=/home/dbot2/ros2_ws/src/dbot/build/dbot/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/dbot2/ros2_ws/src/dbot/install/dbot/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py develop --editable --build-directory /home/dbot2/ros2_ws/src/dbot/build/dbot/build --no-deps symlink_data
+[0.570s] running develop
+[0.570s] /usr/lib/python3/dist-packages/setuptools/command/easy_install.py:158: EasyInstallDeprecationWarning: easy_install command is deprecated. Use build and pip and other standards-based tools.
+[0.570s]   warnings.warn(
+[0.669s] running egg_info
+[0.670s] writing dbot.egg-info/PKG-INFO
+[0.670s] writing dependency_links to dbot.egg-info/dependency_links.txt
+[0.670s] writing entry points to dbot.egg-info/entry_points.txt
+[0.670s] writing requirements to dbot.egg-info/requires.txt
+[0.670s] writing top-level names to dbot.egg-info/top_level.txt
+[0.671s] reading manifest file 'dbot.egg-info/SOURCES.txt'
+[0.671s] writing manifest file 'dbot.egg-info/SOURCES.txt'
+[0.672s] running build_ext
+[0.672s] Creating /home/dbot2/ros2_ws/src/dbot/install/dbot/lib/python3.10/site-packages/dbot.egg-link (link to .)
+[0.673s] 
+[0.673s] Installed /home/dbot2/ros2_ws/src/dbot/build/dbot
+[0.673s] running symlink_data
+[0.690s] Invoked command in '/home/dbot2/ros2_ws/src/dbot/build/dbot' returned '0': PYTHONPATH=/home/dbot2/ros2_ws/src/dbot/build/dbot/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/dbot2/ros2_ws/src/dbot/install/dbot/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py develop --editable --build-directory /home/dbot2/ros2_ws/src/dbot/build/dbot/build --no-deps symlink_data

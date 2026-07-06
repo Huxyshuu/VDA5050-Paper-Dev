@@ -1,0 +1,6 @@
+source;share/vda5050_tb3_adapter/hook/pythonpath.ps1
+source;share/vda5050_tb3_adapter/hook/pythonpath.dsv
+source;share/vda5050_tb3_adapter/hook/pythonpath.sh
+source;share/vda5050_tb3_adapter/hook/ament_prefix_path.ps1
+source;share/vda5050_tb3_adapter/hook/ament_prefix_path.dsv
+source;share/vda5050_tb3_adapter/hook/ament_prefix_path.sh

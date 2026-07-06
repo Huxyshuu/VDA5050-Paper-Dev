@@ -1,0 +1,9 @@
+Metadata-Version: 2.1
+Name: joycontrol
+Version: 0.0.0
+Summary: gives cmd_vel values from joystick
+Maintainer: Pejman
+Maintainer-email: pejman.habibiroudkenar@aalto.fi
+License: Apache-2.0
+License-File: LICENSE
+Requires-Dist: setuptools

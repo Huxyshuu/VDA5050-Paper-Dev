@@ -1,0 +1,28 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from vda5050_msgs/msg/OptionalParameter.msg
+// generated code does not contain a copyright notice
+
+
+module vda5050_msgs {
+  module msg {
+    module OptionalParameter_Constants {
+      @verbatim (language="comment", text=
+        "Enums for support")
+      const string SUPPORTED = "SUPPORTED";
+      const string REQUIRED = "REQUIRED";
+    };
+    struct OptionalParameter {
+      @verbatim (language="comment", text=
+        "Full name of optional parameter")
+      string parameter;
+
+      @verbatim (language="comment", text=
+        "Type of support for the optional parameter")
+      string support;
+
+      @verbatim (language="comment", text=
+        "Description of optional parameter")
+      string description;
+    };
+  };
+};

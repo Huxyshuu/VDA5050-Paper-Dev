@@ -1,0 +1,97 @@
+[1.307s] Invoking command in '/home/dbot2/dbot_vda5050_ilmatar/build/dbot_nav_slam': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_tb3_adapter:/home/dbot2/dbot_vda5050_ilmatar/install/tf2_dbot:/home/dbot2/dbot_vda5050_ilmatar/install/odom_motion_model:/home/dbot2/dbot_vda5050_ilmatar/install/motor_driver:/home/dbot2/dbot_vda5050_ilmatar/install/joycontrol:/home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol:/home/dbot2/dbot_vda5050_ilmatar/install/dbot_bridge:/home/dbot2/dbot_vda5050_ilmatar/install/dbot:/home/dbot2/dbot_src/install/tf2_dbot:/home/dbot2/dbot_src/install/odom_motion_model:/home/dbot2/dbot_src/install/motor_driver:/home/dbot2/dbot_src/install/joycontrol:/home/dbot2/dbot_src/install/dbot:/home/dbot2/dbot_remote/install/pcd_joy_trigger:/home/dbot2/circus_demo/install/circus_demo:/home/dbot2/ros2_ws/install/tf2_dbot:/home/dbot2/ros2_ws/install/odom_motion_model:/home/dbot2/ros2_ws/install/motor_driver:/home/dbot2/ros2_ws/install/joycontrol:/home/dbot2/ros2_ws/install/gesturecontrol:/home/dbot2/ros2_ws/install/dbot_bridge:/home/dbot2/ros2_ws/install/dbot:/home/dbot2/ros2_ws/install/ament_xmllint:/home/dbot2/ros2_ws/install/ament_uncrustify:/home/dbot2/ros2_ws/install/ament_pyflakes:/home/dbot2/ros2_ws/install/ament_pycodestyle:/home/dbot2/ros2_ws/install/ament_pep257:/home/dbot2/ros2_ws/install/ament_pclint:/home/dbot2/ros2_ws/install/ament_mypy:/home/dbot2/ros2_ws/install/ament_lint_cmake:/home/dbot2/ros2_ws/install/ament_flake8:/home/dbot2/ros2_ws/install/ament_copyright:/home/dbot2/ros2_ws/install/ament_lint:/home/dbot2/ros2_ws/install/ament_cpplint:/home/dbot2/ros2_ws/install/ament_cppcheck:/home/dbot2/ros2_ws/install/ament_clang_tidy:/home/dbot2/ros2_ws/install/ament_clang_format:/opt/ros/humble /usr/bin/cmake --build /home/dbot2/dbot_vda5050_ilmatar/build/dbot_nav_slam -- -j8 -l8
+[2.671s] Built target ament_cmake_python_symlink_dbot_nav_slam_setup
+[2.671s] Built target ament_cmake_python_symlink_dbot_nav_slam
+[2.671s] running egg_info
+[2.671s] writing dbot_nav_slam.egg-info/PKG-INFO
+[2.671s] writing dependency_links to dbot_nav_slam.egg-info/dependency_links.txt
+[2.671s] writing top-level names to dbot_nav_slam.egg-info/top_level.txt
+[2.671s] reading manifest file 'dbot_nav_slam.egg-info/SOURCES.txt'
+[2.671s] writing manifest file 'dbot_nav_slam.egg-info/SOURCES.txt'
+[2.671s] Built target ament_cmake_python_build_dbot_nav_slam_egg
+[3.177s] Invoked command in '/home/dbot2/dbot_vda5050_ilmatar/build/dbot_nav_slam' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_tb3_adapter:/home/dbot2/dbot_vda5050_ilmatar/install/tf2_dbot:/home/dbot2/dbot_vda5050_ilmatar/install/odom_motion_model:/home/dbot2/dbot_vda5050_ilmatar/install/motor_driver:/home/dbot2/dbot_vda5050_ilmatar/install/joycontrol:/home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol:/home/dbot2/dbot_vda5050_ilmatar/install/dbot_bridge:/home/dbot2/dbot_vda5050_ilmatar/install/dbot:/home/dbot2/dbot_src/install/tf2_dbot:/home/dbot2/dbot_src/install/odom_motion_model:/home/dbot2/dbot_src/install/motor_driver:/home/dbot2/dbot_src/install/joycontrol:/home/dbot2/dbot_src/install/dbot:/home/dbot2/dbot_remote/install/pcd_joy_trigger:/home/dbot2/circus_demo/install/circus_demo:/home/dbot2/ros2_ws/install/tf2_dbot:/home/dbot2/ros2_ws/install/odom_motion_model:/home/dbot2/ros2_ws/install/motor_driver:/home/dbot2/ros2_ws/install/joycontrol:/home/dbot2/ros2_ws/install/gesturecontrol:/home/dbot2/ros2_ws/install/dbot_bridge:/home/dbot2/ros2_ws/install/dbot:/home/dbot2/ros2_ws/install/ament_xmllint:/home/dbot2/ros2_ws/install/ament_uncrustify:/home/dbot2/ros2_ws/install/ament_pyflakes:/home/dbot2/ros2_ws/install/ament_pycodestyle:/home/dbot2/ros2_ws/install/ament_pep257:/home/dbot2/ros2_ws/install/ament_pclint:/home/dbot2/ros2_ws/install/ament_mypy:/home/dbot2/ros2_ws/install/ament_lint_cmake:/home/dbot2/ros2_ws/install/ament_flake8:/home/dbot2/ros2_ws/install/ament_copyright:/home/dbot2/ros2_ws/install/ament_lint:/home/dbot2/ros2_ws/install/ament_cpplint:/home/dbot2/ros2_ws/install/ament_cppcheck:/home/dbot2/ros2_ws/install/ament_clang_tidy:/home/dbot2/ros2_ws/install/ament_clang_format:/opt/ros/humble /usr/bin/cmake --build /home/dbot2/dbot_vda5050_ilmatar/build/dbot_nav_slam -- -j8 -l8
+[3.182s] Invoking command in '/home/dbot2/dbot_vda5050_ilmatar/build/dbot_nav_slam': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_tb3_adapter:/home/dbot2/dbot_vda5050_ilmatar/install/tf2_dbot:/home/dbot2/dbot_vda5050_ilmatar/install/odom_motion_model:/home/dbot2/dbot_vda5050_ilmatar/install/motor_driver:/home/dbot2/dbot_vda5050_ilmatar/install/joycontrol:/home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol:/home/dbot2/dbot_vda5050_ilmatar/install/dbot_bridge:/home/dbot2/dbot_vda5050_ilmatar/install/dbot:/home/dbot2/dbot_src/install/tf2_dbot:/home/dbot2/dbot_src/install/odom_motion_model:/home/dbot2/dbot_src/install/motor_driver:/home/dbot2/dbot_src/install/joycontrol:/home/dbot2/dbot_src/install/dbot:/home/dbot2/dbot_remote/install/pcd_joy_trigger:/home/dbot2/circus_demo/install/circus_demo:/home/dbot2/ros2_ws/install/tf2_dbot:/home/dbot2/ros2_ws/install/odom_motion_model:/home/dbot2/ros2_ws/install/motor_driver:/home/dbot2/ros2_ws/install/joycontrol:/home/dbot2/ros2_ws/install/gesturecontrol:/home/dbot2/ros2_ws/install/dbot_bridge:/home/dbot2/ros2_ws/install/dbot:/home/dbot2/ros2_ws/install/ament_xmllint:/home/dbot2/ros2_ws/install/ament_uncrustify:/home/dbot2/ros2_ws/install/ament_pyflakes:/home/dbot2/ros2_ws/install/ament_pycodestyle:/home/dbot2/ros2_ws/install/ament_pep257:/home/dbot2/ros2_ws/install/ament_pclint:/home/dbot2/ros2_ws/install/ament_mypy:/home/dbot2/ros2_ws/install/ament_lint_cmake:/home/dbot2/ros2_ws/install/ament_flake8:/home/dbot2/ros2_ws/install/ament_copyright:/home/dbot2/ros2_ws/install/ament_lint:/home/dbot2/ros2_ws/install/ament_cpplint:/home/dbot2/ros2_ws/install/ament_cppcheck:/home/dbot2/ros2_ws/install/ament_clang_tidy:/home/dbot2/ros2_ws/install/ament_clang_format:/opt/ros/humble /usr/bin/cmake --install /home/dbot2/dbot_vda5050_ilmatar/build/dbot_nav_slam
+[3.194s] -- Install configuration: ""
+[3.198s] -- Execute custom install script
+[3.203s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/environment/pythonpath.sh
+[3.203s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/environment/pythonpath.dsv
+[3.204s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/local/lib/python3.10/dist-packages/dbot_nav_slam-0.0.0-py3.10.egg-info/PKG-INFO
+[3.204s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/local/lib/python3.10/dist-packages/dbot_nav_slam-0.0.0-py3.10.egg-info/SOURCES.txt
+[3.204s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/local/lib/python3.10/dist-packages/dbot_nav_slam-0.0.0-py3.10.egg-info/dependency_links.txt
+[3.204s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/local/lib/python3.10/dist-packages/dbot_nav_slam-0.0.0-py3.10.egg-info/top_level.txt
+[3.204s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/local/lib/python3.10/dist-packages/dbot_nav_slam/__init__.py
+[3.204s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/local/lib/python3.10/dist-packages/dbot_nav_slam/initial_pose_publisher.py
+[3.204s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/local/lib/python3.10/dist-packages/dbot_nav_slam/modules_import.py
+[3.204s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/config/diff_drive_controller.yaml
+[3.204s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/config/joystick.yaml
+[3.204s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/config/mapper_params_online_async.yaml
+[3.205s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/config/mqtt_bridge.yaml
+[3.205s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/config/my_controllers.yaml
+[3.205s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/config/nav2_params.yaml
+[3.205s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/config/twist_mux.yaml
+[3.205s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/description/inertial_macros.xacro
+[3.205s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/description/robot.urdf.xacro
+[3.205s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/description/robot_core.xacro
+[3.205s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/description/ros2_control.xacro
+[3.205s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/launch/auto_nav_dbot_launch.py
+[3.205s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/launch/emq_mqtt_auto_launch.py
+[3.211s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/launch/launch_robot.launch.py
+[3.212s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/launch/localization_launch.py
+[3.212s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/launch/navigation_launch.py
+[3.212s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/launch/online_async_launch.py
+[3.212s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/launch/rsp.launch.py
+[3.212s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/maps/DF_map.pgm
+[3.212s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/maps/DF_map.yaml
+[3.212s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/maps/cage.pgm
+[3.212s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/maps/cage.yaml
+[3.213s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/maps/clean_df_map.pgm
+[3.213s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/maps/clean_df_map.yaml
+[3.213s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/maps/office_map.pgm
+[3.213s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/maps/office_map.yaml
+[3.213s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/maps/office_map_localize.data
+[3.213s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/maps/office_map_localize.posegraph
+[3.213s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/maps/office_map_serial.data
+[3.219s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/maps/office_map_serial.posegraph
+[3.219s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/scripts/.mqtt_dbot.py.swp
+[3.219s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/scripts/DF_inspection_route.py
+[3.219s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/scripts/emca.crt
+[3.219s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/scripts/emq_mqtt_inspection.py
+[3.219s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/scripts/emq_mqtt_vel_msg_sub.py
+[3.220s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/scripts/emqxsl-ca.crt
+[3.220s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/scripts/initial_pose_publisher.py
+[3.220s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/scripts/mqtt.py
+[3.220s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/scripts/mqtt_dbot.py
+[3.221s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/scripts/mqtt_inspection.py
+[3.221s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/scripts/mqtt_original.py
+[3.221s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/scripts/nav_through_poses.py
+[3.221s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/scripts/pose_subscriber.py
+[3.221s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/scripts/remote_control.py
+[3.221s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/scripts/single_goalpose.py
+[3.221s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/scripts/test_full.py
+[3.221s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/scripts/vel_msg_sub.py
+[3.221s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam//launch/auto_nav_dbot_launch.py
+[3.221s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam//launch/emq_mqtt_auto_launch.py
+[3.221s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam//launch/launch_robot.launch.py
+[3.229s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam//launch/localization_launch.py
+[3.229s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam//launch/navigation_launch.py
+[3.232s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam//launch/online_async_launch.py
+[3.232s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam//launch/rsp.launch.py
+[3.232s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/lib/dbot_nav_slam/nav_through_poses.py
+[3.232s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/lib/dbot_nav_slam/emq_mqtt_inspection.py
+[3.232s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/lib/dbot_nav_slam/emq_mqtt_vel_msg_sub.py
+[3.232s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/ament_index/resource_index/package_run_dependencies/dbot_nav_slam
+[3.232s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/ament_index/resource_index/parent_prefix_path/dbot_nav_slam
+[3.232s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/environment/ament_prefix_path.sh
+[3.232s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/environment/ament_prefix_path.dsv
+[3.232s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/environment/path.sh
+[3.232s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/environment/path.dsv
+[3.232s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/local_setup.bash
+[3.233s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/local_setup.sh
+[3.233s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/local_setup.zsh
+[3.233s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/local_setup.dsv
+[3.233s] -- Symlinking: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/package.dsv
+[3.245s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/ament_index/resource_index/packages/dbot_nav_slam
+[3.245s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/cmake/dbot_nav_slamConfig.cmake
+[3.245s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/cmake/dbot_nav_slamConfig-version.cmake
+[3.245s] -- Up-to-date symlink: /home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/share/dbot_nav_slam/package.xml
+[3.403s] Listing '/home/dbot2/dbot_vda5050_ilmatar/install/dbot_nav_slam/local/lib/python3.10/dist-packages/dbot_nav_slam'...
+[3.481s] Invoked command in '/home/dbot2/dbot_vda5050_ilmatar/build/dbot_nav_slam' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/dbot2/dbot_vda5050_ilmatar/install/vda5050_tb3_adapter:/home/dbot2/dbot_vda5050_ilmatar/install/tf2_dbot:/home/dbot2/dbot_vda5050_ilmatar/install/odom_motion_model:/home/dbot2/dbot_vda5050_ilmatar/install/motor_driver:/home/dbot2/dbot_vda5050_ilmatar/install/joycontrol:/home/dbot2/dbot_vda5050_ilmatar/install/gesturecontrol:/home/dbot2/dbot_vda5050_ilmatar/install/dbot_bridge:/home/dbot2/dbot_vda5050_ilmatar/install/dbot:/home/dbot2/dbot_src/install/tf2_dbot:/home/dbot2/dbot_src/install/odom_motion_model:/home/dbot2/dbot_src/install/motor_driver:/home/dbot2/dbot_src/install/joycontrol:/home/dbot2/dbot_src/install/dbot:/home/dbot2/dbot_remote/install/pcd_joy_trigger:/home/dbot2/circus_demo/install/circus_demo:/home/dbot2/ros2_ws/install/tf2_dbot:/home/dbot2/ros2_ws/install/odom_motion_model:/home/dbot2/ros2_ws/install/motor_driver:/home/dbot2/ros2_ws/install/joycontrol:/home/dbot2/ros2_ws/install/gesturecontrol:/home/dbot2/ros2_ws/install/dbot_bridge:/home/dbot2/ros2_ws/install/dbot:/home/dbot2/ros2_ws/install/ament_xmllint:/home/dbot2/ros2_ws/install/ament_uncrustify:/home/dbot2/ros2_ws/install/ament_pyflakes:/home/dbot2/ros2_ws/install/ament_pycodestyle:/home/dbot2/ros2_ws/install/ament_pep257:/home/dbot2/ros2_ws/install/ament_pclint:/home/dbot2/ros2_ws/install/ament_mypy:/home/dbot2/ros2_ws/install/ament_lint_cmake:/home/dbot2/ros2_ws/install/ament_flake8:/home/dbot2/ros2_ws/install/ament_copyright:/home/dbot2/ros2_ws/install/ament_lint:/home/dbot2/ros2_ws/install/ament_cpplint:/home/dbot2/ros2_ws/install/ament_cppcheck:/home/dbot2/ros2_ws/install/ament_clang_tidy:/home/dbot2/ros2_ws/install/ament_clang_format:/opt/ros/humble /usr/bin/cmake --install /home/dbot2/dbot_vda5050_ilmatar/build/dbot_nav_slam

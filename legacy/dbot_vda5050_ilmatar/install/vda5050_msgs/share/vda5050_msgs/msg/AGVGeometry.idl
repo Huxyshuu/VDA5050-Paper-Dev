@@ -1,0 +1,23 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from vda5050_msgs/msg/AGVGeometry.msg
+// generated code does not contain a copyright notice
+
+#include "vda5050_msgs/msg/Envelope2D.idl"
+#include "vda5050_msgs/msg/Envelope3D.idl"
+#include "vda5050_msgs/msg/WheelDefinition.idl"
+
+module vda5050_msgs {
+  module msg {
+    struct AGVGeometry {
+      @verbatim (language="comment", text=
+        "List of wheels, containing wheel-arrangement and geometry")
+      sequence<vda5050_msgs::msg::WheelDefinition> wheel_definitions;
+
+      sequence<vda5050_msgs::msg::Envelope2D> envelopes2d;
+
+      @verbatim (language="comment", text=
+        "List of AGV-envelope curves in 3D")
+      sequence<vda5050_msgs::msg::Envelope3D> envelopes3d;
+    };
+  };
+};

@@ -1,0 +1,46 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from vda5050_msgs/msg/WheelDefinition.msg
+// generated code does not contain a copyright notice
+
+#include "vda5050_msgs/msg/Position.idl"
+
+module vda5050_msgs {
+  module msg {
+    module WheelDefinition_Constants {
+      @verbatim (language="comment", text=
+        "Enums for wheel type")
+      const string DRIVE = "DRIVE";
+      const string CASTER = "CASTER";
+      const string FIXED = "FIXED";
+      const string MECANUM = "MECANUM";
+    };
+    struct WheelDefinition {
+      @verbatim (language="comment", text=
+        "Wheel type")
+      string type;
+
+      boolean is_active_driven;
+
+      boolean is_active_steered;
+
+      vda5050_msgs::msg::Position position;
+
+      @verbatim (language="comment", text=
+        "Nominal diameter of the wheel")
+      @unit (value="m")
+      double diameter;
+
+      @verbatim (language="comment", text=
+        "Nominal width of the wheel")
+      @unit (value="m")
+      double width;
+
+      @verbatim (language="comment", text=
+        "Nominal displacement of the wheel’s center to the rotation point")
+      @unit (value="m")
+      double center_displacement;
+
+      string constraints;
+    };
+  };
+};

@@ -1,0 +1,16 @@
+// generated from rosidl_adapter/resource/srv.idl.em
+// with input from vda5050_connector/srv/SupportedActions.srv
+// generated code does not contain a copyright notice
+
+#include "vda5050_msgs/msg/AGVAction.idl"
+
+module vda5050_connector {
+  module srv {
+    struct SupportedActions_Request {
+      uint8 structure_needs_at_least_one_member;
+    };
+    struct SupportedActions_Response {
+      sequence<vda5050_msgs::msg::AGVAction> agv_actions;
+    };
+  };
+};

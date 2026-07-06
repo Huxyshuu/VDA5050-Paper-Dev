@@ -1,0 +1,21 @@
+[4.931s] Invoking command in '/home/dbot2/dbot_vda5050_ilmatar/src/dbot_bridge': PYTHONPATH=/home/dbot2/dbot_vda5050_ilmatar/build/dbot_bridge/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/dbot2/dbot_vda5050_ilmatar/install/dbot_bridge/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/dbot_bridge build --build-base /home/dbot2/dbot_vda5050_ilmatar/build/dbot_bridge/build install --record /home/dbot2/dbot_vda5050_ilmatar/build/dbot_bridge/install.log --single-version-externally-managed install_data
+[6.110s] running egg_info
+[6.110s] writing ../../build/dbot_bridge/dbot_bridge.egg-info/PKG-INFO
+[6.111s] writing dependency_links to ../../build/dbot_bridge/dbot_bridge.egg-info/dependency_links.txt
+[6.111s] writing entry points to ../../build/dbot_bridge/dbot_bridge.egg-info/entry_points.txt
+[6.111s] writing requirements to ../../build/dbot_bridge/dbot_bridge.egg-info/requires.txt
+[6.111s] writing top-level names to ../../build/dbot_bridge/dbot_bridge.egg-info/top_level.txt
+[6.129s] reading manifest file '../../build/dbot_bridge/dbot_bridge.egg-info/SOURCES.txt'
+[6.132s] writing manifest file '../../build/dbot_bridge/dbot_bridge.egg-info/SOURCES.txt'
+[6.132s] running build
+[6.132s] running build_py
+[6.141s] running install
+[6.142s] running install_lib
+[6.148s] running install_data
+[6.154s] running install_egg_info
+[6.154s] removing '/home/dbot2/dbot_vda5050_ilmatar/install/dbot_bridge/lib/python3.10/site-packages/dbot_bridge-0.0.0-py3.10.egg-info' (and everything under it)
+[6.155s] Copying ../../build/dbot_bridge/dbot_bridge.egg-info to /home/dbot2/dbot_vda5050_ilmatar/install/dbot_bridge/lib/python3.10/site-packages/dbot_bridge-0.0.0-py3.10.egg-info
+[6.162s] running install_scripts
+[6.244s] Installing dbot_bridge_node script to /home/dbot2/dbot_vda5050_ilmatar/install/dbot_bridge/lib/dbot_bridge
+[6.244s] writing list of installed files to '/home/dbot2/dbot_vda5050_ilmatar/build/dbot_bridge/install.log'
+[7.050s] Invoked command in '/home/dbot2/dbot_vda5050_ilmatar/src/dbot_bridge' returned '0': PYTHONPATH=/home/dbot2/dbot_vda5050_ilmatar/build/dbot_bridge/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/dbot2/dbot_vda5050_ilmatar/install/dbot_bridge/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/dbot_bridge build --build-base /home/dbot2/dbot_vda5050_ilmatar/build/dbot_bridge/build install --record /home/dbot2/dbot_vda5050_ilmatar/build/dbot_bridge/install.log --single-version-externally-managed install_data
