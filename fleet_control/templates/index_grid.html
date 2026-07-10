@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VDA 5050 v3 Fleet Control</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --bg-soft: #11182a;
+      --panel: rgba(18, 26, 45, 0.86);
+      --panel-strong: rgba(24, 34, 57, 0.96);
+      --line: rgba(148, 163, 184, 0.20);
+      --text: #eef4ff;
+      --muted: #9aa8bd;
+      --good: #31d0aa;
+      --warn: #f7c948;
+      --danger: #ff6370;
+      --blue: #5da8ff;
+      --purple: #9b7cff;
+      --shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+      --radius: 22px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 16% 10%, rgba(93, 168, 255, 0.22), transparent 34%),
+        radial-gradient(circle at 82% 16%, rgba(155, 124, 255, 0.19), transparent 32%),
+        linear-gradient(135deg, #070a13 0%, var(--bg) 44%, #07111d 100%);
+    }
+
+    button, input { font: inherit; }
+
+    .app {
+      width: min(1320px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 28px 0 38px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 22px;
+    }
+
+    .title-block h1 {
+      margin: 0;
+      font-size: clamp(2rem, 4vw, 4rem);
+      line-height: 0.95;
+      letter-spacing: -0.06em;
+    }
+
+    .title-block p {
+      max-width: 760px;
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.55;
+    }
+
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: flex-end;
+      min-width: 230px;
+    }
+
+    .badge {
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.06);
+      color: #d8e6ff;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 0.83rem;
+      white-space: nowrap;
+      backdrop-filter: blur(10px);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      border-radius: var(--radius);
+      overflow: hidden;
+      backdrop-filter: blur(16px);
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    .panel-header h2 {
+      margin: 0;
+      font-size: 1rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #dbeafe;
+    }
+
+    .panel-header span { color: var(--muted); font-size: 0.88rem; }
+
+    .control-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      padding: 18px;
+    }
+
+    .control {
+      position: relative;
+      min-height: 150px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 16px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      color: var(--text);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.035));
+      cursor: pointer;
+      padding: 18px;
+      text-align: left;
+      transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+      overflow: hidden;
+    }
+
+    .control::before {
+      content: "";
+      position: absolute;
+      inset: -1px;
+      background: radial-gradient(circle at 18% 0%, var(--accent, rgba(255,255,255,.24)), transparent 36%);
+      opacity: 0.42;
+      pointer-events: none;
+    }
+
+    .control:hover {
+      transform: translateY(-2px);
+      border-color: color-mix(in srgb, var(--accent, #94a3b8) 70%, white 10%);
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.32);
+    }
+
+    .control:active { transform: translateY(0) scale(0.99); }
+    .control[disabled] { opacity: 0.58; cursor: progress; transform: none; }
+
+    .control-main { position: relative; z-index: 1; }
+    .control-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .control-title {
+      margin-top: 10px;
+      font-size: clamp(1.15rem, 1.8vw, 1.55rem);
+      line-height: 1.08;
+      font-weight: 780;
+      letter-spacing: -0.035em;
+    }
+    .control-desc {
+      position: relative;
+      z-index: 1;
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.38;
+      margin: 0;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--accent, #94a3b8);
+      box-shadow: 0 0 22px var(--accent, #94a3b8);
+      display: inline-block;
+    }
+
+    .primary { --accent: var(--blue); min-height: 184px; }
+    .success { --accent: var(--good); }
+    .warning { --accent: var(--warn); color: #fff9df; }
+    .danger { --accent: var(--danger); }
+    .purple { --accent: var(--purple); }
+    .muted { --accent: #94a3b8; }
+
+    .span-2 { grid-column: span 2; }
+
+    .side {
+      display: grid;
+      gap: 18px;
+    }
+
+    .status-card, .event-card {
+      padding: 18px;
+    }
+
+    .status-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .status-line:last-child { border-bottom: 0; }
+    .status-line strong { font-size: 0.92rem; }
+    .status-line span { color: var(--muted); font-size: 0.87rem; }
+
+    .log {
+      max-height: 315px;
+      overflow: auto;
+      display: grid;
+      gap: 10px;
+      padding-right: 4px;
+    }
+
+    .log-entry {
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.045);
+      border-radius: 14px;
+      padding: 10px 12px;
+      color: #dce8fb;
+      font-size: 0.88rem;
+      line-height: 1.35;
+      word-break: break-word;
+    }
+
+    .log-entry.ok { border-color: rgba(49, 208, 170, 0.36); }
+    .log-entry.error { border-color: rgba(255, 99, 112, 0.45); }
+    .log-entry small { display: block; color: var(--muted); margin-bottom: 4px; }
+
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      max-width: min(420px, calc(100vw - 36px));
+      border: 1px solid var(--line);
+      background: var(--panel-strong);
+      color: var(--text);
+      border-radius: 16px;
+      padding: 14px 16px;
+      box-shadow: var(--shadow);
+      opacity: 0;
+      transform: translateY(12px);
+      pointer-events: none;
+      transition: opacity 180ms ease, transform 180ms ease;
+      z-index: 50;
+    }
+
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.ok { border-color: rgba(49, 208, 170, 0.45); }
+    .toast.error { border-color: rgba(255, 99, 112, 0.55); }
+
+    .kbd {
+      border: 1px solid var(--line);
+      border-bottom-color: rgba(255, 255, 255, 0.35);
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 2px 7px;
+      font-size: 0.8rem;
+      color: #e2e8f0;
+    }
+
+    @media (max-width: 1060px) {
+      .layout { grid-template-columns: 1fr; }
+      .badges { justify-content: flex-start; }
+      .topbar { flex-direction: column; }
+    }
+
+    @media (max-width: 760px) {
+      .control-grid { grid-template-columns: 1fr; }
+      .span-2 { grid-column: auto; }
+      .control { min-height: 132px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="title-block">
+        <h1>Fleet Control</h1>
+        <p>VDA 5050 v3 handover panel for the Ilmatar crane and DBot/ROX side. This UI only calls Flask routes; the migrated master controller translates these commands into v3 MQTT messages.</p>
+      </div>
+      <div class="badges" aria-label="System badges">
+        <span class="badge">VDA 5050 v3.0</span>
+        <span class="badge">Flask master UI</span>
+        <span class="badge">MQTT handover demo</span>
+      </div>
+    </header>
+
+    <section class="layout">
+      <div class="panel">
+        <div class="panel-header">
+          <h2>Controls</h2>
+          <span>Use with the physical crane safety process active</span>
+        </div>
+
+        <div class="control-grid">
+          <button class="control primary span-2" data-route="/order" data-name="Send order">
+            <span class="control-main">
+              <span class="control-kicker"><span class="dot"></span> Scenario</span>
+              <span class="control-title">Send crane + mobile robot order</span>
+            </span>
+            <span class="control-desc">Publishes the prepared crane and DBot orders through the migrated VDA 5050 v3 master.</span>
+          </button>
+
+          <button class="control success" data-route="/release" data-name="Release crane">
+            <span class="control-main">
+              <span class="control-kicker"><span class="dot"></span> Handover</span>
+              <span class="control-title">Release crane</span>
+            </span>
+            <span class="control-desc">Unlocks the active crane buttonPress. If the rendezvous is armed, DBot releaseHold is handled after safe hoist clearance.</span>
+          </button>
+
+          <button class="control primary" data-route="/automatic" data-name="Initialize DBot position">
+            <span class="control-main">
+              <span class="control-kicker"><span class="dot"></span> Setup</span>
+              <span class="control-title">Initialize position</span>
+            </span>
+            <span class="control-desc">Calls the master route that sends the v3 initializePosition action to the mobile robot target.</span>
+          </button>
+
+          <button class="control danger" data-route="/pause" data-name="Pause both targets">
+            <span class="control-main">
+              <span class="control-kicker"><span class="dot"></span> Motion</span>
+              <span class="control-title">Pause</span>
+            </span>
+            <span class="control-desc">Master maps this UI route to the v3 startPause instant action.</span>
+          </button>
+
+          <button class="control warning" data-route="/resume" data-name="Resume both targets">
+            <span class="control-main">
+              <span class="control-kicker"><span class="dot"></span> Motion</span>
+              <span class="control-title">Resume</span>
+            </span>
+            <span class="control-desc">Master maps this UI route to the v3 stopPause instant action.</span>
+          </button>
+
+          <button class="control muted" data-route="/release_hold" data-name="Release DBot hold">
+            <span class="control-main">
+              <span class="control-kicker"><span class="dot"></span> DBot</span>
+              <span class="control-title">Release hold</span>
+            </span>
+            <span class="control-desc">Direct project-specific releaseHold for the DBot handover action.</span>
+          </button>
+
+          <button class="control danger" data-route="/cancel" data-name="Cancel order" data-confirm="Cancel the current order on both targets?">
+            <span class="control-main">
+              <span class="control-kicker"><span class="dot"></span> Stop</span>
+              <span class="control-title">Cancel order</span>
+            </span>
+            <span class="control-desc">Sends cancelOrder through the master controller and clears the handover guard state.</span>
+          </button>
+
+          <button class="control warning" data-route="/reset_all" data-name="Reset all home" data-confirm="Reset all crane axes home? This may move Z, bridge, and trolley.">
+            <span class="control-main">
+              <span class="control-kicker"><span class="dot"></span> Reset</span>
+              <span class="control-title">Reset all home</span>
+            </span>
+            <span class="control-desc">Project-specific crane action. Homes hoist first, then bridge/trolley.</span>
+          </button>
+
+          <button class="control warning" data-route="/reset_hoist" data-name="Reset hoist" data-confirm="Reset the hoist axis home?">
+            <span class="control-main">
+              <span class="control-kicker"><span class="dot"></span> Reset</span>
+              <span class="control-title">Reset hoist</span>
+            </span>
+            <span class="control-desc">Project-specific crane action for Z only.</span>
+          </button>
+
+          <button class="control warning" data-route="/reset_xy" data-name="Reset bridge/trolley" data-confirm="Reset bridge and trolley axes home?">
+            <span class="control-main">
+              <span class="control-kicker"><span class="dot"></span> Reset</span>
+              <span class="control-title">Reset bridge/trolley</span>
+            </span>
+            <span class="control-desc">Project-specific crane action for XY only.</span>
+          </button>
+        </div>
+      </div>
+
+      <aside class="side">
+        <div class="panel status-card">
+          <div class="panel-header" style="padding: 0 0 14px; border-bottom: 1px solid var(--line); background: transparent;">
+            <h2>Status</h2>
+            <span id="clock">--:--:--</span>
+          </div>
+          <div class="status-line"><strong>UI route state</strong><span id="route-state">Ready</span></div>
+          <div class="status-line"><strong>Last action</strong><span id="last-action">None</span></div>
+          <div class="status-line"><strong>Last response</strong><span id="last-response">No request yet</span></div>
+          <div class="status-line"><strong>Button sequence</strong><span id="button-seq">Not polled yet</span></div>
+        </div>
+
+        <div class="panel event-card">
+          <div class="panel-header" style="padding: 0 0 14px; border-bottom: 1px solid var(--line); background: transparent;">
+            <h2>Event log</h2>
+            <span><span class="kbd">POST</span> routes</span>
+          </div>
+          <div id="log" class="log" aria-live="polite"></div>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const logEl = document.getElementById('log');
+    const toastEl = document.getElementById('toast');
+    const routeStateEl = document.getElementById('route-state');
+    const lastActionEl = document.getElementById('last-action');
+    const lastResponseEl = document.getElementById('last-response');
+    const buttonSeqEl = document.getElementById('button-seq');
+    const clockEl = document.getElementById('clock');
+
+    function nowText() {
+      return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    function showToast(message, kind = 'ok') {
+      toastEl.textContent = message;
+      toastEl.className = `toast show ${kind}`;
+      clearTimeout(showToast._timer);
+      showToast._timer = setTimeout(() => {
+        toastEl.className = 'toast';
+      }, 2800);
+    }
+
+    function addLog(message, kind = 'ok') {
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${kind}`;
+      entry.innerHTML = `<small>${nowText()}</small>${message}`;
+      logEl.prepend(entry);
+      while (logEl.children.length > 10) logEl.lastElementChild.remove();
+    }
+
+    async function postControl(button) {
+      const route = button.dataset.route;
+      const name = button.dataset.name || route;
+      const confirmText = button.dataset.confirm;
+
+      if (confirmText && !window.confirm(confirmText)) {
+        addLog(`${name}: cancelled by user`, 'error');
+        return;
+      }
+
+      button.disabled = true;
+      routeStateEl.textContent = 'Sending...';
+      lastActionEl.textContent = name;
+
+      try {
+        const response = await fetch(route, {
+          method: 'POST',
+          headers: { 'Accept': 'application/json' }
+        });
+
+        const text = await response.text();
+        let data = null;
+        try { data = text ? JSON.parse(text) : null; } catch (_) { data = text; }
+
+        if (!response.ok) {
+          const details = typeof data === 'string' ? data : JSON.stringify(data);
+          throw new Error(details || `${response.status} ${response.statusText}`);
+        }
+
+        const summary = data && data.orders
+          ? `orders=${Object.entries(data.orders).map(([k, v]) => `${k}:${String(v).slice(0, 8)}`).join(', ')}`
+          : 'ok=true';
+
+        routeStateEl.textContent = 'Ready';
+        lastResponseEl.textContent = `${response.status} ${response.statusText}`;
+        addLog(`<strong>${name}</strong> → ${route}<br>${summary}`, 'ok');
+        showToast(`${name} sent`, 'ok');
+      } catch (err) {
+        routeStateEl.textContent = 'Error';
+        lastResponseEl.textContent = err.message || 'Request failed';
+        addLog(`<strong>${name}</strong> failed<br>${err.message || err}`, 'error');
+        showToast(`${name} failed`, 'error');
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    document.querySelectorAll('[data-route]').forEach((button) => {
+      button.addEventListener('click', () => postControl(button));
+    });
+
+    async function pollButtonSequences() {
+      try {
+        const response = await fetch('/status_all', { headers: { 'Accept': 'application/json' } });
+        if (!response.ok) throw new Error(`${response.status}`);
+        const data = await response.json();
+        const bits = Object.entries(data)
+          .map(([key, value]) => `${key}:${value.seq}`)
+          .join(' · ');
+        buttonSeqEl.textContent = bits || 'No button data';
+      } catch (_) {
+        buttonSeqEl.textContent = 'Unavailable';
+      }
+    }
+
+    setInterval(() => { clockEl.textContent = nowText(); }, 1000);
+    setInterval(pollButtonSequences, 4000);
+    clockEl.textContent = nowText();
+    pollButtonSequences();
+    addLog('UI loaded. Routes are ready for the migrated master controller.', 'ok');
+  </script>
+</body>
+</html>
