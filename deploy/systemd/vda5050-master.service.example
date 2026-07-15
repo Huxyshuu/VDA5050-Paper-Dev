@@ -1,0 +1,17 @@
+[Unit]
+Description=VDA 5050 v3 AMR-crane master control
+After=network-online.target mosquitto.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Replace pi and the paths with the actual Raspberry Pi user/repository path.
+User=pi
+WorkingDirectory=/home/pi/vda5050-v3-amr-crane-case-study
+Environment=FLEET_CONTROL_ENV=/home/pi/vda5050-v3-amr-crane-case-study/configs/fleet_control.env
+ExecStart=/home/pi/vda5050-v3-amr-crane-case-study/.venv/bin/python fleet_control/master_control.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

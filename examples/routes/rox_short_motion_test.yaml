@@ -1,0 +1,17 @@
+order_description: ROX-Diff low-speed two-node commissioning route
+nodes:
+  - node_id: test_node1
+    waypoint: home
+    descriptor: Commissioning start
+    actions: []
+  - node_id: test_node2
+    waypoint: short_test
+    descriptor: Short low-speed test target
+    actions:
+      - action_type: holdPose
+        action_id: rox_short_test_hold
+        blocking_type: HARD
+        retriable: false
+edges:
+  - edge_id: test_edge1
+    descriptor: Short commissioning movement

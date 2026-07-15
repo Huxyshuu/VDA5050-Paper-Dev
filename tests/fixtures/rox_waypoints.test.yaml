@@ -1,0 +1,6 @@
+map_id: warehouse_case_study
+configured: true
+waypoints:
+  home: {x: 0.0, y: 0.0, theta: 0.0}
+  crane_handover: {x: 1.0, y: 0.0, theta: 0.0}
+  warehouse_dropoff: {x: 2.0, y: 0.0, theta: 0.0}

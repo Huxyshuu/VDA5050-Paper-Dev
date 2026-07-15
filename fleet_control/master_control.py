@@ -1,5 +1,5 @@
 # master_control_panel_v3.py
-"""VDA 5050 v3.0 master control panel for the Ilmatar crane + DBot handover demo.
+"""VDA 5050 v3.0 master control panel for the Ilmatar crane + Neobotix ROX-Diff handover demo.
 
 This is a migrated version of the legacy TEST controller. It keeps the
 Flask UI, MQTT publishing/subscribing, order stamping, state cache, and
@@ -15,12 +15,18 @@ import time
 from collections import OrderedDict
 from copy import deepcopy
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 import jsonschema
 import paho.mqtt.client as mqtt
 from flask import Flask, abort, jsonify, render_template, request
+from dotenv import load_dotenv
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+ENV_FILE = Path(os.getenv("FLEET_CONTROL_ENV", REPO_ROOT / "configs" / "fleet_control.env"))
+load_dotenv(ENV_FILE, override=False)
 
 app = Flask(__name__)
 
@@ -43,24 +49,43 @@ HOIST_CLEARANCE_M = float(os.getenv("HOIST_CLEARANCE_M", "1.0"))
 _HOIST_NUM_RE = re.compile(r"([-+]?\d+(?:\.\d+)?)")
 # --------------------------------------------------------
 
-SCHEMA_DIR = os.getenv("VDA_SCHEMA_DIR", os.path.join("schemas", "v3.0"))
-ORDER_SCHEMA_PATH = os.getenv(
-    "VDA_ORDER_SCHEMA_PATH", os.path.join(SCHEMA_DIR, "order.schema")
+SCHEMA_DIR = _schema_dir_raw = os.getenv(
+    "VDA_SCHEMA_DIR", str(REPO_ROOT / "schemas" / "vda5050_v3")
 )
-IA_SCHEMA_PATH = os.getenv(
-    "VDA_INSTANT_ACTIONS_SCHEMA_PATH", os.path.join(SCHEMA_DIR, "instantActions.schema")
-)
+_schema_dir_path = Path(_schema_dir_raw).expanduser()
+if not _schema_dir_path.is_absolute():
+    _schema_dir_path = REPO_ROOT / _schema_dir_path
+SCHEMA_DIR = str(_schema_dir_path)
 
-# Which crane node pairs with which DBot node for handover
+
+def _schema_path(env_name: str, filename: str) -> str:
+    value = os.getenv(env_name, str(_schema_dir_path / filename))
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        path = REPO_ROOT / path
+    return str(path)
+
+
+ORDER_SCHEMA_PATH = _schema_path("VDA_ORDER_SCHEMA_PATH", "order.schema")
+IA_SCHEMA_PATH = _schema_path("VDA_INSTANT_ACTIONS_SCHEMA_PATH", "instantActions.schema")
+STATE_SCHEMA_PATH = _schema_path("VDA_STATE_SCHEMA_PATH", "state.schema")
+CONNECTION_SCHEMA_PATH = _schema_path("VDA_CONNECTION_SCHEMA_PATH", "connection.schema")
+FACTSHEET_SCHEMA_PATH = _schema_path("VDA_FACTSHEET_SCHEMA_PATH", "factsheet.schema")
+
+# Which crane node pairs with which ROX-Diff node for handover
 # (add more pairs as needed)
 RENDEZVOUS = [
-    {"crane_node": "node2", "dbot_node": "node2", "tag": "DROP_1"},
+    {
+        "crane_node": os.getenv("CRANE_HANDOVER_NODE_ID", "node2"),
+        "rox_node": os.getenv("ROX_HANDOVER_NODE_ID", "node2"),
+        "tag": os.getenv("HANDOVER_TAG", "DROP_1"),
+    },
 ]
 
 # We index orders we publish, so we can resolve actionId -> nodeId later
 ORDER_BOOK = {
     "crane": {"action2node": {}, "orderId": None},
-    "dbot": {"action2node": {}, "orderId": None},
+    "rox": {"action2node": {}, "orderId": None},
 }
 
 # --- Runtime state cache (guarded by STATE_LOCK) ---
@@ -69,12 +94,16 @@ STATE_LOCK = threading.Lock()
 STATE = {
     "crane": {
         "last_state": None,
+        "connection": None,
+        "factsheet": None,
         "buttonpress_running_aid": None,
         "buttonpress_node": None,  # NEW
         "hoist_height_m": None,
     },
-    "dbot": {
+    "rox": {
         "last_state": None,
+        "connection": None,
+        "factsheet": None,
         "holdpose_running_aid": None,
         "holdpose_node": None,  # NEW
     },
@@ -88,10 +117,10 @@ ORCH = {
         "hoist_m_at_press": None,
         "ttl_s": 60.0,
         "tag": None,  # NEW: which rendezvous this press belongs to
-        "dbot_hold_aid": None,  # NEW: which specific holdPose we're tying to
-        "dbot_node": None,
+        "rox_hold_aid": None,  # NEW: which specific holdPose we're tying to
+        "rox_node": None,
     },
-    "dbot_releasehold_sent_for_action": set(),
+    "rox_releasehold_sent_for_action": set(),
 }
 
 
@@ -99,6 +128,11 @@ ORCH = {
 def _default_topic_root(manufacturer: str, serial: str) -> str:
     """Return the suggested VDA 5050 v3 topic root for a local broker."""
     return f"{VDA_INTERFACE_NAME}/{VDA_MAJOR_VERSION}/{manufacturer}/{serial}"
+
+
+def _resolve_repo_path(value: str) -> Path:
+    path = Path(value).expanduser()
+    return path if path.is_absolute() else REPO_ROOT / path
 
 
 def _target_config(
@@ -115,21 +149,21 @@ def _target_config(
         "manufacturer": manufacturer,
         "serial": serial,
         "version": os.getenv(f"{p}_VERSION", VDA_PROTOCOL_VERSION),
-        "order_tpl": os.getenv(f"{p}_ORDER_JSON_PATH", default_order_tpl),
+        "order_tpl": str(_resolve_repo_path(os.getenv(f"{p}_ORDER_JSON_PATH", default_order_tpl))),
     }
 
 
 TARGETS = {
     "crane": _target_config(
-        "crane", "konecranes", "ilmatar_1", "order_ilmatar_v3.json"
+        "crane", "konecranes", "ilmatar_1", "examples/orders/order_ilmatar_v3.json"
     ),
-    "dbot": _target_config("dbot", "aaltoUniversity", "dbot_1", "order_dbot_v3.json"),
+    "rox": _target_config("rox", "neobotix", "rox_diff_1", "examples/orders/order_rox_diff_v3.json"),
 }
 
 # HeaderId counters must be per-topic (order vs instantActions) and per-vehicle (topic root differs).
 _HEADERS = {
     "crane": {"order": 0, "instantActions": 0},
-    "dbot": {"order": 0, "instantActions": 0},
+    "rox": {"order": 0, "instantActions": 0},
 }
 
 # VDA 5050 v3.0 compatibility:
@@ -143,7 +177,7 @@ INSTANT_ACTION_ALIASES = {
 
 # Project/manufacturer-specific actions that are still intentionally used:
 # - release / buttonPress / resetAllHome / resetHoist / resetBridgeTrolley are crane-side actions.
-# - holdPose / releaseHold are DBot handover actions.
+# - holdPose / releaseHold are ROX-Diff handover actions.
 # These must also appear in the corresponding mobile robot factsheet/action support.
 # ---------------- Button counters for UI polling ----------------
 BUTTONS = [
@@ -164,10 +198,10 @@ consumed_seq = {b: 0 for b in BUTTONS}
 
 # -------------------------------------------------------
 def _match_rendezvous(
-    crane_node: Optional[str], dbot_node: Optional[str]
+    crane_node: Optional[str], rox_node: Optional[str]
 ) -> Optional[str]:
     for r in RENDEZVOUS:
-        if r["crane_node"] == crane_node and r["dbot_node"] == dbot_node:
+        if r["crane_node"] == crane_node and r["rox_node"] == rox_node:
             return r["tag"]
     return None
 
@@ -176,15 +210,23 @@ def _sub_topic_state_for(target: str) -> str:
     return f"{TARGETS[target]['topic_root']}/state"
 
 
+def _sub_topic_connection_for(target: str) -> str:
+    return f"{TARGETS[target]['topic_root']}/connection"
+
+
+def _sub_topic_factsheet_for(target: str) -> str:
+    return f"{TARGETS[target]['topic_root']}/factsheet"
+
+
 def _on_connect(client, userdata, flags, rc, properties=None):
     _log(f"[MQTT] on_connect rc={rc}")
     # VDA 5050 v3.0: order/instantActions/state/factsheet/zoneSet/responses/visualization use QoS 0.
     # Only connection uses QoS 1. This controller only subscribes to state here.
-    client.subscribe(_sub_topic_state_for("crane"), qos=VDA_MQTT_QOS)
-    client.subscribe(_sub_topic_state_for("dbot"), qos=VDA_MQTT_QOS)
-    _log(
-        f"[MQTT] Subscribed to {_sub_topic_state_for('crane')} and {_sub_topic_state_for('dbot')}"
-    )
+    for target in TARGETS:
+        client.subscribe(_sub_topic_state_for(target), qos=VDA_MQTT_QOS)
+        client.subscribe(_sub_topic_connection_for(target), qos=1)
+        client.subscribe(_sub_topic_factsheet_for(target), qos=VDA_MQTT_QOS)
+    _log("[MQTT] Subscribed to state, connection, and factsheet topics for crane and ROX-Diff")
 
 
 def _extract_running_action(action_states, action_type: str) -> Optional[str]:
@@ -230,8 +272,8 @@ def _evaluate_orchestration():
         c_btn_aid = STATE["crane"]["buttonpress_running_aid"]
         c_node = STATE["crane"]["buttonpress_node"]
         c_hoist_m = STATE["crane"]["hoist_height_m"]
-        d_hold_aid = STATE["dbot"]["holdpose_running_aid"]
-        d_node = STATE["dbot"]["holdpose_node"]
+        d_hold_aid = STATE["rox"]["holdpose_running_aid"]
+        d_node = STATE["rox"]["holdpose_node"]
 
     manual = ORCH["manual_release"]
     manual_armed = manual["ts"] > 0.0
@@ -256,23 +298,23 @@ def _evaluate_orchestration():
             _publish_instant_action("release", target="crane")
             ORCH["crane_release_sent_for_action"].add(c_btn_aid)
 
-    # (2) Manual releaseHold to DBot after safe lift at the SAME rendezvous/tag
+    # (2) Manual releaseHold to ROX-Diff after safe lift at the SAME rendezvous/tag
     if manual_armed:
         expected_tag = manual.get("tag")
-        expected_dbot = manual.get("dbot_node")
-        expected_aid = manual.get("dbot_hold_aid")
+        expected_rox = manual.get("rox_node")
+        expected_aid = manual.get("rox_hold_aid")
 
-        # DBot is still on the same holdPose action AND at the same rendezvous node we armed on
-        if expected_tag and d_hold_aid == expected_aid and d_node == expected_dbot:
+        # ROX-Diff is still on the same holdPose action AND at the same rendezvous node we armed on
+        if expected_tag and d_hold_aid == expected_aid and d_node == expected_rox:
             if (c_hoist_m is not None) and (c_hoist_m >= HOIST_CLEARANCE_M):
                 if (
-                    d_hold_aid not in ORCH["dbot_releasehold_sent_for_action"]
+                    d_hold_aid not in ORCH["rox_releasehold_sent_for_action"]
                 ):  # <--- duplicate guard
                     _log(
                         f"[ORCH] Manual releaseHold '{expected_tag}': hoist={c_hoist_m:.3f} >= {HOIST_CLEARANCE_M:.3f}"
                     )
-                    _publish_instant_action("releaseHold", target="dbot")
-                    ORCH["dbot_releasehold_sent_for_action"].add(d_hold_aid)
+                    _publish_instant_action("releaseHold", target="rox")
+                    ORCH["rox_releasehold_sent_for_action"].add(d_hold_aid)
                 # clear arming either way
                 manual.update(
                     {
@@ -280,8 +322,8 @@ def _evaluate_orchestration():
                         "bp_aid": None,
                         "hoist_m_at_press": None,
                         "tag": None,
-                        "dbot_hold_aid": None,
-                        "dbot_node": None,
+                        "rox_hold_aid": None,
+                        "rox_node": None,
                     }
                 )
 
@@ -294,13 +336,19 @@ def _evaluate_orchestration():
                 "bp_aid": None,
                 "hoist_m_at_press": None,
                 "tag": None,
-                "dbot_hold_aid": None,
-                "dbot_node": None,
+                "rox_hold_aid": None,
+                "rox_node": None,
             }
         )
 
 
 def _handle_state_msg(target: str, payload: Dict[str, Any]):
+    if STATE_SCHEMA is not None:
+        try:
+            jsonschema.validate(payload, STATE_SCHEMA)
+        except Exception as exc:
+            _log(f"[{target}] Ignoring invalid VDA state message: {exc}")
+            return
     action_states = payload.get("actionStates") or []
     information = payload.get("information") or []
 
@@ -316,11 +364,11 @@ def _handle_state_msg(target: str, payload: Dict[str, Any]):
             STATE["crane"]["buttonpress_node"] = ORDER_BOOK["crane"]["action2node"].get(
                 aid
             )
-        elif target == "dbot":
+        elif target == "rox":
             new_aid = _extract_running_action(action_states, "holdPose")
-            STATE["dbot"]["holdpose_running_aid"] = new_aid
+            STATE["rox"]["holdpose_running_aid"] = new_aid
             # NEW: which node is this holdPose on?
-            STATE["dbot"]["holdpose_node"] = ORDER_BOOK["dbot"]["action2node"].get(
+            STATE["rox"]["holdpose_node"] = ORDER_BOOK["rox"]["action2node"].get(
                 new_aid
             )
 
@@ -336,8 +384,30 @@ def _on_message(client, userdata, msg):
 
     if msg.topic == _sub_topic_state_for("crane"):
         _handle_state_msg("crane", data)
-    elif msg.topic == _sub_topic_state_for("dbot"):
-        _handle_state_msg("dbot", data)
+    elif msg.topic == _sub_topic_state_for("rox"):
+        _handle_state_msg("rox", data)
+    else:
+        for target in TARGETS:
+            if msg.topic == _sub_topic_connection_for(target):
+                if CONNECTION_SCHEMA is not None:
+                    try:
+                        jsonschema.validate(data, CONNECTION_SCHEMA)
+                    except Exception as exc:
+                        _log(f"[{target}] Ignoring invalid connection message: {exc}")
+                        break
+                with STATE_LOCK:
+                    STATE[target]["connection"] = data
+                break
+            if msg.topic == _sub_topic_factsheet_for(target):
+                if FACTSHEET_SCHEMA is not None:
+                    try:
+                        jsonschema.validate(data, FACTSHEET_SCHEMA)
+                    except Exception as exc:
+                        _log(f"[{target}] Ignoring invalid factsheet message: {exc}")
+                        break
+                with STATE_LOCK:
+                    STATE[target]["factsheet"] = data
+                break
 
 
 def _kv_params(d: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -356,14 +426,19 @@ def _load_schema(path: str) -> Optional[Dict[str, Any]]:
         return None
 
 
+# Load schemas before starting the MQTT callback thread so an early retained
+# connection/state/factsheet message cannot race uninitialized validators.
+ORDER_SCHEMA = _load_schema(ORDER_SCHEMA_PATH)
+IA_SCHEMA = _load_schema(IA_SCHEMA_PATH)
+STATE_SCHEMA = _load_schema(STATE_SCHEMA_PATH)
+CONNECTION_SCHEMA = _load_schema(CONNECTION_SCHEMA_PATH)
+FACTSHEET_SCHEMA = _load_schema(FACTSHEET_SCHEMA_PATH)
+
 mqtt_client = mqtt.Client(client_id="FLASK_BUTTONS", clean_session=True)
 mqtt_client.on_connect = _on_connect
 mqtt_client.on_message = _on_message
 mqtt_client.connect_async(BROKER_HOST, BROKER_PORT, keepalive=20)
 mqtt_client.loop_start()
-
-ORDER_SCHEMA = _load_schema(ORDER_SCHEMA_PATH)
-IA_SCHEMA = _load_schema(IA_SCHEMA_PATH)
 
 
 # ---------------- Helpers ----------------
@@ -617,12 +692,12 @@ def _publish_order(order_payload: Dict[str, Any], *, target: str = "crane"):
                 "bp_aid": None,
                 "hoist_m_at_press": None,
                 "tag": None,
-                "dbot_hold_aid": None,
-                "dbot_node": None,
+                "rox_hold_aid": None,
+                "rox_node": None,
             }
         )
-    elif target == "dbot":
-        ORCH["dbot_releasehold_sent_for_action"].clear()
+    elif target == "rox":
+        ORCH["rox_releasehold_sent_for_action"].clear()
 
 
 def _as_bool(val: str) -> bool:
@@ -641,6 +716,16 @@ def _record_press(btn: str):
     _log(f"[{btn.upper()}] pressed (seq={press_seq[btn]})")
 
 
+def _required_float_env(name: str) -> float:
+    value = os.getenv(name, "").strip()
+    if not value:
+        abort(400, f"{name} is not configured. Capture the ROX-Diff initial pose and update configs/fleet_control.env.")
+    try:
+        return float(value)
+    except ValueError:
+        abort(400, f"{name} must be a number, got {value!r}.")
+
+
 # ---------------- Routes ----------------
 @app.route("/")
 def index():
@@ -654,14 +739,15 @@ def press_automatic():
     # VDA 5050 v3 predefined action: initializePosition
     _publish_instant_action(
         "initializePosition",
-        target="dbot",
+        target="rox",
         params=_kv_params(
             {
-                "x": float(os.getenv("DBOT_INIT_X", "-2.688")),
-                "y": float(os.getenv("DBOT_INIT_Y", "-5.463")),
-                "theta": float(os.getenv("DBOT_INIT_THETA", "-0.234")),
-                "mapId": os.getenv("DBOT_INIT_MAP_ID", DEFAULT_MAP_ID),
-                "lastNodeId": os.getenv("DBOT_INIT_LAST_NODE_ID", ""),
+                "x": _required_float_env("ROX_INIT_X"),
+                "y": _required_float_env("ROX_INIT_Y"),
+                "theta": _required_float_env("ROX_INIT_THETA"),
+                "mapId": os.getenv("ROX_INIT_MAP_ID", DEFAULT_MAP_ID),
+                "lastNodeId": os.getenv("ROX_INIT_LAST_NODE_ID", ""),
+                "lastNodeSequenceId": int(os.getenv("ROX_INIT_LAST_NODE_SEQUENCE_ID", "0")),
             }
         ),
     )
@@ -675,13 +761,13 @@ def press_release():
         "release", target="crane"
     )  # always unlock current crane buttonPress
 
-    # Arm DBot releaseHold ONLY if the current press matches a rendezvous with DBot's *current* holdPose node
+    # Arm ROX-Diff releaseHold ONLY if the current press matches a rendezvous with ROX-Diff's *current* holdPose node
     with STATE_LOCK:
         cur_bp_aid = STATE["crane"]["buttonpress_running_aid"]
         cur_bp_node = STATE["crane"]["buttonpress_node"]
         cur_hoist = STATE["crane"]["hoist_height_m"]
-        cur_hold_aid = STATE["dbot"]["holdpose_running_aid"]
-        cur_hold_node = STATE["dbot"]["holdpose_node"]
+        cur_hold_aid = STATE["rox"]["holdpose_running_aid"]
+        cur_hold_node = STATE["rox"]["holdpose_node"]
 
     tag = _match_rendezvous(cur_bp_node, cur_hold_node)
     if tag and cur_hold_aid:
@@ -691,8 +777,8 @@ def press_release():
                 "bp_aid": cur_bp_aid,
                 "hoist_m_at_press": cur_hoist,
                 "tag": tag,
-                "dbot_hold_aid": cur_hold_aid,
-                "dbot_node": cur_hold_node,
+                "rox_hold_aid": cur_hold_aid,
+                "rox_node": cur_hold_node,
             }
         )
         _evaluate_orchestration()
@@ -706,14 +792,14 @@ def press_release():
                 "bp_aid": None,
                 "hoist_m_at_press": None,
                 "tag": None,
-                "dbot_hold_aid": None,
-                "dbot_node": None,
+                "rox_hold_aid": None,
+                "rox_node": None,
             }
         )
         _log("[ORCH] Evaluating immediately after manual /release.")
         _evaluate_orchestration()
         _log(
-            "[ORCH] /release pressed, but not at a rendezvous with DBot holdPose -> Crane only."
+            "[ORCH] /release pressed, but not at a rendezvous with ROX-Diff holdPose -> Crane only."
         )
 
     return jsonify({"ok": True})
@@ -761,14 +847,10 @@ def press_reset_xy():
     return jsonify({"ok": True})
 
 
-# POST: ORDER (reads order.json every time, stamps fields, publishes)
-@app.route("/order", methods=["POST"])
-def press_order():
-    _record_press("order")
-    result = {"ok": True, "orders": {}}
-    # after successfully publishing orders (or right at the start of the route)
+def _send_configured_orders(targets: List[str]) -> Dict[str, Any]:
+    result: Dict[str, Any] = {"ok": True, "orders": {}}
     ORCH["crane_release_sent_for_action"].clear()
-    ORCH["dbot_releasehold_sent_for_action"].clear()
+    ORCH["rox_releasehold_sent_for_action"].clear()
     ORCH["manual_release"].update(
         {
             "ts": 0.0,
@@ -776,43 +858,48 @@ def press_order():
             "hoist_m_at_press": None,
             "ttl_s": 60.0,
             "tag": None,
-            "dbot_hold_aid": None,
-            "dbot_node": None,
+            "rox_hold_aid": None,
+            "rox_node": None,
         }
     )
-    try:
-        # Crane order
-        crane_tpl = _load_order_template(TARGETS["crane"]["order_tpl"])
-        crane_order = _prepare_order_from_template(crane_tpl, target="crane")
-        _publish_order(crane_order, target="crane")
-        result["orders"]["crane"] = crane_order["orderId"]
-    except Exception as e:
-        _log(f"[crane] ERROR preparing/sending order: {e}")
-        result.setdefault("errors", {})["crane"] = str(e)
-        result["ok"] = False
-
-    try:
-        # DBot order
-        dbot_tpl = _load_order_template(TARGETS["dbot"]["order_tpl"])
-        dbot_order = _prepare_order_from_template(dbot_tpl, target="dbot")
-        _publish_order(dbot_order, target="dbot")
-        result["orders"]["dbot"] = dbot_order["orderId"]
-    except Exception as e:
-        _log(f"[dbot] ERROR preparing/sending order: {e}")
-        result.setdefault("errors", {})["dbot"] = str(e)
-        result["ok"] = False
-
-    status_code = 200 if result["ok"] else 400
-    return jsonify(result), status_code
+    for target in targets:
+        try:
+            template = _load_order_template(TARGETS[target]["order_tpl"])
+            order = _prepare_order_from_template(template, target=target)
+            _publish_order(order, target=target)
+            result["orders"][target] = order["orderId"]
+        except Exception as exc:
+            _log(f"[{target}] ERROR preparing/sending order: {exc}")
+            result.setdefault("errors", {})[target] = str(exc)
+            result["ok"] = False
+    return result
 
 
-# POST: CANCEL (instantAction cancelOrder; NO orderId parameter)
+# POST: both configured orders
+@app.route("/order", methods=["POST"])
+def press_order():
+    _record_press("order")
+    result = _send_configured_orders(["crane", "rox"])
+    return jsonify(result), (200 if result["ok"] else 400)
+
+
+# POST: one target only, useful while bringing up the ROX-Diff or crane independently.
+@app.route("/order/<target>", methods=["POST"])
+def press_order_target(target: str):
+    if target not in TARGETS:
+        abort(404, f"Unknown target {target!r}")
+    _record_press("order")
+    result = _send_configured_orders([target])
+    return jsonify(result), (200 if result["ok"] else 400)
+
+
+# POST: CANCEL (v3 cancelOrder with the active orderId when known)
 @app.route("/cancel", methods=["POST"])
 def press_cancel():
     _record_press("cancel")
     # after successfully publishing orders (or right at the start of the route)
     ORCH["crane_release_sent_for_action"].clear()
-    ORCH["dbot_releasehold_sent_for_action"].clear()
+    ORCH["rox_releasehold_sent_for_action"].clear()
     ORCH["manual_release"].update(
         {
             "ts": 0.0,
@@ -820,18 +907,85 @@ def press_cancel():
             "hoist_m_at_press": None,
             "ttl_s": 60.0,
             "tag": None,
-            "dbot_hold_aid": None,
-            "dbot_node": None,
+            "rox_hold_aid": None,
+            "rox_node": None,
         }
     )
-    actions = _publish_instant_action_to_targets("cancelOrder")
+    actions: Dict[str, str] = {}
+    for target in TARGETS:
+        order_id = ORDER_BOOK[target].get("orderId")
+        params = _kv_params({"orderId": order_id}) if order_id else None
+        actions[target] = _publish_instant_action(
+            "cancelOrder", target=target, params=params
+        )
     return jsonify({"ok": True, "actions": actions})
+
+
+@app.route("/cancel/<target>", methods=["POST"])
+def press_cancel_target(target: str):
+    if target not in TARGETS:
+        abort(404, f"Unknown target {target!r}")
+    _record_press("cancel")
+    order_id = ORDER_BOOK[target].get("orderId")
+    params = _kv_params({"orderId": order_id}) if order_id else None
+    action_id = _publish_instant_action("cancelOrder", target=target, params=params)
+    return jsonify(
+        {"ok": True, "target": target, "actionId": action_id, "orderId": order_id}
+    )
+
+
+@app.route("/pause/<target>", methods=["POST"])
+def press_pause_target(target: str):
+    if target not in TARGETS:
+        abort(404, f"Unknown target {target!r}")
+    _record_press("pause")
+    action_id = _publish_instant_action("startPause", target=target)
+    return jsonify({"ok": True, "target": target, "actionId": action_id})
+
+
+@app.route("/resume/<target>", methods=["POST"])
+def press_resume_target(target: str):
+    if target not in TARGETS:
+        abort(404, f"Unknown target {target!r}")
+    _record_press("resume")
+    action_id = _publish_instant_action("stopPause", target=target)
+    return jsonify({"ok": True, "target": target, "actionId": action_id})
+
+
+@app.route("/factsheet/<target>", methods=["POST"])
+def request_factsheet(target: str):
+    if target not in TARGETS:
+        abort(404, f"Unknown target {target!r}")
+    action_id = _publish_instant_action("factsheetRequest", target=target)
+    return jsonify({"ok": True, "target": target, "actionId": action_id})
+
+
+@app.route("/instant/<target>/<action_type>", methods=["POST"])
+def publish_custom_instant_action(target: str, action_type: str):
+    """Development endpoint for supported standard or project-specific instant actions.
+
+    Request JSON can be either {"parameters": {"key": value}} or
+    {"parameters": [{"key": "...", "value": ...}]}.
+    """
+    if target not in TARGETS:
+        abort(404, f"Unknown target {target!r}")
+    body = request.get_json(silent=True) or {}
+    raw_params = body.get("parameters")
+    params: Optional[List[Dict[str, Any]]] = None
+    if isinstance(raw_params, dict):
+        params = _kv_params(raw_params)
+    elif isinstance(raw_params, list):
+        params = raw_params
+    elif raw_params is not None:
+        abort(400, "parameters must be an object or an actionParameters array")
+    action_id = _publish_instant_action(action_type, target=target, params=params)
+    return jsonify({"ok": True, "target": target, "actionId": action_id})
 
 
 @app.route("/release_hold", methods=["POST"])
 def press_release_hold():
     _record_press("release_hold")
-    _publish_instant_action("releaseHold", target="dbot")
+    _publish_instant_action("releaseHold", target="rox")
     return jsonify({"ok": True})
 
 
@@ -873,6 +1027,22 @@ def status_all():
         for b in BUTTONS:
             consumed_seq[b] = press_seq[b]
     return jsonify(payload)
+
+
+@app.route("/runtime", methods=["GET"])
+def runtime_status():
+    """Return the latest integration state for debugging on the Raspberry Pi."""
+    with STATE_LOCK:
+        state_copy = deepcopy(STATE)
+    return jsonify(
+        {
+            "mqtt": {"host": BROKER_HOST, "port": BROKER_PORT},
+            "targets": TARGETS,
+            "rendezvous": RENDEZVOUS,
+            "state": state_copy,
+            "orders": deepcopy(ORDER_BOOK),
+        }
+    )
 
 
 # ---------------- Main ----------------

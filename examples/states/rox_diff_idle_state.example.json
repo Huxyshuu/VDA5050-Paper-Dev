@@ -1,0 +1,39 @@
+{
+  "headerId": 1,
+  "timestamp": "2026-07-15T00:00:00.000Z",
+  "version": "3.0.0",
+  "manufacturer": "neobotix",
+  "serialNumber": "rox_diff_1",
+  "orderId": "",
+  "orderUpdateId": 0,
+  "lastNodeId": "",
+  "lastNodeSequenceId": 0,
+  "nodeStates": [],
+  "edgeStates": [],
+  "driving": false,
+  "paused": false,
+  "actionStates": [],
+  "instantActionStates": [],
+  "powerSupply": {
+    "stateOfCharge": 80.0,
+    "charging": false
+  },
+  "operatingMode": "STARTUP",
+  "errors": [],
+  "safetyState": {
+    "activeEmergencyStop": "NONE",
+    "fieldViolation": false
+  },
+  "mobileRobotPosition": {
+    "x": 0.0,
+    "y": 0.0,
+    "theta": 0.0,
+    "mapId": "warehouse_case_study",
+    "localized": false
+  },
+  "velocity": {
+    "vx": 0.0,
+    "vy": 0.0,
+    "omega": 0.0
+  }
+}

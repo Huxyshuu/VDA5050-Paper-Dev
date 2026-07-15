@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>vda5050_schemas_v3</name>
+  <version>0.1.0</version>
+  <description>Official VDA 5050 v3.0 JSON schemas installed for ROS 2 adapters.</description>
+  <maintainer email="saad.rana@aalto.fi">Saad Ahmed Rana</maintainer>
+  <license>See upstream VDA5050 repository</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

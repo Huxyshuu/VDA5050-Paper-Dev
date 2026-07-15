@@ -10,7 +10,7 @@ Target version: VDA 5050 v3.0.0.
 
 Copied on: 2026-07-06.
 
-Commit hash: **0b2ae43**154bcd1ab2be4e2445df8b406dcad77b2
+Source commit: `0b2ae43154bcd1ab2be4e2445df8b406dcad77b2`
 
 These files should be treated as official reference schemas and should not be edited directly.
 Crane-specific extensions or usage-profile schemas should be placed in `schemas/custom/`.

@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.8)
+project(vda5050_schemas_v3)
+find_package(ament_cmake REQUIRED)
+install(DIRECTORY schemas DESTINATION share/${PROJECT_NAME})
+ament_package()

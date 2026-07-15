@@ -1,0 +1,29 @@
+order_description: ROX-Diff warehouse route with crane handover
+nodes:
+  - node_id: node1
+    waypoint: home
+    descriptor: Home / order start
+    actions: []
+  - node_id: node2
+    waypoint: crane_handover
+    descriptor: Crane handover rendezvous
+    actions:
+      - action_type: holdPose
+        action_id: rox_hold_at_crane
+        blocking_type: HARD
+        retriable: false
+  - node_id: node3
+    waypoint: warehouse_dropoff
+    descriptor: Warehouse drop-off
+    actions: []
+  - node_id: node4
+    waypoint: home
+    descriptor: Return home
+    actions: []
+edges:
+  - edge_id: edge1
+    descriptor: Home to crane handover
+  - edge_id: edge2
+    descriptor: Crane handover to drop-off
+  - edge_id: edge3
+    descriptor: Drop-off to home

@@ -416,7 +416,7 @@
     <header class="topbar">
       <div class="title-block">
         <h1>Fleet Control</h1>
-        <p>Categorized VDA 5050 v3 handover panel for the Ilmatar crane and DBot/ROX side. The buttons call the same Flask routes used by the migrated master controller.</p>
+        <p>Categorized VDA 5050 v3 handover panel for the Ilmatar crane and Neobotix ROX-Diff side. The buttons call the same Flask routes used by the migrated master controller.</p>
       </div>
       <div class="badges" aria-label="System badges">
         <span class="badge">VDA 5050 v3.0</span>
@@ -450,10 +450,10 @@
                   <span class="control-kicker"><span class="dot"></span> Scenario</span>
                   <span class="control-title">Send crane + mobile robot order</span>
                 </span>
-                <span class="control-desc">Publishes the prepared crane and DBot orders through the VDA 5050 v3 master.</span>
+                <span class="control-desc">Publishes the prepared crane and ROX-Diff orders through the VDA 5050 v3 master.</span>
               </button>
 
-              <button class="control cyan" data-route="/automatic" data-name="Initialize DBot position">
+              <button class="control cyan" data-route="/automatic" data-name="Initialize ROX-Diff position">
                 <span class="control-main">
                   <span class="control-kicker"><span class="dot"></span> Setup</span>
                   <span class="control-title">Initialize position</span>
@@ -469,10 +469,10 @@
                 <span class="section-icon">02</span>
                 <div>
                   <h3 id="handover-heading">Handover coordination</h3>
-                  <p>Controls for the crane/DBot rendezvous, buttonPress, holdPose, and load handover logic.</p>
+                  <p>Controls for the crane/ROX-Diff rendezvous, buttonPress, holdPose, and load handover logic.</p>
                 </div>
               </div>
-              <span class="section-meta">Crane + DBot synchronization</span>
+              <span class="section-meta">Crane + ROX-Diff synchronization</span>
             </div>
             <div class="control-row two">
               <button class="control success" data-route="/release" data-name="Release crane">
@@ -483,10 +483,10 @@
                 <span class="control-desc">Unlocks the active crane buttonPress and arms/evaluates the safe handover sequence.</span>
               </button>
 
-              <button class="control success" data-route="/release_hold" data-name="Release DBot hold">
+              <button class="control success" data-route="/release_hold" data-name="Release ROX-Diff hold">
                 <span class="control-main">
-                  <span class="control-kicker"><span class="dot"></span> DBot</span>
-                  <span class="control-title">Release DBot hold</span>
+                  <span class="control-kicker"><span class="dot"></span> ROX-Diff</span>
+                  <span class="control-title">Release ROX-Diff hold</span>
                 </span>
                 <span class="control-desc">Direct project-specific releaseHold for the mobile robot handover action.</span>
               </button>
@@ -590,7 +590,7 @@
           </div>
           <ul class="legend-list">
             <li style="--accent: var(--blue)"><span class="mini-dot"></span><span><strong>Mission</strong> prepares/dispatches orders.</span></li>
-            <li style="--accent: var(--good)"><span class="mini-dot"></span><span><strong>Handover</strong> is for crane release and DBot hold release.</span></li>
+            <li style="--accent: var(--good)"><span class="mini-dot"></span><span><strong>Handover</strong> is for crane release and ROX-Diff hold release.</span></li>
             <li style="--accent: var(--warn)"><span class="mini-dot"></span><span><strong>Motion</strong> pauses, resumes, or cancels active work.</span></li>
             <li style="--accent: var(--danger)"><span class="mini-dot"></span><span><strong>Reset</strong> can move crane axes and asks for confirmation.</span></li>
           </ul>

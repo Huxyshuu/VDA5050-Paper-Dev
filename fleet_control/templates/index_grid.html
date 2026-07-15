@@ -302,7 +302,7 @@
     <header class="topbar">
       <div class="title-block">
         <h1>Fleet Control</h1>
-        <p>VDA 5050 v3 handover panel for the Ilmatar crane and DBot/ROX side. This UI only calls Flask routes; the migrated master controller translates these commands into v3 MQTT messages.</p>
+        <p>VDA 5050 v3 handover panel for the Ilmatar crane and Neobotix ROX-Diff side. This UI only calls Flask routes; the migrated master controller translates these commands into v3 MQTT messages.</p>
       </div>
       <div class="badges" aria-label="System badges">
         <span class="badge">VDA 5050 v3.0</span>
@@ -324,7 +324,7 @@
               <span class="control-kicker"><span class="dot"></span> Scenario</span>
               <span class="control-title">Send crane + mobile robot order</span>
             </span>
-            <span class="control-desc">Publishes the prepared crane and DBot orders through the migrated VDA 5050 v3 master.</span>
+            <span class="control-desc">Publishes the prepared crane and ROX-Diff orders through the migrated VDA 5050 v3 master.</span>
           </button>
 
           <button class="control success" data-route="/release" data-name="Release crane">
@@ -332,10 +332,10 @@
               <span class="control-kicker"><span class="dot"></span> Handover</span>
               <span class="control-title">Release crane</span>
             </span>
-            <span class="control-desc">Unlocks the active crane buttonPress. If the rendezvous is armed, DBot releaseHold is handled after safe hoist clearance.</span>
+            <span class="control-desc">Unlocks the active crane buttonPress. If the rendezvous is armed, ROX-Diff releaseHold is handled after safe hoist clearance.</span>
           </button>
 
-          <button class="control primary" data-route="/automatic" data-name="Initialize DBot position">
+          <button class="control primary" data-route="/automatic" data-name="Initialize ROX-Diff position">
             <span class="control-main">
               <span class="control-kicker"><span class="dot"></span> Setup</span>
               <span class="control-title">Initialize position</span>
@@ -359,12 +359,12 @@
             <span class="control-desc">Master maps this UI route to the v3 stopPause instant action.</span>
           </button>
 
-          <button class="control muted" data-route="/release_hold" data-name="Release DBot hold">
+          <button class="control muted" data-route="/release_hold" data-name="Release ROX-Diff hold">
             <span class="control-main">
-              <span class="control-kicker"><span class="dot"></span> DBot</span>
+              <span class="control-kicker"><span class="dot"></span> ROX-Diff</span>
               <span class="control-title">Release hold</span>
             </span>
-            <span class="control-desc">Direct project-specific releaseHold for the DBot handover action.</span>
+            <span class="control-desc">Direct project-specific releaseHold for the ROX-Diff handover action.</span>
           </button>
 
           <button class="control danger" data-route="/cancel" data-name="Cancel order" data-confirm="Cancel the current order on both targets?">

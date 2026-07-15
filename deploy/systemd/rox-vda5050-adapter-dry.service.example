@@ -1,0 +1,15 @@
+[Unit]
+Description=ROX-Diff VDA 5050 adapter (dry-run commissioning)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Replace user, ROS distribution, and workspace paths for the actual robot.
+User=neobotix
+ExecStart=/bin/bash -lc 'source /opt/ros/humble/setup.bash && source /home/neobotix/ros2_workspace/install/setup.bash && source /home/neobotix/vda5050_ws/install/setup.bash && exec ros2 launch rox_vda5050_adapter rox_vda5050_adapter.launch.py mqtt_host:=192.168.1.115 map_id:=warehouse_case_study dry_run_navigation:=true'
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

@@ -1,4 +1,5 @@
-flask
-paho-mqtt
-jsonschema
-python-dotenv
+Flask>=3.0,<4
+paho-mqtt>=1.6,<3
+jsonschema>=4.20,<5
+python-dotenv>=1.0,<2
+PyYAML>=6.0,<7
