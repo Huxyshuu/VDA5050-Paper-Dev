@@ -16,8 +16,8 @@ setup(
     ],
     install_requires=["setuptools", "paho-mqtt", "jsonschema", "PyYAML"],
     zip_safe=True,
-    maintainer="Saad Ahmed Rana",
-    maintainer_email="saad.rana@aalto.fi",
+    maintainer="Hugo Tamm",
+    maintainer_email="hugo.tamm@aalto.fi",
     description="VDA 5050 v3.0 MQTT/Nav2 adapter for Neobotix ROX-Diff",
     license="Apache-2.0",
     entry_points={

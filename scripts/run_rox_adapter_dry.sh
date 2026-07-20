@@ -3,7 +3,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NEOBOTIX_WS="${NEOBOTIX_WS:-$HOME/ros2_workspace}"
 PROJECT_WS="$ROOT/ros2_ws"
-source /opt/ros/${ROS_DISTRO:?Set ROS_DISTRO or source ROS 2 first}/setup.bash
+ROS_DISTRO="${ROS_DISTRO:-jazzy}"
+
+source "/opt/ros/$ROS_DISTRO/setup.bash"
 if [[ -f "$NEOBOTIX_WS/install/setup.bash" ]]; then
   source "$NEOBOTIX_WS/install/setup.bash"
 else

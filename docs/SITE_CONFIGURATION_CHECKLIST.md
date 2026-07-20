@@ -4,12 +4,12 @@ Complete this file on the real equipment. Do not replace unknown values with gue
 
 ## Raspberry Pi and network
 
-- [ ] Pi username: `____________________`
-- [ ] Pi hostname: `____________________`
-- [ ] Pi/MQTT IPv4 address: `____________________`
-- [ ] MQTT port: `____________________`
-- [ ] Pi project path: `____________________`
-- [ ] Flask address/port: `____________________`
+- [x] Pi username: `raspberrypi`
+- [x] Pi hostname: `raspberrypi`
+- [x] Pi/MQTT IPv4 address: `192.168.1.115`
+- [x] MQTT port: `1883`
+- [x] Pi project path: `~/VDA5050-Paper-Dev`
+- [x] Flask address/port: `192.168.1.115:5000`
 - [ ] ROX can ping the Pi.
 - [ ] ROX can open TCP connection to MQTT port.
 - [ ] MQTT is restricted to the trusted lab network.
@@ -17,7 +17,7 @@ Complete this file on the real equipment. Do not replace unknown values with gue
 
 ## Neobotix delivered software
 
-- [ ] ROS distribution: `____________________`
+- [x] ROS distribution: `jazzy`
 - [ ] Neobotix workspace: `____________________`
 - [ ] `rox_bringup` launch file: `____________________`
 - [ ] Bringup arguments used: `____________________`
@@ -29,7 +29,7 @@ Complete this file on the real equipment. Do not replace unknown values with gue
 - [ ] Robot namespace: `____________________`
 - [ ] Lidar topic: `____________________`
 - [ ] Odometry topic: `____________________`
-- [ ] Battery topic and message type: `____________________`
+- [x] Battery topic and message type: `/battery_state`
 - [ ] Emergency-stop topic and message type: `____________________`
 - [ ] Safety-state topic and message type: `____________________`
 - [ ] Nav2 action name: `____________________`

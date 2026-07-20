@@ -5,14 +5,16 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-# Replace the user and repository path for the actual robot.
 User=neobotix
-Environment=ROS_DISTRO=humble
+
+Environment=ROS_DISTRO=jazzy
 Environment=NEOBOTIX_WS=/home/neobotix/ros2_workspace
 Environment=VDA_MQTT_HOST=192.168.1.115
 Environment=VDA_MAP_ID=warehouse_case_study
-WorkingDirectory=/home/neobotix/VDA5050-Paper-Dev
-ExecStart=/home/neobotix/VDA5050-Paper-Dev/scripts/run_rox_adapter_dry.sh
+
+WorkingDirectory=/home/neobotix/Projects/VDA5050-Paper-Dev
+ExecStart=/home/neobotix/Projects/VDA5050-Paper-Dev/scripts/run_rox_adapter_dry.sh
+
 Restart=on-failure
 RestartSec=3
 
