@@ -1,18 +1,17 @@
 [Unit]
-Description=ROX-Diff VDA 5050 adapter (dry-run commissioning)
+Description=ROX-Diff VDA 5050 adapter (real Nav2 motion)
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-# Replace the user and repository path for the actual robot.
 User=neobotix
 Environment=ROS_DISTRO=humble
 Environment=NEOBOTIX_WS=/home/neobotix/ros2_workspace
 Environment=VDA_MQTT_HOST=192.168.1.115
 Environment=VDA_MAP_ID=warehouse_case_study
 WorkingDirectory=/home/neobotix/VDA5050-Paper-Dev
-ExecStart=/home/neobotix/VDA5050-Paper-Dev/scripts/run_rox_adapter_dry.sh
+ExecStart=/home/neobotix/VDA5050-Paper-Dev/scripts/run_rox_adapter_real.sh
 Restart=on-failure
 RestartSec=3
 

@@ -45,7 +45,17 @@ VDA_MAJOR_VERSION = os.getenv("VDA_MAJOR_VERSION", "v3")
 VDA_MQTT_QOS = int(os.getenv("VDA_MQTT_QOS", "0"))
 
 DEFAULT_MAP_ID = os.getenv("VDA_DEFAULT_MAP_ID", "map")
-HOIST_CLEARANCE_M = float(os.getenv("HOIST_CLEARANCE_M", "1.0"))
+
+# Explicit action IDs from the order templates. Handover decisions are made from
+# VDA action lifecycle states, never from free-text information[] telemetry.
+CRANE_AUTO_RELEASE_ACTION_ID = os.getenv("CRANE_AUTO_RELEASE_ACTION_ID", "action4")
+CRANE_MANUAL_RELEASE_ACTION_ID = os.getenv("CRANE_MANUAL_RELEASE_ACTION_ID", "action6")
+CRANE_SAFE_LIFT_ACTION_ID = os.getenv("CRANE_SAFE_LIFT_ACTION_ID", "action7")
+ROX_HOLD_ACTION_ID = os.getenv("ROX_HOLD_ACTION_ID", "rox_hold_at_crane")
+MANUAL_RELEASE_TTL_S = float(os.getenv("MANUAL_RELEASE_TTL_S", "180"))
+
+# Display-only crane telemetry parser. VDA information[] is not used for
+# orchestration or safety decisions.
 _HOIST_NUM_RE = re.compile(r"([-+]?\d+(?:\.\d+)?)")
 # --------------------------------------------------------
 
@@ -97,15 +107,16 @@ STATE = {
         "connection": None,
         "factsheet": None,
         "buttonpress_running_aid": None,
-        "buttonpress_node": None,  # NEW
-        "hoist_height_m": None,
+        "buttonpress_node": None,
+        "safe_lift_action_status": None,
+        "hoist_height_m": None,  # display only; never used for orchestration
     },
     "rox": {
         "last_state": None,
         "connection": None,
         "factsheet": None,
         "holdpose_running_aid": None,
-        "holdpose_node": None,  # NEW
+        "holdpose_node": None,
     },
 }
 
@@ -114,8 +125,7 @@ ORCH = {
     "manual_release": {
         "ts": 0.0,
         "bp_aid": None,
-        "hoist_m_at_press": None,
-        "ttl_s": 60.0,
+        "ttl_s": MANUAL_RELEASE_TTL_S,
         "tag": None,  # NEW: which rendezvous this press belongs to
         "rox_hold_aid": None,  # NEW: which specific holdPose we're tying to
         "rox_node": None,
@@ -247,6 +257,26 @@ def _extract_running_action(action_states, action_type: str) -> Optional[str]:
     return None
 
 
+def _action_status(action_states, action_id: str) -> Optional[str]:
+    """Return the current status for an exact actionId, if present."""
+    if not isinstance(action_states, list) or not action_id:
+        return None
+    for action in reversed(action_states):
+        if str(action.get("actionId", "")) == action_id:
+            return action.get("actionStatus")
+    return None
+
+
+def _header_matches_target(target: str, payload: Dict[str, Any]) -> bool:
+    """Reject state/connection/factsheet messages for another participant/version."""
+    cfg = TARGETS[target]
+    return (
+        str(payload.get("manufacturer", "")) == cfg["manufacturer"]
+        and str(payload.get("serialNumber", "")) == cfg["serial"]
+        and str(payload.get("version", "")) == cfg["version"]
+    )
+
+
 def _extract_hoist_height(info_list) -> Optional[float]:
     """
     Expect an information entry like:
@@ -267,79 +297,83 @@ def _extract_hoist_height(info_list) -> Optional[float]:
     return None
 
 
+def _clear_manual_release() -> None:
+    ORCH["manual_release"].update(
+        {
+            "ts": 0.0,
+            "bp_aid": None,
+            "tag": None,
+            "rox_hold_aid": None,
+            "rox_node": None,
+        }
+    )
+
+
 def _evaluate_orchestration():
+    """Coordinate the two-stage handover from exact action-state milestones.
+
+    Stage 1: action4/buttonPress is automatically released when the ROX-Diff is
+    running the configured holdPose action at the matching rendezvous.
+
+    Stage 2: the operator releases action6/buttonPress. The ROX-Diff remains held
+    until action7/raiseHoist reports FINISHED, then releaseHold is sent once.
+    """
     with STATE_LOCK:
         c_btn_aid = STATE["crane"]["buttonpress_running_aid"]
         c_node = STATE["crane"]["buttonpress_node"]
-        c_hoist_m = STATE["crane"]["hoist_height_m"]
+        safe_lift_status = STATE["crane"]["safe_lift_action_status"]
         d_hold_aid = STATE["rox"]["holdpose_running_aid"]
         d_node = STATE["rox"]["holdpose_node"]
 
     manual = ORCH["manual_release"]
     manual_armed = manual["ts"] > 0.0
-
-    # Are the robots at the same logical handover?
     tag = _match_rendezvous(c_node, d_node)
 
-    # (1) Auto-release to Crane at the start of the DROP rendezvous (no timer window)
+    # First buttonPress at the crane rendezvous: release only the explicitly
+    # configured action, not whichever buttonPress happens to be RUNNING.
     if (
-        c_btn_aid
-        and d_hold_aid
+        c_btn_aid == CRANE_AUTO_RELEASE_ACTION_ID
+        and d_hold_aid == ROX_HOLD_ACTION_ID
         and tag
         and not manual_armed
-        and (c_hoist_m is not None)
+        and c_btn_aid not in ORCH["crane_release_sent_for_action"]
     ):
-        if (c_btn_aid not in ORCH["crane_release_sent_for_action"]) and (
-            c_hoist_m >= HOIST_CLEARANCE_M
-        ):
-            _log(
-                f"[ORCH] Auto-release '{tag}': hoist={c_hoist_m:.3f} >= {HOIST_CLEARANCE_M:.3f}"
-            )
-            _publish_instant_action("release", target="crane")
-            ORCH["crane_release_sent_for_action"].add(c_btn_aid)
+        _log(
+            f"[ORCH] Auto-release '{tag}' for crane action {c_btn_aid}; "
+            f"ROX hold {d_hold_aid} is RUNNING"
+        )
+        _publish_instant_action("release", target="crane")
+        ORCH["crane_release_sent_for_action"].add(c_btn_aid)
 
-    # (2) Manual releaseHold to ROX-Diff after safe lift at the SAME rendezvous/tag
     if manual_armed:
         expected_tag = manual.get("tag")
-        expected_rox = manual.get("rox_node")
-        expected_aid = manual.get("rox_hold_aid")
-
-        # ROX-Diff is still on the same holdPose action AND at the same rendezvous node we armed on
-        if expected_tag and d_hold_aid == expected_aid and d_node == expected_rox:
-            if (c_hoist_m is not None) and (c_hoist_m >= HOIST_CLEARANCE_M):
-                if (
-                    d_hold_aid not in ORCH["rox_releasehold_sent_for_action"]
-                ):  # <--- duplicate guard
-                    _log(
-                        f"[ORCH] Manual releaseHold '{expected_tag}': hoist={c_hoist_m:.3f} >= {HOIST_CLEARANCE_M:.3f}"
-                    )
-                    _publish_instant_action("releaseHold", target="rox")
-                    ORCH["rox_releasehold_sent_for_action"].add(d_hold_aid)
-                # clear arming either way
-                manual.update(
-                    {
-                        "ts": 0.0,
-                        "bp_aid": None,
-                        "hoist_m_at_press": None,
-                        "tag": None,
-                        "rox_hold_aid": None,
-                        "rox_node": None,
-                    }
-                )
-
-    # Expire stale arming
-    if manual_armed and (time.time() - manual["ts"] > manual["ttl_s"]):
-        _log("[ORCH] Manual-release arming expired.")
-        manual.update(
-            {
-                "ts": 0.0,
-                "bp_aid": None,
-                "hoist_m_at_press": None,
-                "tag": None,
-                "rox_hold_aid": None,
-                "rox_node": None,
-            }
+        expected_rox_node = manual.get("rox_node")
+        expected_hold_aid = manual.get("rox_hold_aid")
+        same_hold = (
+            expected_tag
+            and d_hold_aid == expected_hold_aid == ROX_HOLD_ACTION_ID
+            and d_node == expected_rox_node
         )
+
+        if safe_lift_status == "FAILED":
+            _log(
+                f"[ORCH] Safe-lift action {CRANE_SAFE_LIFT_ACTION_ID} FAILED; "
+                "ROX hold is intentionally not released."
+            )
+            _clear_manual_release()
+        elif same_hold and safe_lift_status == "FINISHED":
+            if d_hold_aid not in ORCH["rox_releasehold_sent_for_action"]:
+                _log(
+                    f"[ORCH] Release ROX hold '{expected_tag}': crane safe-lift "
+                    f"action {CRANE_SAFE_LIFT_ACTION_ID} is FINISHED"
+                )
+                _publish_instant_action("releaseHold", target="rox")
+                ORCH["rox_releasehold_sent_for_action"].add(d_hold_aid)
+            _clear_manual_release()
+
+    if manual_armed and (time.time() - manual["ts"] > manual["ttl_s"]):
+        _log("[ORCH] Manual-release arming expired; ROX hold remains active.")
+        _clear_manual_release()
 
 
 def _handle_state_msg(target: str, payload: Dict[str, Any]):
@@ -349,27 +383,32 @@ def _handle_state_msg(target: str, payload: Dict[str, Any]):
         except Exception as exc:
             _log(f"[{target}] Ignoring invalid VDA state message: {exc}")
             return
+    if not _header_matches_target(target, payload):
+        _log(f"[{target}] Ignoring state with mismatched participant/version header")
+        return
+
     action_states = payload.get("actionStates") or []
     information = payload.get("information") or []
 
     with STATE_LOCK:
         STATE[target]["last_state"] = payload
         if target == "crane":
-            STATE["crane"]["buttonpress_running_aid"] = _extract_running_action(
-                action_states, "buttonPress"
-            )
-            STATE["crane"]["hoist_height_m"] = _extract_hoist_height(information)
-            # NEW: which node is this buttonPress on?
-            aid = STATE["crane"]["buttonpress_running_aid"]
+            running_button = _extract_running_action(action_states, "buttonPress")
+            STATE["crane"]["buttonpress_running_aid"] = running_button
             STATE["crane"]["buttonpress_node"] = ORDER_BOOK["crane"]["action2node"].get(
-                aid
+                running_button
             )
+            STATE["crane"]["safe_lift_action_status"] = _action_status(
+                action_states, CRANE_SAFE_LIFT_ACTION_ID
+            )
+            # Telemetry is exposed to /runtime for diagnostics only.
+            STATE["crane"]["hoist_height_m"] = _extract_hoist_height(information)
         elif target == "rox":
-            new_aid = _extract_running_action(action_states, "holdPose")
-            STATE["rox"]["holdpose_running_aid"] = new_aid
-            # NEW: which node is this holdPose on?
+            hold_status = _action_status(action_states, ROX_HOLD_ACTION_ID)
+            running_hold = ROX_HOLD_ACTION_ID if hold_status == "RUNNING" else None
+            STATE["rox"]["holdpose_running_aid"] = running_hold
             STATE["rox"]["holdpose_node"] = ORDER_BOOK["rox"]["action2node"].get(
-                new_aid
+                running_hold
             )
 
     _evaluate_orchestration()
@@ -395,6 +434,9 @@ def _on_message(client, userdata, msg):
                     except Exception as exc:
                         _log(f"[{target}] Ignoring invalid connection message: {exc}")
                         break
+                if not _header_matches_target(target, data):
+                    _log(f"[{target}] Ignoring connection with mismatched participant/version header")
+                    break
                 with STATE_LOCK:
                     STATE[target]["connection"] = data
                 break
@@ -405,6 +447,9 @@ def _on_message(client, userdata, msg):
                     except Exception as exc:
                         _log(f"[{target}] Ignoring invalid factsheet message: {exc}")
                         break
+                if not _header_matches_target(target, data):
+                    _log(f"[{target}] Ignoring factsheet with mismatched participant/version header")
+                    break
                 with STATE_LOCK:
                     STATE[target]["factsheet"] = data
                 break
@@ -415,15 +460,14 @@ def _kv_params(d: Dict[str, Any]) -> List[Dict[str, Any]]:
     return [{"key": k, "value": v} for k, v in d.items()]
 
 
-def _load_schema(path: str) -> Optional[Dict[str, Any]]:
+def _load_schema(path: str) -> Dict[str, Any]:
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
-    except Exception:
-        _log(
-            f"Schema not found/unreadable at '{path}'. Publishing without local validation."
-        )
-        return None
+    except Exception as exc:
+        raise RuntimeError(
+            f"Required VDA 5050 schema is missing or unreadable: {path}: {exc}"
+        ) from exc
 
 
 # Load schemas before starting the MQTT callback thread so an early retained
@@ -434,7 +478,19 @@ STATE_SCHEMA = _load_schema(STATE_SCHEMA_PATH)
 CONNECTION_SCHEMA = _load_schema(CONNECTION_SCHEMA_PATH)
 FACTSHEET_SCHEMA = _load_schema(FACTSHEET_SCHEMA_PATH)
 
-mqtt_client = mqtt.Client(client_id="FLASK_BUTTONS", clean_session=True)
+def _new_mqtt_client(client_id: str) -> mqtt.Client:
+    """Use the current Paho callback API while remaining compatible with 1.x."""
+    try:
+        return mqtt.Client(
+            mqtt.CallbackAPIVersion.VERSION2,
+            client_id=client_id,
+            clean_session=True,
+        )
+    except (AttributeError, TypeError):
+        return mqtt.Client(client_id=client_id, clean_session=True)
+
+
+mqtt_client = _new_mqtt_client("FLASK_BUTTONS")
 mqtt_client.on_connect = _on_connect
 mqtt_client.on_message = _on_message
 mqtt_client.connect_async(BROKER_HOST, BROKER_PORT, keepalive=20)
@@ -690,8 +746,7 @@ def _publish_order(order_payload: Dict[str, Any], *, target: str = "crane"):
             {
                 "ts": 0.0,
                 "bp_aid": None,
-                "hoist_m_at_press": None,
-                "tag": None,
+                    "tag": None,
                 "rox_hold_aid": None,
                 "rox_node": None,
             }
@@ -757,52 +812,44 @@ def press_automatic():
 @app.route("/release", methods=["POST"])
 def press_release():
     _record_press("release")
-    _publish_instant_action(
-        "release", target="crane"
-    )  # always unlock current crane buttonPress
+    _publish_instant_action("release", target="crane")
 
-    # Arm ROX-Diff releaseHold ONLY if the current press matches a rendezvous with ROX-Diff's *current* holdPose node
     with STATE_LOCK:
         cur_bp_aid = STATE["crane"]["buttonpress_running_aid"]
         cur_bp_node = STATE["crane"]["buttonpress_node"]
-        cur_hoist = STATE["crane"]["hoist_height_m"]
         cur_hold_aid = STATE["rox"]["holdpose_running_aid"]
         cur_hold_node = STATE["rox"]["holdpose_node"]
 
     tag = _match_rendezvous(cur_bp_node, cur_hold_node)
-    if tag and cur_hold_aid:
+    can_arm = (
+        cur_bp_aid == CRANE_MANUAL_RELEASE_ACTION_ID
+        and cur_hold_aid == ROX_HOLD_ACTION_ID
+        and tag is not None
+    )
+    if can_arm:
         ORCH["manual_release"].update(
             {
                 "ts": time.time(),
                 "bp_aid": cur_bp_aid,
-                "hoist_m_at_press": cur_hoist,
                 "tag": tag,
                 "rox_hold_aid": cur_hold_aid,
                 "rox_node": cur_hold_node,
             }
         )
-        _evaluate_orchestration()
         _log(
-            f"[ORCH] Manual /release armed for tag={tag}, bp_aid={cur_bp_aid}, hoist={cur_hoist}"
+            f"[ORCH] Manual release armed at {tag}; waiting for crane action "
+            f"{CRANE_SAFE_LIFT_ACTION_ID} to FINISH before releasing ROX hold"
         )
+        _evaluate_orchestration()
     else:
-        ORCH["manual_release"].update(
-            {
-                "ts": 0.0,
-                "bp_aid": None,
-                "hoist_m_at_press": None,
-                "tag": None,
-                "rox_hold_aid": None,
-                "rox_node": None,
-            }
-        )
-        _log("[ORCH] Evaluating immediately after manual /release.")
-        _evaluate_orchestration()
+        _clear_manual_release()
         _log(
-            "[ORCH] /release pressed, but not at a rendezvous with ROX-Diff holdPose -> Crane only."
+            "[ORCH] Crane release sent, but ROX release was not armed: "
+            f"expected crane action {CRANE_MANUAL_RELEASE_ACTION_ID} and "
+            f"ROX hold {ROX_HOLD_ACTION_ID}."
         )
 
-    return jsonify({"ok": True})
+    return jsonify({"ok": True, "rox_release_armed": bool(can_arm)})
 
 
 @app.route("/pause", methods=["POST"])
@@ -855,7 +902,6 @@ def _send_configured_orders(targets: List[str]) -> Dict[str, Any]:
         {
             "ts": 0.0,
             "bp_aid": None,
-            "hoist_m_at_press": None,
             "ttl_s": 60.0,
             "tag": None,
             "rox_hold_aid": None,
@@ -904,7 +950,6 @@ def press_cancel():
         {
             "ts": 0.0,
             "bp_aid": None,
-            "hoist_m_at_press": None,
             "ttl_s": 60.0,
             "tag": None,
             "rox_hold_aid": None,
@@ -1039,6 +1084,13 @@ def runtime_status():
             "mqtt": {"host": BROKER_HOST, "port": BROKER_PORT},
             "targets": TARGETS,
             "rendezvous": RENDEZVOUS,
+            "orchestration": {
+                "crane_auto_release_action_id": CRANE_AUTO_RELEASE_ACTION_ID,
+                "crane_manual_release_action_id": CRANE_MANUAL_RELEASE_ACTION_ID,
+                "crane_safe_lift_action_id": CRANE_SAFE_LIFT_ACTION_ID,
+                "rox_hold_action_id": ROX_HOLD_ACTION_ID,
+                "manual_release_ttl_s": MANUAL_RELEASE_TTL_S,
+            },
             "state": state_copy,
             "orders": deepcopy(ORDER_BOOK),
         }

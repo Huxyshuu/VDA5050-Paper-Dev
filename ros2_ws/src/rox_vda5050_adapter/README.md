@@ -7,7 +7,7 @@ ROS 2 package replacing the legacy DBot/TurtleBot VDA connector chain. It commun
 Build as a separate overlay after sourcing the Neobotix workspace:
 
 ```bash
-cd ~/vda5050-v3-amr-crane-case-study/ros2_ws
+cd ~/VDA5050-Paper-Dev/ros2_ws
 source /opt/ros/$ROS_DISTRO/setup.bash
 source ~/ros2_workspace/install/setup.bash
 rosdep install --from-paths src --ignore-src -r -y

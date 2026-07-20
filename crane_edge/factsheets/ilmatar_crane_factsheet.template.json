@@ -2,19 +2,19 @@
   "headerId": 0,
   "timestamp": "1970-01-01T00:00:00.000Z",
   "version": "3.0.0",
-  "manufacturer": "neobotix",
-  "serialNumber": "rox_diff_1",
+  "manufacturer": "konecranes",
+  "serialNumber": "ilmatar_1",
   "typeSpecification": {
-    "seriesName": "ROX-Diff",
-    "seriesDescription": "Case-study configuration. Zero physical values are placeholders and must be replaced only with verified delivered-robot data.",
-    "mobileRobotKinematics": "DIFFERENTIAL",
+    "seriesName": "Ilmatar overhead crane",
+    "seriesDescription": "Case-study VDA 5050 participant. Verify every physical limit and load value against the installed crane before use.",
+    "mobileRobotKinematics": "OMNIDIRECTIONAL",
     "mobileRobotClass": "CARRIER",
     "maximumLoadMass": 0.0,
     "localizationTypes": [
-      "NATURAL"
+      "REFLECTOR"
     ],
     "navigationTypes": [
-      "FREELY_NAVIGATING"
+      "PHYSICAL_LINE_GUIDED"
     ],
     "supportedZones": []
   },
@@ -43,11 +43,11 @@
   "protocolFeatures": {
     "optionalParameters": [
       {
-        "parameter": "order.nodes.nodePosition.theta",
+        "parameter": "state.mobileRobotPosition",
         "support": "SUPPORTED"
       },
       {
-        "parameter": "state.mobileRobotPosition",
+        "parameter": "state.information",
         "support": "SUPPORTED"
       }
     ],
@@ -77,14 +77,6 @@
         "cancelAllowed": false
       },
       {
-        "actionType": "initializePosition",
-        "actionScopes": [
-          "INSTANT"
-        ],
-        "pauseAllowed": false,
-        "cancelAllowed": false
-      },
-      {
         "actionType": "factsheetRequest",
         "actionScopes": [
           "INSTANT"
@@ -93,72 +85,69 @@
         "cancelAllowed": false
       },
       {
-        "actionType": "holdPose",
+        "actionType": "release",
+        "actionScopes": [
+          "INSTANT"
+        ],
+        "pauseAllowed": false,
+        "cancelAllowed": false
+      },
+      {
+        "actionType": "resetAllHome",
+        "actionScopes": [
+          "INSTANT"
+        ],
+        "pauseAllowed": false,
+        "cancelAllowed": false
+      },
+      {
+        "actionType": "resetHoist",
+        "actionScopes": [
+          "INSTANT"
+        ],
+        "pauseAllowed": false,
+        "cancelAllowed": false
+      },
+      {
+        "actionType": "resetBridgeTrolley",
+        "actionScopes": [
+          "INSTANT"
+        ],
+        "pauseAllowed": false,
+        "cancelAllowed": false
+      },
+      {
+        "actionType": "lowerHoist",
         "actionScopes": [
           "NODE"
-        ],
-        "blockingTypes": [
-          "HARD"
         ],
         "pauseAllowed": true,
-        "cancelAllowed": true
-      },
-      {
-        "actionType": "releaseHold",
-        "actionScopes": [
-          "INSTANT"
-        ],
-        "pauseAllowed": false,
-        "cancelAllowed": false
-      },
-      {
-        "actionType": "waitForTrigger",
-        "actionScopes": [
-          "NODE"
-        ],
+        "cancelAllowed": true,
         "blockingTypes": [
           "HARD"
+        ]
+      },
+      {
+        "actionType": "buttonPress",
+        "actionScopes": [
+          "NODE"
         ],
         "pauseAllowed": true,
-        "cancelAllowed": true
+        "cancelAllowed": true,
+        "blockingTypes": [
+          "HARD"
+        ]
       },
       {
-        "actionType": "trigger",
-        "actionScopes": [
-          "INSTANT"
-        ],
-        "pauseAllowed": false,
-        "cancelAllowed": false
-      },
-      {
-        "actionType": "retry",
-        "actionScopes": [
-          "INSTANT"
-        ],
-        "pauseAllowed": false,
-        "cancelAllowed": false
-      },
-      {
-        "actionType": "skipRetry",
-        "actionScopes": [
-          "INSTANT"
-        ],
-        "pauseAllowed": false,
-        "cancelAllowed": false
-      },
-      {
-        "actionType": "noop",
+        "actionType": "raiseHoist",
         "actionScopes": [
           "NODE"
         ],
+        "pauseAllowed": true,
+        "cancelAllowed": true,
         "blockingTypes": [
-          "NONE",
-          "SINGLE",
-          "SOFT",
           "HARD"
-        ],
-        "pauseAllowed": false,
-        "cancelAllowed": true
+        ]
       }
     ]
   },

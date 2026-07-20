@@ -74,7 +74,7 @@ Changed:
 - defines crane and ROX v3 participant identities;
 - points to the generated ROX order location;
 - leaves the ROX initialization pose intentionally blank;
-- defines configurable handover node IDs and hoist clearance.
+- defines configurable handover node IDs and exact action-state milestone IDs.
 
 ### `examples/orders/order_ilmatar_v3.json`
 

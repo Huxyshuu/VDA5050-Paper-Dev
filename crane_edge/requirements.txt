@@ -1,0 +1,6 @@
+paho-mqtt>=1.6,<3
+jsonschema>=4.18,<5
+requests>=2.31,<3
+asyncua>=1.1,<2
+numpy>=1.24
+scipy>=1.10

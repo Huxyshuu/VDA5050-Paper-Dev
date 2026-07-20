@@ -150,6 +150,7 @@ class RoxVda5050Adapter(Node):
             "manufacturer": "neobotix",
             "serial_number": "rox_diff_1",
             "map_id": "warehouse_case_study",
+            "map_version": "1.0",
             "map_frame": "map",
             "base_frame": "base_link",
             "odom_topic": "/odom",
@@ -183,6 +184,7 @@ class RoxVda5050Adapter(Node):
         self.manufacturer = str(gp("manufacturer"))
         self.serial_number = str(gp("serial_number"))
         self.map_id = str(gp("map_id"))
+        self.map_version = str(gp("map_version"))
         self.map_frame = str(gp("map_frame"))
         self.base_frame = str(gp("base_frame"))
         self.odom_topic = str(gp("odom_topic"))
@@ -196,6 +198,12 @@ class RoxVda5050Adapter(Node):
         self.schema_package = str(gp("schema_package"))
         self.schema_directory = str(gp("schema_directory"))
         self.factsheet_file = str(gp("factsheet_file"))
+        if not self.factsheet_file:
+            self.factsheet_file = str(
+                Path(get_package_share_directory("rox_vda5050_adapter"))
+                / "factsheets"
+                / "rox_diff_factsheet.template.json"
+            )
         self.initial_node_tolerance_m = float(gp("initial_node_tolerance_m"))
         self.dry_run_navigation = bool(gp("dry_run_navigation"))
         self.dry_run_delay_s = float(gp("dry_run_delay_s"))
@@ -226,9 +234,16 @@ class RoxVda5050Adapter(Node):
     # ------------------------------------------------------------------
     # MQTT
     def _create_mqtt_client(self) -> mqtt.Client:
-        client = mqtt.Client(
-            client_id=f"rox-vda5050-{self.serial_number}", clean_session=True
-        )
+        try:
+            client = mqtt.Client(
+                mqtt.CallbackAPIVersion.VERSION2,
+                client_id=f"rox-vda5050-{self.serial_number}",
+                clean_session=True,
+            )
+        except (AttributeError, TypeError):
+            client = mqtt.Client(
+                client_id=f"rox-vda5050-{self.serial_number}", clean_session=True
+            )
         if self.mqtt_username:
             client.username_pw_set(self.mqtt_username, self.mqtt_password)
         client.on_connect = self._on_mqtt_connect
@@ -250,9 +265,22 @@ class RoxVda5050Adapter(Node):
         client.subscribe(f"{self.topic_root}/order", qos=0)
         client.subscribe(f"{self.topic_root}/instantActions", qos=0)
         self._publish_connection("ONLINE")
+        try:
+            self._publish_factsheet()
+        except Exception as exc:
+            self.get_logger().warning(f"Factsheet not published at connect: {exc}")
         self.get_logger().info("MQTT connected; subscribed to order and instantActions")
 
-    def _on_mqtt_disconnect(self, client, userdata, rc, properties=None) -> None:
+    def _on_mqtt_disconnect(
+        self,
+        client,
+        userdata,
+        disconnect_flags_or_rc,
+        reason_code=None,
+        properties=None,
+    ) -> None:
+        # Callback API v1 passes rc directly; v2 passes flags then reason_code.
+        rc = disconnect_flags_or_rc if reason_code is None else reason_code
         self.get_logger().warning(f"MQTT disconnected rc={rc}")
 
     def _on_mqtt_message(self, client, userdata, message) -> None:
@@ -651,7 +679,18 @@ class RoxVda5050Adapter(Node):
     def _on_nav_result(self, future, index: int) -> None:
         self._nav_goal_handle = None
         self._driving = False
-        wrapped = future.result()
+        try:
+            wrapped = future.result()
+        except Exception as exc:
+            if self._cancelled:
+                self._finish_pending_cancel()
+            else:
+                self._add_error(
+                    "NAV2_RESULT_FAILED",
+                    "CRITICAL",
+                    f"Could not obtain Nav2 result for {self._nodes[index]['nodeId']}: {exc}",
+                )
+            return
         if self._cancelled:
             self._finish_pending_cancel()
         elif wrapped.status == GoalStatus.STATUS_SUCCEEDED:
@@ -889,8 +928,15 @@ class RoxVda5050Adapter(Node):
         missing = [name for name in required if name not in params]
         if missing:
             raise ValueError(f"initializePosition missing {missing}")
+        requested_map_id = str(params["mapId"])
+        if requested_map_id != self.map_id:
+            raise ValueError(
+                f"initializePosition mapId={requested_map_id!r} does not match "
+                f"enabled mapId={self.map_id!r}"
+            )
         message = PoseWithCovarianceStamped()
-        message.header.frame_id = str(params["mapId"])
+        # mapId is a VDA logical identifier; frame_id must be the ROS TF frame.
+        message.header.frame_id = self.map_frame
         message.header.stamp = self.get_clock().now().to_msg()
         message.pose.pose.position.x = float(params["x"])
         message.pose.pose.position.y = float(params["y"])
@@ -902,7 +948,6 @@ class RoxVda5050Adapter(Node):
         message.pose.covariance[7] = 0.25
         message.pose.covariance[35] = 0.0685
         self._initial_pose_pub.publish(message)
-        self.map_id = str(params["mapId"])
         self._last_node_id = str(params.get("lastNodeId", ""))
         try:
             self._last_node_sequence_id = int(params.get("lastNodeSequenceId", 0))
@@ -1057,6 +1102,14 @@ class RoxVda5050Adapter(Node):
                         "activeEmergencyStop": self._active_emergency_stop,
                         "fieldViolation": bool(self._field_violation),
                     },
+                    "maps": [
+                        {
+                            "mapId": self.map_id,
+                            "mapVersion": self.map_version,
+                            "mapDescriptor": self.map_frame,
+                            "mapStatus": "ENABLED",
+                        }
+                    ],
                 }
             )
             if self._pose is not None:

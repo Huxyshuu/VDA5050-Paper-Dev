@@ -5,11 +5,11 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-# Replace pi and the paths with the actual Raspberry Pi user/repository path.
+# Raspberry Pi OS commonly uses user "pi"; change both user and paths if yours differs.
 User=pi
-WorkingDirectory=/home/pi/vda5050-v3-amr-crane-case-study
-Environment=FLEET_CONTROL_ENV=/home/pi/vda5050-v3-amr-crane-case-study/configs/fleet_control.env
-ExecStart=/home/pi/vda5050-v3-amr-crane-case-study/.venv/bin/python fleet_control/master_control.py
+WorkingDirectory=/home/pi/VDA5050-Paper-Dev
+Environment=FLEET_CONTROL_ENV=/home/pi/VDA5050-Paper-Dev/configs/fleet_control.env
+ExecStart=/home/pi/VDA5050-Paper-Dev/scripts/run_master_control.sh
 Restart=on-failure
 RestartSec=3
 

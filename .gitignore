@@ -1,3 +1,29 @@
-.venv
-*venv
-.env
+# Python / environments
+.venv/
+*venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local configuration and credentials
+# .env
+# *.env.local
+#access.txt
+#accesscode_url.txt
+#crane_edge/access.txt
+#configs/fleet_control.env.local
+
+# ROS / colcon output
+build/
+install/
+log/
+
+# Editors / OS
+*.swp
+.DS_Store
+
+# Generated/site-specific runtime files
+# configs/rox_waypoints.yaml
+# examples/orders/order_rox_diff_v3.json
+# results/*
+# !results/.gitkeep

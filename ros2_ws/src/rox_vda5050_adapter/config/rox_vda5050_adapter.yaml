@@ -16,6 +16,7 @@ rox_vda5050_adapter:
 
     # Replace after making the new ROX-Diff map.
     map_id: "warehouse_case_study"
+    map_version: "1.0"
     map_frame: "map"
     base_frame: "base_link"
 
@@ -31,6 +32,8 @@ rox_vda5050_adapter:
     validate_messages: true
     schema_package: "vda5050_schemas_v3"
     schema_directory: ""
+    # Empty means the installed package template is used. Replace its unknown
+    # physical values before relying on it for planning or capability selection.
     factsheet_file: ""
 
     # First order node is treated as already reached when the robot is within this range.

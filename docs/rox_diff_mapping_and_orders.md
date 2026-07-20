@@ -15,21 +15,16 @@ Pi initial-pose configuration:  ROX_INIT_* in configs/fleet_control.env
 
 ## 1. Verify native robot interfaces
 
-Source the Neobotix underlay and project overlay. Start normal ROX bringup. Current upstream normally uses:
-
-```bash
-ros2 launch rox_bringup bringup_launch.py \
-  rox_type:=diff \
-  scanner_type:=nanoscan
-```
-
-The delivered robot workspace may differ. Verify with:
+Source the Neobotix underlay and project overlay. Discover and start the actual native ROX bringup installed on the delivered robot:
 
 ```bash
 ros2 pkg prefix rox_bringup
-find "$(ros2 pkg prefix rox_bringup)/share/rox_bringup" -maxdepth 2 -type f
-ros2 launch rox_bringup bringup_launch.py --show-arguments
+find "$(ros2 pkg prefix rox_bringup)/share/rox_bringup/launch" \
+  -maxdepth 1 -type f -name '*.launch.py' -printf '%f\n' | sort
+ros2 launch rox_bringup <ACTUAL_BRINGUP_FILE>.launch.py --show-arguments
 ```
+
+Start that file with `rox_type:=diff` and verified scanner/frame/namespace arguments.
 
 Check:
 
@@ -52,11 +47,15 @@ Use separate terminals.
 
 Terminal A: native bringup.
 
-Terminal B:
+Terminal B: discover the installed mapping launch file and its arguments:
 
 ```bash
+find "$(ros2 pkg prefix rox_navigation)/share/rox_navigation/launch" \
+  -maxdepth 1 -type f -iname '*map*.launch.py' -printf '%f\n' | sort
+ros2 launch rox_navigation <ACTUAL_MAPPING_FILE>.launch.py --show-arguments
 mkdir -p ~/maps
-ros2 launch rox_navigation mapping.launch.py
+ros2 launch rox_navigation <ACTUAL_MAPPING_FILE>.launch.py \
+  rox_type:=diff <OTHER_VERIFIED_ARGUMENTS>
 ```
 
 Drive slowly through the full case-study area. Include:
@@ -152,7 +151,7 @@ At the handover pose, verify more than the robot center point:
 Create the working file on the ROX checkout:
 
 ```bash
-cd ~/vda5050-v3-amr-crane-case-study
+cd ~/VDA5050-Paper-Dev
 cp configs/rox_waypoints.yaml.example configs/rox_waypoints.yaml
 ```
 
@@ -229,7 +228,7 @@ From ROX:
 
 ```bash
 scp configs/rox_waypoints.yaml \
-  pi@192.168.1.115:/home/pi/vda5050-v3-amr-crane-case-study/configs/
+  pi@192.168.1.115:/home/pi/VDA5050-Paper-Dev/configs/
 ```
 
 Use the real Pi username/repository path.
@@ -241,7 +240,7 @@ Use the real Pi username/repository path.
 On the Pi:
 
 ```bash
-cd ~/vda5050-v3-amr-crane-case-study
+cd ~/VDA5050-Paper-Dev
 source .venv/bin/activate
 python3 scripts/generate_rox_order.py \
   --waypoints configs/rox_waypoints.yaml \

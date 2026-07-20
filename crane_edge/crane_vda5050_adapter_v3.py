@@ -74,9 +74,22 @@ VDA_MQTT_QOS = int(os.getenv("VDA_MQTT_QOS", "0"))
 DEFAULT_MAP_ID = os.getenv("VDA_DEFAULT_MAP_ID", "map")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 
-# Schema directory resolution: ENV→local ./schemas/v3.0→legacy fallback
+# Resolve files from the repository rather than the process working directory.
+REPO_ROOT = Path(__file__).resolve().parents[1]
 ENV_SCHEMA_DIR = os.getenv("VDA_SCHEMA_DIR")
-LOCAL_SCHEMA_DIR = Path(__file__).with_name("../schemas/vda5050_v3") / "v3.0"
+LOCAL_SCHEMA_DIR = REPO_ROOT / "schemas" / "vda5050_v3"
+CRANE_ACCESS_FILE = Path(
+    os.getenv("CRANE_ACCESS_FILE", str(Path(__file__).with_name("access.txt")))
+).expanduser()
+CRANE_FACTSHEET_FILE = Path(
+    os.getenv(
+        "CRANE_FACTSHEET_FILE",
+        str(Path(__file__).parent / "factsheets" / "ilmatar_crane_factsheet.template.json"),
+    )
+).expanduser()
+ALLOW_UNHOMED_START = os.getenv("ALLOW_UNHOMED_START", "false").strip().lower() in {
+    "1", "true", "yes", "on"
+}
 
 WATCHDOG_INTERVAL_S = 0.049  # mirror watchdog.py behaviour # 0.1
 STATE_INTERVAL_S = 3.0  # periodic /state publish
@@ -427,14 +440,19 @@ def utc_ts() -> str:
 
 
 def _resolve_schema_dir() -> Path:
-    # Priority: ENV → local → /mnt/data
+    """Return the official v3 schema directory or fail with an actionable error."""
+    candidates = []
     if ENV_SCHEMA_DIR:
-        p = Path(ENV_SCHEMA_DIR)
-        if p.is_dir():
-            return p
-    if LOCAL_SCHEMA_DIR.is_dir():
-        return LOCAL_SCHEMA_DIR
-    return ALT_SCHEMA_DIR
+        env_path = Path(ENV_SCHEMA_DIR).expanduser()
+        if not env_path.is_absolute():
+            env_path = REPO_ROOT / env_path
+        candidates.append(env_path)
+    candidates.append(LOCAL_SCHEMA_DIR)
+    for candidate in candidates:
+        if candidate.is_dir():
+            return candidate
+    searched = ", ".join(str(item) for item in candidates)
+    raise FileNotFoundError(f"VDA 5050 schema directory not found; checked: {searched}")
 
 
 def load_schema(name: str, log: logging.Logger) -> Dict[str, Any]:
@@ -540,11 +558,27 @@ class VDA5050Adapter:
 
         # schemas
         self.schemas = {}
-        for name in ("order", "instantActions", "connection", "state", "visualization"):
+        for name in (
+            "order",
+            "instantActions",
+            "connection",
+            "state",
+            "visualization",
+            "factsheet",
+        ):
             self.schemas[name] = load_schema(name, self.log)
 
+        self._order_active = False
+
         # paho mqtt client
-        self.mqtt = mqtt.Client(client_id=SERIAL_NUMBER, clean_session=True)
+        try:
+            self.mqtt = mqtt.Client(
+                mqtt.CallbackAPIVersion.VERSION2,
+                client_id=SERIAL_NUMBER,
+                clean_session=True,
+            )
+        except (AttributeError, TypeError):
+            self.mqtt = mqtt.Client(client_id=SERIAL_NUMBER, clean_session=True)
         self.log.info("MQTT client created (client_id=%s)", SERIAL_NUMBER)
 
         # last-will = CONNECTION_BROKEN in VDA 5050 v3.0
@@ -570,8 +604,8 @@ class VDA5050Adapter:
 
     # ─────────────────────────────── MQTT callbacks ──────────────────────────
 
-    def _on_connect(self, client, userdata, flags, rc):  # noqa: N802
-        if rc != 0:
+    def _on_connect(self, client, userdata, flags, rc, properties=None):  # noqa: N802
+        if int(rc) != 0:
             self.log.error("MQTT connect failed rc=%s", rc)
             return
         self.log.info("MQTT connected to %s:%s (rc=%s)", BROKER_HOST, BROKER_PORT, rc)
@@ -590,6 +624,47 @@ class VDA5050Adapter:
             f"{TOPIC_ROOT}/connection", json.dumps(online), qos=1, retain=True
         )
         self.log.info("Published ONLINE connection state (retained).")
+        try:
+            self._publish_factsheet()
+        except Exception as exc:
+            self.log.warning("Factsheet not published at connect: %s", exc)
+
+    def _header_matches_identity(self, payload: Dict[str, Any]) -> bool:
+        return (
+            str(payload.get("version", "")) == PROTOCOL_VERSION
+            and str(payload.get("manufacturer", "")) == MANUFACTURER
+            and str(payload.get("serialNumber", "")) == SERIAL_NUMBER
+        )
+
+    def _validate_order_semantics(self, payload: Dict[str, Any]) -> Optional[str]:
+        if int(payload.get("orderUpdateId", -1)) != 0:
+            return "Only new orders with orderUpdateId=0 are supported by this adapter"
+        nodes = payload.get("nodes") or []
+        edges = payload.get("edges") or []
+        if not nodes:
+            return "Order contains no nodes"
+        if self._order_active or not self._order_queue.empty():
+            return "Crane is already executing or has a queued order; cancel it first"
+        for node in nodes:
+            position = node.get("nodePosition") or {}
+            if str(position.get("mapId", "")) != DEFAULT_MAP_ID:
+                return (
+                    f"Node {node.get('nodeId')} uses mapId={position.get('mapId')!r}; "
+                    f"configured crane map is {DEFAULT_MAP_ID!r}"
+                )
+        for edge in edges:
+            if edge.get("actions"):
+                return f"Edge actions are not supported (edgeId={edge.get('edgeId')})"
+        node_sequences = [int(node.get("sequenceId", -1)) for node in nodes]
+        edge_sequences = [int(edge.get("sequenceId", -1)) for edge in edges]
+        expected_nodes = list(range(0, 2 * len(nodes), 2))
+        expected_edges = list(range(1, 2 * len(nodes) - 1, 2))
+        if node_sequences != expected_nodes or edge_sequences != expected_edges:
+            return (
+                f"Expected node sequenceIds {expected_nodes} and edge sequenceIds "
+                f"{expected_edges}; got {node_sequences} and {edge_sequences}"
+            )
+        return None
 
     def _on_message(self, client, userdata, msg):  # noqa: N802
         topic = msg.topic
@@ -600,8 +675,15 @@ class VDA5050Adapter:
             return
 
         self.log.info("MQTT rx on %s (bytes=%d)", topic, len(msg.payload))
+        if not self._header_matches_identity(payload):
+            self.log.error("Rejected message with mismatched version/manufacturer/serialNumber")
+            return
         if topic.endswith("/order"):
             if self._validate("order", payload):
+                reason = self._validate_order_semantics(payload)
+                if reason:
+                    self.log.error("Order rejected: %s", reason)
+                    return
                 self._order_queue.put(payload)
                 self.log.info(
                     "Order enqueued: orderId=%s, updateId=%s, nodes=%d",
@@ -699,7 +781,11 @@ class VDA5050Adapter:
             # Normal path - orders
             try:
                 order = self._order_queue.get(timeout=0.1)
-                self._execute_order(order)
+                self._order_active = True
+                try:
+                    self._execute_order(order)
+                finally:
+                    self._order_active = False
             except queue.Empty:
                 pass
             # instant actions
@@ -1012,7 +1098,7 @@ class VDA5050Adapter:
                 if isinstance(e.get("actions"), list) and len(e["actions"]) > 0
             )
             self.log.info(
-                "Order contains %d edge(s); adapter ignores edge traversal/actions (edge actions=%d).",
+                "Order contains %d edge(s); crane path movement is node-position based (edge actions=%d).",
                 len(edges),
                 act_on_edges,
             )
@@ -1286,13 +1372,18 @@ class VDA5050Adapter:
             self.last_node_id = node_id or ""
             self.last_node_seq = int(node.get("sequenceId", self.last_node_seq or 0))
 
-            # reflect progress in nodeStates (remove the head if it matches)
-            if (
-                self.node_states
-                and self.node_states[0].get("nodeId") == self.last_node_id
-                and self.node_states[0].get("sequenceId") == self.last_node_seq
-            ):
-                self.node_states.pop(0)
+            # Remove every released base item already traversed/reached. This keeps
+            # state.nodeStates and state.edgeStates aligned with VDA order progress.
+            self.node_states = [
+                item
+                for item in self.node_states
+                if int(item.get("sequenceId", -1)) > self.last_node_seq
+            ]
+            self.edge_states = [
+                item
+                for item in self.edge_states
+                if int(item.get("sequenceId", -1)) > self.last_node_seq
+            ]
 
             self._publish_state()
             try:
@@ -1336,6 +1427,21 @@ class VDA5050Adapter:
             previous_scope = self._action_state_scope
             self._action_state_scope = "instant"
             try:
+                if at == "factsheetRequest":
+                    aid = self._action_begin(
+                        action,
+                        default_type="factsheetRequest",
+                        description="Publish retained crane factsheet",
+                    )
+                    self._action_update(aid, status="RUNNING")
+                    try:
+                        self._publish_factsheet()
+                    except Exception as exc:
+                        self._action_finish(aid, ok=False, result=str(exc))
+                    else:
+                        self._action_finish(aid, ok=True, result="factsheet published")
+                    continue
+
                 if at == "release":
                     aid = self._action_begin(
                         action,
@@ -2043,6 +2149,28 @@ class VDA5050Adapter:
             "connectionState": state,
         }
 
+    def _publish_factsheet(self) -> None:
+        path = CRANE_FACTSHEET_FILE
+        if not path.is_absolute():
+            path = REPO_ROOT / path
+        with path.open("r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+        payload.update(
+            {
+                "headerId": self.header.next("factsheet"),
+                "timestamp": utc_ts(),
+                "version": PROTOCOL_VERSION,
+                "manufacturer": MANUFACTURER,
+                "serialNumber": SERIAL_NUMBER,
+            }
+        )
+        if not self._validate("factsheet", payload):
+            raise ValueError(f"Invalid crane factsheet: {path}")
+        self.mqtt.publish(
+            f"{TOPIC_ROOT}/factsheet", json.dumps(payload), qos=0, retain=True
+        )
+        self.log.info("Published retained factsheet from %s", path)
+
     def _publish_state(self):
         try:
             # positions (mm)
@@ -2113,12 +2241,6 @@ class VDA5050Adapter:
                 "velocity": {"vx": 0.0, "vy": 0.0, "omega": 0.0},
                 "paused": self._paused,
                 "information": self.information_messages,
-                # Legacy aliases for local tools that still expect v2-ish names.
-                "agvPosition": {**mobile_robot_position, "positionInitialized": True},
-                "batteryState": {
-                    "batteryCharge": self.power_supply["stateOfCharge"],
-                    "charging": self.power_supply["charging"],
-                },
             }
 
             # validate before publish
@@ -2156,8 +2278,6 @@ class VDA5050Adapter:
                 "referenceStateHeaderId": self._last_state_header_id,
                 "mobileRobotPosition": mobile_robot_position,
                 "velocity": {"vx": 0.0, "vy": 0.0, "omega": 0.0},
-                # Legacy alias for older dashboards.
-                "agvPosition": {**mobile_robot_position, "positionInitialized": True},
             }
             # validate before publish
             try:
@@ -2195,6 +2315,28 @@ class VDA5050Adapter:
 # ───────────────────────────────────────────────────────────── CLI entry ──
 
 
+def _load_crane_credentials() -> Tuple[str, int]:
+    url_env = os.getenv("CRANE_OPCUA_URL", "").strip()
+    access_env = os.getenv("CRANE_ACCESS_CODE", "").strip()
+    if url_env and access_env:
+        return url_env, int(access_env)
+    if url_env or access_env:
+        raise ValueError("Set both CRANE_OPCUA_URL and CRANE_ACCESS_CODE, or neither")
+
+    path = CRANE_ACCESS_FILE
+    if not path.is_absolute():
+        path = REPO_ROOT / path
+    if not path.exists():
+        raise FileNotFoundError(
+            f"Crane credentials not found at {path}. Copy access.txt.example to "
+            "access.txt outside Git, or set CRANE_OPCUA_URL and CRANE_ACCESS_CODE."
+        )
+    lines = [line.strip() for line in path.read_text(encoding="utf-8").splitlines()]
+    if len(lines) < 2 or not lines[0] or not lines[1]:
+        raise ValueError(f"Expected OPC UA URL and numeric access code in {path}")
+    return lines[0], int(lines[1])
+
+
 def main():
     log = configure_logging()
     log.info("Starting VDA5050 adapter for crane.")
@@ -2209,10 +2351,8 @@ def main():
         BUTTON_STATUS_URL,
     )
 
-    # read access code & URL
-    with open("access.txt", "r", encoding="utf-8") as fh:
-        url = fh.readline().strip()
-        access = int(fh.readline().strip())
+    # Read credentials from environment or a local ignored file.
+    url, access = _load_crane_credentials()
 
     crane = Crane(url)
     crane.set_accesscode(access)
@@ -2293,9 +2433,18 @@ def main():
     )
 
     if not ok_auto:
+        log.error("AUTOMATIC was not confirmed within %.1fs.", AUTO_WAIT_S)
+        if not ALLOW_UNHOMED_START:
+            crane.stop_all()
+            watchdog_stop.set()
+            crane.disconnect()
+            raise SystemExit(
+                "Refusing to accept crane orders without AUTOMATIC/homing. "
+                "Set ALLOW_UNHOMED_START=true only for a supervised telemetry-only test."
+            )
         log.warning(
-            "AUTOMATIC not pressed within %.1fs -- skipping Z/XY homing and starting adapter.",
-            AUTO_WAIT_S,
+            "ALLOW_UNHOMED_START=true: adapter will start for supervised telemetry; "
+            "do not publish motion orders."
         )
     else:
         log.info("Key confirmed in AUTOMATIC via panel.")
@@ -2318,11 +2467,19 @@ def main():
         if ok_z and ok_xy:
             log.info("Homing complete (Z then XY). Crane is READY to receive orders.")
         else:
-            log.error(
-                "Homing failed or timed out; staying in STOP, but starting adapter for visibility."
+            log.error("Homing failed or timed out; crane remains stopped.")
+            if not ALLOW_UNHOMED_START:
+                watchdog_stop.set()
+                crane.disconnect()
+                raise SystemExit(
+                    "Refusing to accept crane orders after failed homing. "
+                    "Investigate the crane before restarting."
+                )
+            log.warning(
+                "ALLOW_UNHOMED_START=true: continuing only for supervised telemetry."
             )
 
-    # --- Start adapter threads/MQTT after (optional) homing ---
+    # --- Start adapter threads/MQTT after successful or explicitly overridden preflight ---
     adapter = VDA5050Adapter(crane, log)
     adapter_ref["obj"] = adapter
     adapter.start()

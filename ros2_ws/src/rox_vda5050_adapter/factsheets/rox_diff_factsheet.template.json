@@ -6,10 +6,10 @@
   "serialNumber": "rox_diff_1",
   "typeSpecification": {
     "seriesName": "ROX-Diff",
-    "seriesDescription": "Case-study configuration; verify all physical values against the delivered robot.",
+    "seriesDescription": "Case-study configuration. Zero physical values are placeholders and must be replaced only with verified delivered-robot data.",
     "mobileRobotKinematics": "DIFFERENTIAL",
     "mobileRobotClass": "CARRIER",
-    "maximumLoadMass": 300.0,
+    "maximumLoadMass": 0.0,
     "localizationTypes": [
       "NATURAL"
     ],
@@ -20,7 +20,7 @@
   },
   "physicalParameters": {
     "minimumSpeed": 0.0,
-    "maximumSpeed": 1.5,
+    "maximumSpeed": 0.0,
     "minimumAngularSpeed": 0.0,
     "maximumAngularSpeed": 0.0,
     "maximumAcceleration": 0.0,

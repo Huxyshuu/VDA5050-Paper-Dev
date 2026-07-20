@@ -17,7 +17,7 @@ sudo apt update
 sudo apt install -y mosquitto mosquitto-clients python3-venv netcat-openbsd
 sudo systemctl enable --now mosquitto
 
-cd ~/vda5050-v3-amr-crane-case-study
+cd ~/VDA5050-Paper-Dev
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r fleet_control/requirements.txt
@@ -53,7 +53,7 @@ The `deploy/systemd/vda5050-master.service.example` file can be adapted after ma
 Keep the Neobotix workspace as the underlay. Build this repository's `ros2_ws` separately:
 
 ```bash
-cd ~/vda5050-v3-amr-crane-case-study/ros2_ws
+cd ~/VDA5050-Paper-Dev/ros2_ws
 source /opt/ros/$ROS_DISTRO/setup.bash
 source ~/ros2_workspace/install/setup.bash
 rosdep install --from-paths src --ignore-src -r -y
@@ -66,28 +66,23 @@ Terminal source order:
 ```bash
 source /opt/ros/$ROS_DISTRO/setup.bash
 source ~/ros2_workspace/install/setup.bash
-source ~/vda5050-v3-amr-crane-case-study/ros2_ws/install/setup.bash
+source ~/VDA5050-Paper-Dev/ros2_ws/install/setup.bash
 ```
 
 Do not copy DBot packages and do not overwrite Neobotix `rox_bringup`, `rox_navigation`, drivers or message packages.
 
 ## 3. Native ROX bringup
 
-Current upstream repositories normally use:
-
-```bash
-ros2 launch rox_bringup bringup_launch.py \
-  rox_type:=diff \
-  scanner_type:=nanoscan
-```
-
-Delivered workspaces can differ. Verify the actual installed launch file and arguments:
+Discover the exact native launch file and arguments installed on the delivered robot:
 
 ```bash
 ros2 pkg prefix rox_bringup
-find "$(ros2 pkg prefix rox_bringup)/share/rox_bringup" -maxdepth 2 -type f
-ros2 launch rox_bringup bringup_launch.py --show-arguments
+find "$(ros2 pkg prefix rox_bringup)/share/rox_bringup/launch" \
+  -maxdepth 1 -type f -name '*.launch.py' -printf '%f\n' | sort
+ros2 launch rox_bringup <ACTUAL_BRINGUP_FILE>.launch.py --show-arguments
 ```
+
+Start that file with `rox_type:=diff` and only the scanner/frame/namespace arguments verified for the delivered configuration.
 
 Run:
 

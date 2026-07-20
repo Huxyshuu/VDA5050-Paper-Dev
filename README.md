@@ -12,6 +12,12 @@ The active architecture is now:
 
 The old DBot source remains under `legacy/` for traceability only. It is not part of the active build or deployment.
 
+## Start here
+
+- [Complete commissioning runbook](docs/COMMISSIONING_RUNBOOK.md) — exact Pi, ROX, mapping, order-generation, crane and coordinated-test sequence.
+- [Site configuration checklist](docs/SITE_CONFIGURATION_CHECKLIST.md) — values that must be measured or discovered on the real equipment.
+- [Repository audit](docs/REPOSITORY_AUDIT_2026-07-20.md) — defects corrected, deferred work and verification limits.
+
 ---
 
 ## 1. Migration status
@@ -160,7 +166,7 @@ sudo apt update
 sudo apt install -y mosquitto mosquitto-clients python3-venv netcat-openbsd
 sudo systemctl enable --now mosquitto
 
-cd ~/vda5050-v3-amr-crane-case-study
+cd ~/VDA5050-Paper-Dev
 python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
@@ -217,13 +223,13 @@ Assumed paths below:
 
 ```text
 ~/ros2_workspace        existing Neobotix underlay
-~/vda5050-v3-amr-crane-case-study/ros2_ws   this project overlay
+~/VDA5050-Paper-Dev/ros2_ws   this project overlay
 ```
 
 Build:
 
 ```bash
-cd ~/vda5050-v3-amr-crane-case-study/ros2_ws
+cd ~/VDA5050-Paper-Dev/ros2_ws
 source /opt/ros/$ROS_DISTRO/setup.bash
 source ~/ros2_workspace/install/setup.bash
 rosdep install --from-paths src --ignore-src -r -y
@@ -236,13 +242,13 @@ Every robot terminal should source in this order:
 ```bash
 source /opt/ros/$ROS_DISTRO/setup.bash
 source ~/ros2_workspace/install/setup.bash
-source ~/vda5050-v3-amr-crane-case-study/ros2_ws/install/setup.bash
+source ~/VDA5050-Paper-Dev/ros2_ws/install/setup.bash
 ```
 
 Run static checks before building on hardware:
 
 ```bash
-cd ~/vda5050-v3-amr-crane-case-study
+cd ~/VDA5050-Paper-Dev
 ./scripts/run_static_checks.sh
 ```
 
@@ -252,21 +258,16 @@ The static checks do not replace a ROS build or hardware test.
 
 ## 7. Verify native ROX interfaces before VDA integration
 
-The current upstream Neobotix launch file is normally:
-
-```bash
-ros2 launch rox_bringup bringup_launch.py \
-  rox_type:=diff \
-  scanner_type:=nanoscan
-```
-
-Some delivered/older workspaces may use a different filename. Inspect the installed package instead of guessing:
+The native bringup filename and scanner arguments depend on the software delivered with the robot. Discover them instead of copying a guessed command:
 
 ```bash
 ros2 pkg prefix rox_bringup
-find "$(ros2 pkg prefix rox_bringup)/share/rox_bringup" -maxdepth 2 -type f
-ros2 launch rox_bringup bringup_launch.py --show-arguments
+find "$(ros2 pkg prefix rox_bringup)/share/rox_bringup/launch" \
+  -maxdepth 1 -type f -name '*.launch.py' -printf '%f\n' | sort
+ros2 launch rox_bringup <ACTUAL_BRINGUP_FILE>.launch.py --show-arguments
 ```
+
+Then start the actual file with `rox_type:=diff` and the verified scanner/frame arguments.
 
 Then run:
 
@@ -321,11 +322,15 @@ Full instructions are in [docs/rox_diff_mapping_and_orders.md](docs/rox_diff_map
 
 Terminal A: start normal ROX bringup.
 
-Terminal B:
+Terminal B: first discover the installed mapping launch file, then run it with verified arguments:
 
 ```bash
+find "$(ros2 pkg prefix rox_navigation)/share/rox_navigation/launch" \
+  -maxdepth 1 -type f -iname '*map*.launch.py' -printf '%f\n' | sort
+ros2 launch rox_navigation <ACTUAL_MAPPING_FILE>.launch.py --show-arguments
 mkdir -p ~/maps
-ros2 launch rox_navigation mapping.launch.py
+ros2 launch rox_navigation <ACTUAL_MAPPING_FILE>.launch.py \
+  rox_type:=diff <OTHER_VERIFIED_ARGUMENTS>
 ```
 
 Drive through the complete test area using safe teleoperation, then save:
@@ -355,7 +360,7 @@ Use RViz to initialize localization and send several ordinary goals before VDA t
 ### 8.3 Capture waypoints on the robot
 
 ```bash
-cd ~/vda5050-v3-amr-crane-case-study
+cd ~/VDA5050-Paper-Dev
 cp configs/rox_waypoints.yaml.example configs/rox_waypoints.yaml
 ```
 
@@ -395,7 +400,7 @@ From the ROX:
 
 ```bash
 scp configs/rox_waypoints.yaml \
-  pi@192.168.1.115:/home/pi/vda5050-v3-amr-crane-case-study/configs/
+  pi@192.168.1.115:/home/pi/VDA5050-Paper-Dev/configs/
 ```
 
 Adjust Pi username/path as required.
@@ -403,7 +408,7 @@ Adjust Pi username/path as required.
 ### 8.5 Generate a short commissioning order on the Pi
 
 ```bash
-cd ~/vda5050-v3-amr-crane-case-study
+cd ~/VDA5050-Paper-Dev
 source .venv/bin/activate
 python3 scripts/generate_rox_order.py \
   --waypoints configs/rox_waypoints.yaml \

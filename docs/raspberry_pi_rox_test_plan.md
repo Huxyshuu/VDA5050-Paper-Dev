@@ -176,7 +176,7 @@ Confirm:
 - crane reaches its logical rendezvous;
 - master associates the correct action IDs and node IDs;
 - release is tied to the correct rendezvous;
-- ROX is not released until configured hoist clearance logic is satisfied;
+- ROX is not released until the configured crane safe-lift action reaches FINISHED;
 - no unsafe overlap occurs.
 
 ## Stage 11 — Loaded and disturbance tests
