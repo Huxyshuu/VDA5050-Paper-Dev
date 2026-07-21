@@ -6,11 +6,11 @@ Complete this file on the real equipment. Do not replace unknown values with gue
 
 - [x] Pi username: `raspberrypi`
 - [x] Pi hostname: `raspberrypi`
-- [x] Pi/MQTT IPv4 address: `192.168.1.115`
+- [x] Pi/MQTT IPv4 address: `192.168.50.115`
 - [x] MQTT port: `1883`
 - [x] Pi project path: `~/VDA5050-Paper-Dev`
-- [x] Flask address/port: `192.168.1.115:5000`
-- [ ] ROX can ping the Pi.
+- [x] Flask address/port: `192.168.50.115:5000`
+- [x] ROX can ping the Pi.
 - [ ] ROX can open TCP connection to MQTT port.
 - [ ] MQTT is restricted to the trusted lab network.
 - [ ] Authentication/TLS plan documented for non-lab use.
