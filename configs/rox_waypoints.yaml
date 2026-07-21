@@ -1,31 +1,27 @@
-# Copy to configs/rox_waypoints.yaml after creating the ROX-Diff map.
-# Set configured: true only after all poses were captured in the SAME map frame,
-# verified in RViz, and successfully reached with ordinary Nav2 goals.
 map_id: warehouse_case_study
-configured: false
+configured: true
 waypoints:
   home:
-    x: 0.0
-    y: 0.0
-    theta: 0.0
-    allowed_deviation_xy: 0.20
-    allowed_deviation_theta: 0.20
+    x: 1.7607
+    y: -1.5857
+    theta: 1.679
+    allowed_deviation_xy: 0.2
+    allowed_deviation_theta: 0.2
   short_test:
-    x: 0.0
-    y: 0.0
-    theta: 0.0
-    allowed_deviation_xy: 0.20
-    allowed_deviation_theta: 0.20
+    x: 3.5935
+    y: -1.1262
+    theta: 0.0811
+    allowed_deviation_xy: 0.2
+    allowed_deviation_theta: 0.2
   crane_handover:
-    x: 0.0
-    y: 0.0
-    theta: 0.0
-    # Start conservatively. Tighten only after repeatability measurements.
+    x: 3.5635
+    y: 1.7679
+    theta: -1.4854
     allowed_deviation_xy: 0.12
     allowed_deviation_theta: 0.15
   warehouse_dropoff:
-    x: 0.0
-    y: 0.0
-    theta: 0.0
-    allowed_deviation_xy: 0.20
-    allowed_deviation_theta: 0.20
+    x: 0.6063
+    y: 0.2589
+    theta: -3.0648
+    allowed_deviation_xy: 0.2
+    allowed_deviation_theta: 0.2

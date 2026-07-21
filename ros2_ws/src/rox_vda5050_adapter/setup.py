@@ -24,6 +24,8 @@ setup(
         "console_scripts": [
             "rox_vda5050_adapter = rox_vda5050_adapter.rox_vda5050_adapter:main",
             "capture_waypoint = rox_vda5050_adapter.capture_waypoint:main",
+        
+            'waypoint_visualizer = rox_vda5050_adapter.waypoint_visualizer:main',
         ],
     },
 )
