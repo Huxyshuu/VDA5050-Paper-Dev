@@ -1,7 +1,7 @@
 # VDA 5050 v3 ROX-Diff–Crane Commissioning Runbook
 
 **Project root used in this guide:** `~/VDA5050-Paper-Dev`  
-**Raspberry Pi / MQTT example address:** `192.168.1.115`  
+**Raspberry Pi / MQTT example address:** `192.168.50.115`  
 **Protocol identity:** VDA 5050 `3.0.0`
 
 This runbook starts with the Neobotix ROX-Diff alone, then the Raspberry Pi master, then the crane, and only then the coordinated no-load handover. Do not skip directly to combined movement.
@@ -9,6 +9,16 @@ This runbook starts with the Neobotix ROX-Diff alone, then the Raspberry Pi mast
 ## Safety boundary
 
 The MQTT/Flask/VDA software is not safety-rated. The ROX safety controller, scanners, emergency stops, motor controller, crane PLC, crane emergency stop and local operating procedures remain authoritative. Keep the work area clear, use reduced commissioning speeds, keep emergency stops reachable, and test without a payload before any loaded test.
+
+
+## Current network architecture
+
+- Raspberry Pi Ethernet on DTLabOpen: `192.168.50.115` (static).
+- Neobotix ROX-Diff on DTLabOpen: `192.168.50.50` (static).
+- Raspberry Pi Wi-Fi on Ilmatar: `192.168.0.116`.
+- DTLabOpen gateway remains `192.168.1.1`.
+
+The ROX-Diff and Pi are direct peers on DTLabOpen. MQTT uses `192.168.50.115:1883` and Flask uses `192.168.50.115:5000`; no intermediate network, NAT, port forwarding or additional route is required. Verify the actual prefix lengths on both devices and confirm the Pi route to `192.168.50.50` uses Ethernet. See [NETWORK_CONFIGURATION.md](NETWORK_CONFIGURATION.md).
 
 ---
 
@@ -72,7 +82,7 @@ nano configs/fleet_control.env
 Fill or verify at least:
 
 ```text
-VDA_MQTT_HOST=192.168.1.115
+VDA_MQTT_HOST=192.168.50.115
 VDA_MQTT_PORT=1883
 VDA_DEFAULT_MAP_ID=warehouse_case_study
 CRANE_TOPIC_ROOT=vda5050/v3/konecranes/ilmatar_1
@@ -139,7 +149,7 @@ mosquitto_sub -h 127.0.0.1 -t 'vda5050/v3/#' -v
 From another computer, open:
 
 ```text
-http://192.168.1.115:5000
+http://192.168.50.115:5000
 ```
 
 At this stage the master may report that the generated ROX order is missing. That is expected until Part D.
@@ -169,7 +179,7 @@ find ~ -maxdepth 3 -path '*/install/setup.bash' -print
 The helper scripts assume:
 
 ```text
-ROS_DISTRO=humble
+ROS_DISTRO=jazzy
 NEOBOTIX_WS=$HOME/ros2_workspace
 ```
 
@@ -183,7 +193,7 @@ export NEOBOTIX_WS=<path_to_neobotix_workspace>
 Example:
 
 ```bash
-export ROS_DISTRO=humble
+export ROS_DISTRO=jazzy
 export NEOBOTIX_WS=$HOME/ros2_workspace
 ```
 
@@ -225,7 +235,7 @@ Do not copy the adapter into or overwrite Neobotix packages.
 
 ```bash
 cd ~/VDA5050-Paper-Dev
-export ROS_DISTRO=${ROS_DISTRO:-humble}
+export ROS_DISTRO=${ROS_DISTRO:-jazzy}
 export NEOBOTIX_WS=${NEOBOTIX_WS:-$HOME/ros2_workspace}
 ./scripts/build_rox_overlay.sh
 ```
@@ -233,7 +243,7 @@ export NEOBOTIX_WS=${NEOBOTIX_WS:-$HOME/ros2_workspace}
 In every new ROX terminal, source in this order:
 
 ```bash
-export ROS_DISTRO=${ROS_DISTRO:-humble}
+export ROS_DISTRO=${ROS_DISTRO:-jazzy}
 export NEOBOTIX_WS=${NEOBOTIX_WS:-$HOME/ros2_workspace}
 source /opt/ros/$ROS_DISTRO/setup.bash
 source "$NEOBOTIX_WS/install/setup.bash"
@@ -250,8 +260,8 @@ ros2 pkg executables rox_vda5050_adapter
 ## B5. Verify Pi network and MQTT from ROX
 
 ```bash
-ping -c 3 192.168.1.115
-nc -vz 192.168.1.115 1883
+ping -c 3 192.168.50.115
+nc -vz 192.168.50.115 1883
 ```
 
 Install MQTT client tools if needed:
@@ -265,7 +275,7 @@ Run the supplied check:
 
 ```bash
 cd ~/VDA5050-Paper-Dev
-./scripts/check_pi_mqtt_from_rox.sh 192.168.1.115 1883
+./scripts/check_pi_mqtt_from_rox.sh 192.168.50.115 1883
 ```
 
 On the Pi, confirm that the message arrives:
@@ -494,7 +504,7 @@ From ROX:
 
 ```bash
 scp ~/VDA5050-Paper-Dev/configs/rox_waypoints.yaml \
-  <PI_USER>@192.168.1.115:/home/<PI_USER>/VDA5050-Paper-Dev/configs/
+  <PI_USER>@192.168.50.115:/home/<PI_USER>/VDA5050-Paper-Dev/configs/
 ```
 
 Replace `<PI_USER>` with the real Pi username.
@@ -542,9 +552,9 @@ Terminal ROX-3:
 
 ```bash
 cd ~/VDA5050-Paper-Dev
-export ROS_DISTRO=${ROS_DISTRO:-humble}
+export ROS_DISTRO=${ROS_DISTRO:-jazzy}
 export NEOBOTIX_WS=${NEOBOTIX_WS:-$HOME/ros2_workspace}
-export VDA_MQTT_HOST=192.168.1.115
+export VDA_MQTT_HOST=192.168.50.115
 export VDA_MAP_ID=warehouse_case_study
 ./scripts/run_rox_adapter_dry.sh
 ```
@@ -621,9 +631,9 @@ Terminal ROX-3:
 
 ```bash
 cd ~/VDA5050-Paper-Dev
-export ROS_DISTRO=${ROS_DISTRO:-humble}
+export ROS_DISTRO=${ROS_DISTRO:-jazzy}
 export NEOBOTIX_WS=${NEOBOTIX_WS:-$HOME/ros2_workspace}
-export VDA_MQTT_HOST=192.168.1.115
+export VDA_MQTT_HOST=192.168.50.115
 export VDA_MAP_ID=warehouse_case_study
 ./scripts/run_rox_adapter_real.sh
 ```
@@ -747,7 +757,7 @@ The crane must be in the approved automatic state and homing/preflight must succ
 
 ```bash
 cd ~/VDA5050-Paper-Dev
-export VDA_MQTT_HOST=192.168.1.115
+export VDA_MQTT_HOST=192.168.50.115
 export ALLOW_UNHOMED_START=false
 ./scripts/run_crane_adapter.sh
 ```
@@ -904,9 +914,9 @@ The ROX order is intentionally generated after waypoint capture.
 ## ROX cannot connect to MQTT
 
 ```bash
-ping -c 3 192.168.1.115
-nc -vz 192.168.1.115 1883
-mosquitto_pub -h 192.168.1.115 \
+ping -c 3 192.168.50.115
+nc -vz 192.168.50.115 1883
+mosquitto_pub -h 192.168.50.115 \
   -t vda5050/v3/commissioning/ping -m test
 ```
 

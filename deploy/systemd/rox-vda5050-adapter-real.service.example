@@ -6,15 +6,12 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=neobotix
-
 Environment=ROS_DISTRO=jazzy
 Environment=NEOBOTIX_WS=/home/neobotix/ros2_workspace
-Environment=VDA_MQTT_HOST=192.168.1.115
+Environment=VDA_MQTT_HOST=192.168.50.115
 Environment=VDA_MAP_ID=warehouse_case_study
-
 WorkingDirectory=/home/neobotix/Projects/VDA5050-Paper-Dev
 ExecStart=/home/neobotix/Projects/VDA5050-Paper-Dev/scripts/run_rox_adapter_real.sh
-
 Restart=on-failure
 RestartSec=3
 

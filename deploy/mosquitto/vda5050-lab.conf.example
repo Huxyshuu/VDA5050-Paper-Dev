@@ -1,7 +1,15 @@
 # LAB-ONLY Mosquitto listener example.
 # Copy to /etc/mosquitto/conf.d/vda5050-lab.conf on the Raspberry Pi.
-# Anonymous, unencrypted MQTT must only be used on an isolated trusted lab network.
-listener 1883 0.0.0.0
+# Anonymous, unencrypted MQTT must only be used on the isolated trusted lab path.
+# The Pi is dual-homed, so do not listen on 0.0.0.0.
+
+per_listener_settings true
+
+listener 1883 127.0.0.1
 allow_anonymous true
+
+listener 1883 192.168.50.115
+allow_anonymous true
+
 persistence true
 persistence_location /var/lib/mosquitto/

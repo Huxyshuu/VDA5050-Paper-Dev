@@ -1,13 +1,38 @@
 # Deployment Guide
 
+## 0. Verify the direct DTLabOpen path
+
+On the Pi:
+
+```bash
+ip -br address
+ip route
+ip route get 192.168.50.50
+ping -c 3 192.168.50.50
+```
+
+On the ROX-Diff:
+
+```bash
+ip -br address
+ip route
+ip route get 192.168.50.115
+ping -c 3 192.168.50.115
+nc -vz 192.168.50.115 1883
+```
+
+Both devices are direct DTLabOpen peers; do not configure NAT, port forwarding or an additional training subnet.
+
 ## 1. Raspberry Pi
 
 Expected current lab values:
 
 ```text
-Pi/MQTT host: 192.168.1.115
-MQTT port:    1883
-Flask port:   5000
+Pi eth0 / DTLabOpen: 192.168.50.115
+ROX / DTLabOpen:      192.168.50.50
+Pi Wi-Fi / Ilmatar:   192.168.0.116
+MQTT port:            1883
+Flask port:           5000
 ```
 
 Install:
@@ -42,8 +67,8 @@ Start the master:
 Inspect:
 
 ```bash
-curl http://192.168.1.115:5000/runtime | python3 -m json.tool
-mosquitto_sub -h 192.168.1.115 -t 'vda5050/v3/#' -v
+curl http://192.168.50.115:5000/runtime | python3 -m json.tool
+mosquitto_sub -h 192.168.50.115 -t 'vda5050/v3/#' -v
 ```
 
 The `deploy/systemd/vda5050-master.service.example` file can be adapted after manual startup succeeds.
@@ -94,13 +119,13 @@ Run:
 
 ```bash
 sudo apt install -y mosquitto-clients netcat-openbsd
-./scripts/check_pi_mqtt_from_rox.sh 192.168.1.115 1883
+./scripts/check_pi_mqtt_from_rox.sh 192.168.50.115 1883
 ```
 
 On Pi:
 
 ```bash
-mosquitto_sub -h 192.168.1.115 \
+mosquitto_sub -h 192.168.50.115 \
   -t 'vda5050/v3/commissioning/ping' -C 1 -v
 ```
 
@@ -127,7 +152,7 @@ After bringup/Nav2 and overlay sourcing:
 
 ```bash
 ros2 launch rox_vda5050_adapter rox_vda5050_adapter.launch.py \
-  mqtt_host:=192.168.1.115 \
+  mqtt_host:=192.168.50.115 \
   map_id:=warehouse_case_study \
   dry_run_navigation:=true
 ```
@@ -140,7 +165,7 @@ Only after the short order has been generated and native Nav2 goals work:
 
 ```bash
 ros2 launch rox_vda5050_adapter rox_vda5050_adapter.launch.py \
-  mqtt_host:=192.168.1.115 \
+  mqtt_host:=192.168.50.115 \
   map_id:=warehouse_case_study \
   dry_run_navigation:=false
 ```

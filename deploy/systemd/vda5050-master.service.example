@@ -6,10 +6,10 @@ Wants=network-online.target
 [Service]
 Type=simple
 # Raspberry Pi OS commonly uses user "pi"; change both user and paths if yours differs.
-User=pi
-WorkingDirectory=/home/pi/VDA5050-Paper-Dev
-Environment=FLEET_CONTROL_ENV=/home/pi/VDA5050-Paper-Dev/configs/fleet_control.env
-ExecStart=/home/pi/VDA5050-Paper-Dev/scripts/run_master_control.sh
+User=raspberrypi
+WorkingDirectory=/home/raspberrypi/VDA5050-Paper-Dev
+Environment=FLEET_CONTROL_ENV=/home/raspberrypi/VDA5050-Paper-Dev/configs/fleet_control.env
+ExecStart=/home/raspberrypi/VDA5050-Paper-Dev/scripts/run_master_control.sh
 Restart=on-failure
 RestartSec=3
 

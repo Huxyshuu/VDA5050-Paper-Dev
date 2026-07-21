@@ -228,7 +228,7 @@ From ROX:
 
 ```bash
 scp configs/rox_waypoints.yaml \
-  pi@192.168.1.115:/home/pi/VDA5050-Paper-Dev/configs/
+  pi@192.168.50.115:/home/pi/VDA5050-Paper-Dev/configs/
 ```
 
 Use the real Pi username/repository path.

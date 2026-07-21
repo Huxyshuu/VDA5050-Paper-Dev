@@ -6,13 +6,21 @@ Complete this file on the real equipment. Do not replace unknown values with gue
 
 - [x] Pi username: `raspberrypi`
 - [x] Pi hostname: `raspberrypi`
-- [x] Pi/MQTT IPv4 address: `192.168.50.115`
+- [x] Pi Ethernet / DTLabOpen IPv4: `192.168.50.115`
+- [ ] Pi Ethernet prefix length: `____________________`
+- [x] Pi Wi-Fi / Ilmatar IPv4: `192.168.0.116`
+- [ ] Pi Wi-Fi prefix/gateway: `____________________`
+- [x] ROX-Diff / DTLabOpen IPv4: `192.168.50.50`
+- [ ] ROX-Diff DTLabOpen interface and prefix: `____________________`
+- [x] DTLabOpen gateway remains: `192.168.1.1`
 - [x] MQTT port: `1883`
 - [x] Pi project path: `~/VDA5050-Paper-Dev`
 - [x] Flask address/port: `192.168.50.115:5000`
-- [x] ROX can ping the Pi.
+- [x] Pi and ROX can communicate directly and bidirectionally.
+- [ ] `ip route get 192.168.50.50` on Pi selects Ethernet.
+- [ ] `ip route get 192.168.50.115` on ROX selects its DTLabOpen interface.
 - [ ] ROX can open TCP connection to MQTT port.
-- [ ] MQTT is restricted to the trusted lab network.
+- [ ] MQTT is restricted to loopback and the trusted DTLabOpen-facing interface.
 - [ ] Authentication/TLS plan documented for non-lab use.
 
 ## Neobotix delivered software

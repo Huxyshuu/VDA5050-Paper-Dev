@@ -15,6 +15,7 @@ The old DBot source remains under `legacy/` for traceability only. It is not par
 ## Start here
 
 - [Complete commissioning runbook](docs/COMMISSIONING_RUNBOOK.md) — exact Pi, ROX, mapping, order-generation, crane and coordinated-test sequence.
+- [Current DTLabOpen network](docs/NETWORK_CONFIGURATION.md) — direct Pi/ROX addressing and route checks.
 - [Site configuration checklist](docs/SITE_CONFIGURATION_CHECKLIST.md) — values that must be measured or discovered on the real equipment.
 - [Repository audit](docs/REPOSITORY_AUDIT_2026-07-20.md) — defects corrected, deferred work and verification limits.
 
@@ -60,7 +61,9 @@ See [MIGRATION_UPDATE.md](MIGRATION_UPDATE.md) for the full file-by-file change 
 ## 2. Runtime architecture and deployment separation
 
 ```text
-Raspberry Pi: 192.168.1.115
+Raspberry Pi
+├── eth0 / DTLabOpen: 192.168.50.115
+├── Wi-Fi / Ilmatar: 192.168.0.116
 ├── Mosquitto MQTT broker :1883
 ├── fleet_control/master_control.py :5000
 └── crane_edge/crane_vda5050_adapter_v3.py
@@ -70,6 +73,7 @@ Raspberry Pi: 192.168.1.115
                                   |
                                   v
 ROX-Diff onboard computer
+├── DTLabOpen: 192.168.50.50
 ├── Neobotix rox_bringup
 ├── Neobotix rox_navigation / Nav2
 └── rox_vda5050_adapter
@@ -78,7 +82,7 @@ ROX-Diff onboard computer
       └── TF + odom + battery + safety -> VDA state
 ```
 
-The Raspberry Pi does **not** need ROS 2. The Pi and ROX only need IP connectivity to the same MQTT broker. ROS 2 and Nav2 remain local to the robot. The crane remains locally controlled by its PLC/safety system through the crane adapter.
+The Raspberry Pi does **not** need ROS 2. The Pi and ROX are direct peers on DTLabOpen (`192.168.50.115` and `192.168.50.50`) and communicate with the Pi-hosted MQTT broker without NAT or port forwarding. The Pi also retains its separate Ilmatar Wi-Fi address `192.168.0.116`. ROS 2 and Nav2 remain local to the robot. The crane remains locally controlled by its PLC/safety system through the crane adapter.
 
 Suggested topic roots:
 
@@ -190,7 +194,7 @@ Before using a wider or untrusted network, replace anonymous MQTT with authentic
 Monitor all case-study traffic:
 
 ```bash
-mosquitto_sub -h 192.168.1.115 -t 'vda5050/v3/#' -v
+mosquitto_sub -h 192.168.50.115 -t 'vda5050/v3/#' -v
 ```
 
 ### 5.3 Start master control
@@ -202,13 +206,13 @@ mosquitto_sub -h 192.168.1.115 -t 'vda5050/v3/#' -v
 Open:
 
 ```text
-http://192.168.1.115:5000
+http://192.168.50.115:5000
 ```
 
 Useful runtime inspection:
 
 ```bash
-curl http://192.168.1.115:5000/runtime | python3 -m json.tool
+curl http://192.168.50.115:5000/runtime | python3 -m json.tool
 ```
 
 The optional service template is in `deploy/systemd/vda5050-master.service.example`.
@@ -400,7 +404,7 @@ From the ROX:
 
 ```bash
 scp configs/rox_waypoints.yaml \
-  pi@192.168.1.115:/home/pi/VDA5050-Paper-Dev/configs/
+  pi@192.168.50.115:/home/pi/VDA5050-Paper-Dev/configs/
 ```
 
 Adjust Pi username/path as required.
@@ -449,7 +453,7 @@ Dry-run is the default and must be used first:
 
 ```bash
 ros2 launch rox_vda5050_adapter rox_vda5050_adapter.launch.py \
-  mqtt_host:=192.168.1.115 \
+  mqtt_host:=192.168.50.115 \
   map_id:=warehouse_case_study \
   dry_run_navigation:=true
 ```
@@ -466,18 +470,18 @@ The adapter should:
 Pi test commands:
 
 ```bash
-curl -X POST http://192.168.1.115:5000/order/rox
-curl http://192.168.1.115:5000/runtime | python3 -m json.tool
-curl -X POST http://192.168.1.115:5000/release_hold
-curl -X POST http://192.168.1.115:5000/pause/rox
-curl -X POST http://192.168.1.115:5000/resume/rox
-curl -X POST http://192.168.1.115:5000/cancel/rox
+curl -X POST http://192.168.50.115:5000/order/rox
+curl http://192.168.50.115:5000/runtime | python3 -m json.tool
+curl -X POST http://192.168.50.115:5000/release_hold
+curl -X POST http://192.168.50.115:5000/pause/rox
+curl -X POST http://192.168.50.115:5000/resume/rox
+curl -X POST http://192.168.50.115:5000/cancel/rox
 ```
 
 Monitor on either machine:
 
 ```bash
-mosquitto_sub -h 192.168.1.115 \
+mosquitto_sub -h 192.168.50.115 \
   -t 'vda5050/v3/neobotix/rox_diff_1/#' -v
 ```
 
@@ -487,7 +491,7 @@ Only after dry-run results are correct:
 
 ```bash
 ros2 launch rox_vda5050_adapter rox_vda5050_adapter.launch.py \
-  mqtt_host:=192.168.1.115 \
+  mqtt_host:=192.168.50.115 \
   map_id:=warehouse_case_study \
   dry_run_navigation:=false
 ```
@@ -514,9 +518,9 @@ Run the stages in [docs/raspberry_pi_rox_test_plan.md](docs/raspberry_pi_rox_tes
 Independent order endpoints:
 
 ```bash
-curl -X POST http://192.168.1.115:5000/order/rox
-curl -X POST http://192.168.1.115:5000/order/crane
-curl -X POST http://192.168.1.115:5000/order
+curl -X POST http://192.168.50.115:5000/order/rox
+curl -X POST http://192.168.50.115:5000/order/crane
+curl -X POST http://192.168.50.115:5000/order
 ```
 
 The combined endpoint should only be used after both participants work independently.

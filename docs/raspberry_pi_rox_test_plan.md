@@ -19,15 +19,15 @@ On Pi:
 ```bash
 ip addr
 ss -ltnp | grep 1883
-mosquitto_sub -h 192.168.1.115 \
+mosquitto_sub -h 192.168.50.115 \
   -t 'vda5050/v3/commissioning/ping' -C 1 -v
 ```
 
 On ROX:
 
 ```bash
-ping -c 3 192.168.1.115
-./scripts/check_pi_mqtt_from_rox.sh 192.168.1.115 1883
+ping -c 3 192.168.50.115
+./scripts/check_pi_mqtt_from_rox.sh 192.168.50.115 1883
 ```
 
 Acceptance:
@@ -76,7 +76,7 @@ Launch:
 
 ```bash
 ros2 launch rox_vda5050_adapter rox_vda5050_adapter.launch.py \
-  mqtt_host:=192.168.1.115 \
+  mqtt_host:=192.168.50.115 \
   map_id:=warehouse_case_study \
   dry_run_navigation:=true
 ```
@@ -84,7 +84,7 @@ ros2 launch rox_vda5050_adapter rox_vda5050_adapter.launch.py \
 Send:
 
 ```bash
-curl -X POST http://192.168.1.115:5000/order/rox
+curl -X POST http://192.168.50.115:5000/order/rox
 ```
 
 Expected:
@@ -100,9 +100,9 @@ Expected:
 Monitor:
 
 ```bash
-mosquitto_sub -h 192.168.1.115 \
+mosquitto_sub -h 192.168.50.115 \
   -t 'vda5050/v3/neobotix/rox_diff_1/#' -v
-curl http://192.168.1.115:5000/runtime | python3 -m json.tool
+curl http://192.168.50.115:5000/runtime | python3 -m json.tool
 ```
 
 ## Stage 6 — Instant actions
@@ -110,10 +110,10 @@ curl http://192.168.1.115:5000/runtime | python3 -m json.tool
 Test target-specific calls:
 
 ```bash
-curl -X POST http://192.168.1.115:5000/pause/rox
-curl -X POST http://192.168.1.115:5000/resume/rox
-curl -X POST http://192.168.1.115:5000/cancel/rox
-curl -X POST http://192.168.1.115:5000/automatic
+curl -X POST http://192.168.50.115:5000/pause/rox
+curl -X POST http://192.168.50.115:5000/resume/rox
+curl -X POST http://192.168.50.115:5000/cancel/rox
+curl -X POST http://192.168.50.115:5000/automatic
 ```
 
 The initialization route requires real `ROX_INIT_*` values. Confirm instant action states reach the expected terminal state.
@@ -157,7 +157,7 @@ Manually release hold. Confirm:
 Run the crane adapter and send:
 
 ```bash
-curl -X POST http://192.168.1.115:5000/order/crane
+curl -X POST http://192.168.50.115:5000/order/crane
 ```
 
 Confirm crane VDA state, action transitions, connection and hoist information independently.
@@ -167,7 +167,7 @@ Confirm crane VDA state, action transitions, connection and hoist information in
 Send both orders only after Stages 8 and 9 pass:
 
 ```bash
-curl -X POST http://192.168.1.115:5000/order
+curl -X POST http://192.168.50.115:5000/order
 ```
 
 Confirm:

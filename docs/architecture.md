@@ -79,3 +79,17 @@ The crane and ROX logical node IDs can match for orchestration (`node2`/`node2`)
 ## Safety boundary
 
 VDA/MQTT/Flask orchestration is not safety-rated. The robot scanner/FlexiSoft/relayboard/controller and crane PLC/local safety remain authoritative. The master may enforce workflow gates, but those gates are additional orchestration logic rather than safety certification.
+
+## Current lab network
+
+```text
+Ilmatar private network
+  Raspberry Pi Wi-Fi: 192.168.0.116
+
+DTLabOpen
+  Raspberry Pi Ethernet: 192.168.50.115
+  Neobotix ROX-Diff:     192.168.50.50
+```
+
+The Pi and ROX-Diff communicate directly over DTLabOpen. The Pi hosts MQTT on `192.168.50.115:1883` and Flask on `192.168.50.115:5000`. No NAT or port-forwarding boundary exists between them. ROS 2 and Nav2 remain local to the ROX-Diff.
+

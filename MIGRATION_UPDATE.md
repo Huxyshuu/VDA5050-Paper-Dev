@@ -70,7 +70,7 @@ Adds/standardizes Flask, Paho MQTT, JSON Schema, dotenv and YAML dependencies.
 Changed:
 
 - removes active DBot identity/settings;
-- defines Pi broker `192.168.1.115:1883`;
+- defines Pi broker `192.168.50.115:1883`;
 - defines crane and ROX v3 participant identities;
 - points to the generated ROX order location;
 - leaves the ROX initialization pose intentionally blank;
@@ -346,3 +346,8 @@ After the first repeatable physical handover:
 8. automated MQTT + simulated Nav2 integration tests;
 9. structured scenario/event logging and paper result generation;
 10. robust persistence/recovery across adapter or broker restarts.
+
+## Network correction - 21 July 2026
+
+The active lab network uses DTLabOpen directly: Raspberry Pi Ethernet `192.168.50.115` and ROX-Diff `192.168.50.50`. The Pi also has Ilmatar Wi-Fi `192.168.0.116`. No intermediate training subnet, NAT or port forwarding is part of the active architecture. All MQTT, Flask, SCP and test commands use the Pi DTLabOpen address `192.168.50.115`.
+

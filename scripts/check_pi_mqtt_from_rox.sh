@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
-HOST="${1:-192.168.1.115}"
+
+HOST="${1:-192.168.50.115}"
 PORT="${2:-1883}"
 TOPIC="${3:-vda5050/v3/commissioning/ping}"
 PAYLOAD="rox-$(hostname)-$(date -u +%Y%m%dT%H%M%SZ)"
@@ -18,8 +19,8 @@ echo "Checking TCP ${HOST}:${PORT} ..."
 nc -vz -w 3 "$HOST" "$PORT"
 echo "Publishing MQTT test message to ${TOPIC} ..."
 mosquitto_pub -h "$HOST" -p "$PORT" -t "$TOPIC" -m "$PAYLOAD" -q 0
-cat <<MSG
+cat <<EOF
 Published: $PAYLOAD
-On the Raspberry Pi, verify it with:
-  mosquitto_sub -h $HOST -p $PORT -t '$TOPIC' -C 1 -v
-MSG
+On the Pi, confirm with:
+  mosquitto_sub -h 127.0.0.1 -t '$TOPIC' -C 1 -v
+EOF
