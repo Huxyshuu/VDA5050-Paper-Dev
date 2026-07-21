@@ -2,6 +2,13 @@
 
 Complete this file on the real equipment. Do not replace unknown values with guesses.
 
+## Commands for launch arguments
+ros2 launch rox_bringup bringup_launch.py --show-arguments
+ros2 launch rox_navigation mapping.launch.py --show-arguments
+ros2 launch rox_navigation navigation.launch.py --show-arguments
+ros2 launch rox_navigation localization_neo.launch.py --show-arguments
+
+
 ## Raspberry Pi and network
 
 - [x] Pi username: `raspberrypi`
@@ -26,17 +33,50 @@ Complete this file on the real equipment. Do not replace unknown values with gue
 ## Neobotix delivered software
 
 - [x] ROS distribution: `jazzy`
-- [ ] Neobotix workspace: `____________________`
-- [ ] `rox_bringup` launch file: `____________________`
-- [ ] Bringup arguments used: `____________________`
-- [ ] `rox_navigation` mapping launch file: `____________________`
-- [ ] Mapping arguments used: `____________________`
-- [ ] Navigation launch file: `navigation.launch.py` / other: `____________________`
-- [ ] `rox_type`: `diff`
-- [ ] `frame_type`: `short` / `long` / other: `____________________`
-- [ ] Robot namespace: `____________________`
+- [x] Neobotix workspace: `/home/neobotix/ros2_workspace`
+- [x] `rox_bringup` launch file: `bringup_launch.py`
+- [x] Intended physical robot type: `rox_type:=diff`
+- [x] Default robot namespace: empty (`robot_namespace:=`)
+- [x] Default scanner type: `scanner_type:=nanoscan`
+- [x] Default IMU setting: `imu_enable:=False`
+- [x] No robot arm configured: `arm_type:=`
+- [x] UR DC arm disabled: `use_ur_dc:=False`
+- [x] Mock arm disabled: `use_mock_arm:=False`
+- [x] Default initial arm controller: `initial_controller_arm:=scaled_joint_trajectory_controller`
+- [x] Default arm IP, only relevant if an arm is later enabled: `robot_ip:=192.168.1.102`
+- [x] Default arm controller file: `/home/neobotix/ros2_workspace/install/rox_bringup/share/rox_bringup/configs/ur/ur_controllers.yaml`
+- [x] No gripper configured: `gripper_type:=`
+- [x] IO board disabled by default: `enable_io_board:=False`
+- [x] RealSense D435 disabled by default: `use_d435:=False`
+- [ ] Exact bringup command used on the physical ROX-Diff: `____________________`
+
+- [x] `rox_navigation` mapping launch file: `mapping.launch.py`
+- [x] Mapping defaults:
+  - `autostart:=True`
+  - `use_lifecycle_manager:=False`
+  - `use_sim_time:=False`
+  - `slam_params_file:=/home/neobotix/ros2_workspace/install/rox_navigation/share/rox_navigation/configs/mapping.yaml`
+- [ ] Exact mapping command used: `____________________`
+
+- [x] Navigation launch file: `navigation.launch.py`
+- [x] Navigation defaults:
+  - `rox_type:=argo` by package default; must be overridden with `rox_type:=diff`
+  - `use_sim_time:=False`
+  - `autostart:=True`
+  - `robot_namespace:=`
+  - `use_multi_robots:=False`
+  - `head_robot:=False`
+  - `use_amcl:=False` by package default; set to `True` when localizing on the saved map
+  - `map:=/home/neobotix/ros2_workspace/install/rox_navigation/share/rox_navigation/maps/neo_workshop.yaml` by default; replace with the commissioned map path
+  - `nav2_params_file:=` to use the robot-type default
+  - `use_rviz:=True`
+- [ ] Exact navigation command used: `____________________`
+
+- [x] Localization launch file: `localization_neo.launch.py`
+- [x] `localization_neo.launch.py` exposes no launch arguments.
+- [x] `frame_type` is not exposed by the installed `bringup_launch.py`, `mapping.launch.py`, `navigation.launch.py`, or `localization_neo.launch.py`; do not supply it unless another installed launch file explicitly supports it.
 - [ ] Lidar topic: `____________________`
-- [ ] Odometry topic: `____________________`
+- [x] Odometry topic: `/odom`
 - [x] Battery topic and message type: `/battery_state`
 - [ ] Emergency-stop topic and message type: `____________________`
 - [ ] Safety-state topic and message type: `____________________`

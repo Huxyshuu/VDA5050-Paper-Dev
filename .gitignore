@@ -18,9 +18,10 @@ build/
 install/
 log/
 
-# Editors / OS
+# Editors / OS / Temporary
 *.swp
 .DS_Store
+.~*
 
 # Generated/site-specific runtime files
 # configs/rox_waypoints.yaml

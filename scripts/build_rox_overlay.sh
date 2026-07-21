@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -eo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NEOBOTIX_WS="${NEOBOTIX_WS:-$HOME/ros2_workspace}"
 ROS_DISTRO="${ROS_DISTRO:-jazzy}"
@@ -10,6 +10,9 @@ if [[ ! -f "$NEOBOTIX_WS/install/setup.bash" ]]; then
   exit 2
 fi
 source "$NEOBOTIX_WS/install/setup.bash"
+
+set -u
+
 cd "$ROOT/ros2_ws"
 rosdep install --from-paths src --ignore-src -r -y
 colcon build --symlink-install
