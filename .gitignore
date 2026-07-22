@@ -28,3 +28,7 @@ log/
 # examples/orders/order_rox_diff_v3.json
 # results/*
 # !results/.gitkeep
+
+# Site-specific robot runtime state and local patch backups
+runtime/
+.repo_update_backups/

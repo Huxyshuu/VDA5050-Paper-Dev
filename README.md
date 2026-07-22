@@ -14,6 +14,8 @@ The old DBot source remains under `legacy/` for traceability only. It is not par
 
 ## Start here
 
+- [ROX command reference](docs/ROX_COMMANDS.md) — one-command entry point for Nav2, RViz markers, capture, exact waypoint goals and adapter operation.
+- [Automatic pose persistence](docs/POSE_PERSISTENCE.md) — restore the last validated AMCL estimate and remove routine manual 2D pose setup.
 - [Complete commissioning runbook](docs/COMMISSIONING_RUNBOOK.md) — exact Pi, ROX, mapping, order-generation, crane and coordinated-test sequence.
 - [Current DTLabOpen network](docs/NETWORK_CONFIGURATION.md) — direct Pi/ROX addressing and route checks.
 - [Site configuration checklist](docs/SITE_CONFIGURATION_CHECKLIST.md) — values that must be measured or discovered on the real equipment.
@@ -30,6 +32,9 @@ The old DBot source remains under `legacy/` for traceability only. It is not par
 - Added an installable ROS package containing the official VDA 5050 v3.0 schemas.
 - Removed old DBot coordinates and order templates from the active runtime path.
 - Added a safe waypoint-capture and order-generation workflow.
+- Added an RViz waypoint visualizer and an exact named-waypoint Nav2 goal sender with final TF tolerance checks.
+- Added `scripts/rox.sh` as the central ROX commissioning command interface.
+- Added disk-backed Nav2 pose persistence with automatic AMCL `/initialpose` restoration, map fingerprint validation and same-boot odometry movement checks.
 - Added a short two-node commissioning route and a full crane case-study route.
 - Added official-schema validation for stored orders, states, factsheets, generated ROX orders, and live adapter traffic.
 - Added master endpoints for independent crane/ROX order tests, pause, resume, cancellation, factsheet requests, initialization, and custom instant actions.
@@ -42,17 +47,16 @@ The old DBot source remains under `legacy/` for traceability only. It is not par
 
 ### Still requires the real ROX-Diff and lab environment
 
-- Verify the installed Neobotix launch filenames and arguments.
-- Verify the installed ROS distribution and `neo_msgs2` message fields.
-- Create a new warehouse map with the ROX-Diff.
+- Preserve and verify the delivered boot-time bringup configuration after software updates.
+- Back up and version the commissioned `df_map.yaml`/`.pgm` pair outside the generated `install/` tree.
 - Tune localization, footprint, costmaps, controller, and speed limits.
-- Capture the real `home`, `short_test`, `crane_handover`, and `warehouse_dropoff` poses.
-- Generate the active ROX order from those poses.
+- Recheck the committed `home`, `short_test`, `crane_handover`, and `warehouse_dropoff` poses on the current `df_map`.
+- Keep `configured: false` until repeated exact-goal and physical alignment tests pass, then regenerate the active ROX order.
 - Verify battery and safety-state mapping on the delivered robot.
 - Fill and verify the ROX factsheet physical/capability values.
 - Build the ROS overlay on the ROX onboard computer.
 - Run dry-run, short-motion, full-route, and coordinated no-load tests.
-- Add order-update/base-horizon support, edge actions, zones, responses, visualization, and planned-path reporting after the first physical handover is stable.
+- Add order-update/base-horizon support, edge actions, zones, responses, interactive marker editing, and planned-path reporting after the first physical handover is stable.
 
 See [MIGRATION_UPDATE.md](MIGRATION_UPDATE.md) for the full file-by-file change report.
 
@@ -113,6 +117,8 @@ deploy/
 docs/
   architecture.md                   deployment and data flow
   deployment.md                     Pi and robot installation
+  ROX_COMMANDS.md                   daily ROX command reference
+  waypoint_visualizer.md             RViz markers and exact Nav2 waypoint goals
   rox_diff_mapping_and_orders.md    new map/coordinates/order procedure
   raspberry_pi_rox_test_plan.md     staged commissioning plan
   vda5050_v2_to_v3_migration.md     protocol/software migration notes
@@ -221,231 +227,160 @@ The optional service template is in `deploy/systemd/vda5050-master.service.examp
 
 ## 6. ROX-Diff ROS 2 overlay setup
 
-Do not overwrite or copy project files into the Neobotix source tree. Build this repository's `ros2_ws` as a **separate overlay**.
-
-Assumed paths below:
+The delivered Neobotix workspace remains the underlay and this repository remains a separate overlay.
 
 ```text
-~/ros2_workspace        existing Neobotix underlay
-~/VDA5050-Paper-Dev/ros2_ws   this project overlay
+~/ros2_workspace                         Neobotix underlay
+~/Projects/VDA5050-Paper-Dev/ros2_ws     project overlay
 ```
 
-Build:
+Build or rebuild with the central helper:
 
 ```bash
-cd ~/VDA5050-Paper-Dev/ros2_ws
-source /opt/ros/$ROS_DISTRO/setup.bash
-source ~/ros2_workspace/install/setup.bash
-rosdep install --from-paths src --ignore-src -r -y
-colcon build --symlink-install
-source install/setup.bash
+cd ~/Projects/VDA5050-Paper-Dev
+./scripts/rox.sh build
+source ros2_ws/install/setup.bash
+./scripts/rox.sh status
 ```
 
-Every robot terminal should source in this order:
+The helper avoids the ROS-generated `AMENT_TRACE_SETUP_FILES`/`set -u` startup problem and sources ROS Jazzy, the Neobotix underlay and the project overlay in the correct order.
 
-```bash
-source /opt/ros/$ROS_DISTRO/setup.bash
-source ~/ros2_workspace/install/setup.bash
-source ~/VDA5050-Paper-Dev/ros2_ws/install/setup.bash
-```
-
-Run static checks before building on hardware:
-
-```bash
-cd ~/VDA5050-Paper-Dev
-./scripts/run_static_checks.sh
-```
-
-The static checks do not replace a ROS build or hardware test.
+See [docs/ROX_COMMANDS.md](docs/ROX_COMMANDS.md) for all supported commands.
 
 ---
 
-## 7. Verify native ROX interfaces before VDA integration
+## 7. Native ROX bringup and verified interfaces
 
-The native bringup filename and scanner arguments depend on the software delivered with the robot. Discover them instead of copying a guessed command:
-
-```bash
-ros2 pkg prefix rox_bringup
-find "$(ros2 pkg prefix rox_bringup)/share/rox_bringup/launch" \
-  -maxdepth 1 -type f -name '*.launch.py' -printf '%f\n' | sort
-ros2 launch rox_bringup <ACTUAL_BRINGUP_FILE>.launch.py --show-arguments
-```
-
-Then start the actual file with `rox_type:=diff` and the verified scanner/frame arguments.
-
-Then run:
+The hardware bringup is already started at robot boot by `ROS_AUTOSTART.sh`:
 
 ```bash
-./scripts/check_rox_ros_interfaces.sh
-```
-
-Expected core interfaces include:
-
-```text
-/odom
-/tf
-/tf_static
-/scan
-/battery_state
-/emergency_stop_state
-/safety_state
-/navigate_to_pose        after Nav2 is started
-```
-
-Also inspect the actual types:
-
-```bash
-ros2 topic type /battery_state
-ros2 topic type /emergency_stop_state
-ros2 topic type /safety_state
-ros2 interface show neo_msgs2/msg/EmergencyStopState
-ros2 interface show neo_msgs2/msg/SafetyState
-```
-
-Do not proceed to VDA-controlled motion until native teleoperation, scanner behavior, odometry, TF, and Nav2 work reliably.
-
----
-
-## 8. Replace DBot map, coordinates and orders
-
-The old DBot coordinates cannot be converted mechanically. They belong to a different map, map origin, sensor setup, robot footprint and physical placement.
-
-The required process is:
-
-1. create a new ROX warehouse map;
-2. verify localization and ordinary Nav2 goals;
-3. physically place the robot at each desired waypoint;
-4. capture `map -> base_link` poses;
-5. copy the waypoint YAML to the Pi;
-6. generate a schema-valid VDA order;
-7. restart the Pi master so it reloads the generated initial pose and order path.
-
-Full instructions are in [docs/rox_diff_mapping_and_orders.md](docs/rox_diff_mapping_and_orders.md).
-
-### 8.1 Create and save a map
-
-Terminal A: start normal ROX bringup.
-
-Terminal B: first discover the installed mapping launch file, then run it with verified arguments:
-
-```bash
-find "$(ros2 pkg prefix rox_navigation)/share/rox_navigation/launch" \
-  -maxdepth 1 -type f -iname '*map*.launch.py' -printf '%f\n' | sort
-ros2 launch rox_navigation <ACTUAL_MAPPING_FILE>.launch.py --show-arguments
-mkdir -p ~/maps
-ros2 launch rox_navigation <ACTUAL_MAPPING_FILE>.launch.py \
-  rox_type:=diff <OTHER_VERIFIED_ARGUMENTS>
-```
-
-Drive through the complete test area using safe teleoperation, then save:
-
-```bash
-ros2 run nav2_map_server map_saver_cli \
-  -f ~/maps/warehouse_case_study
-```
-
-This produces:
-
-```text
-~/maps/warehouse_case_study.yaml
-~/maps/warehouse_case_study.pgm
-```
-
-### 8.2 Start navigation on that map
-
-```bash
-ros2 launch rox_navigation navigation.launch.py \
+source ~/ros2_workspace/install/setup.bash
+sleep 2
+ros2 launch rox_bringup bringup_launch.py \
   rox_type:=diff \
-  map:=$HOME/maps/warehouse_case_study.yaml
+  imu_enable:=True \
+  use_d435:=True \
+  enable_io_board:=True
 ```
 
-Use RViz to initialize localization and send several ordinary goals before VDA testing.
+Do not start another `rox_bringup` instance. Use the launch command only with `--show-arguments` when inspecting supported options.
 
-### 8.3 Capture waypoints on the robot
+Check the delivered interfaces with:
 
 ```bash
-cd ~/VDA5050-Paper-Dev
-cp configs/rox_waypoints.yaml.example configs/rox_waypoints.yaml
+cd ~/Projects/VDA5050-Paper-Dev
+./scripts/rox.sh interfaces
 ```
 
-Drive and localize at each exact pose, then capture:
+Verified hardware interfaces include:
+
+```text
+/tf                       tf2_msgs/msg/TFMessage
+/tf_static                tf2_msgs/msg/TFMessage
+/odom                     nav_msgs/msg/Odometry
+/battery_state            sensor_msgs/msg/BatteryState
+/emergency_stop_state     neo_msgs2/msg/EmergencyStopState
+/safety_state             neo_msgs2/msg/SafetyState
+/scan                     sensor_msgs/msg/LaserScan
+```
+
+`/navigate_to_pose` and `map -> base_link` are expected only after Nav2/AMCL starts and the initial pose is set.
+
+---
+
+## 8. Current map and waypoint workflow
+
+The commissioned map pair is installed at:
+
+```text
+/home/neobotix/ros2_workspace/install/rox_navigation/share/rox_navigation/maps/df_map.yaml
+/home/neobotix/ros2_workspace/install/rox_navigation/share/rox_navigation/maps/df_map.pgm
+```
+
+Back up both files outside the generated `install/` tree.
+
+### 8.1 Start Nav2 and RViz
 
 ```bash
-ros2 run rox_vda5050_adapter capture_waypoint \
-  --name home \
-  --output "$PWD/configs/rox_waypoints.yaml" \
-  --map-id warehouse_case_study
-
-ros2 run rox_vda5050_adapter capture_waypoint \
-  --name short_test \
-  --output "$PWD/configs/rox_waypoints.yaml" \
-  --map-id warehouse_case_study
-
-ros2 run rox_vda5050_adapter capture_waypoint \
-  --name crane_handover \
-  --output "$PWD/configs/rox_waypoints.yaml" \
-  --map-id warehouse_case_study
-
-ros2 run rox_vda5050_adapter capture_waypoint \
-  --name warehouse_dropoff \
-  --output "$PWD/configs/rox_waypoints.yaml" \
-  --map-id warehouse_case_study
+cd ~/Projects/VDA5050-Paper-Dev
+./scripts/rox.sh nav
 ```
 
-Verify each pose with ordinary Nav2. Only then edit:
+Equivalent direct command with automatic pose restoration:
+
+```bash
+ros2 launch rox_vda5050_adapter \
+  navigation_with_pose_persistence.launch.py \
+  rox_type:=diff \
+  use_rviz:=True \
+  map:="$HOME/maps/df_map.yaml" \
+  map_id:=df_map \
+  pose_file:="$HOME/Projects/VDA5050-Paper-Dev/runtime/rox_last_pose.yaml" \
+  auto_restore:=true
+```
+
+### 8.2 Visualize the named waypoints
+
+In a second terminal:
+
+```bash
+./scripts/rox.sh visualize
+```
+
+Add `/rox_waypoints/markers` as an RViz `MarkerArray` display. The markers are visual only.
+
+### 8.3 Capture and test exact waypoint poses
+
+```bash
+./scripts/rox.sh capture home
+./scripts/rox.sh capture short_test
+./scripts/rox.sh capture crane_handover
+./scripts/rox.sh capture warehouse_dropoff
+```
+
+The current logical identifier is:
 
 ```yaml
-configured: true
+map_id: df_map
 ```
 
-### 8.4 Copy coordinates to the Pi
-
-From the ROX:
+List all values:
 
 ```bash
-scp configs/rox_waypoints.yaml \
-  pi@192.168.50.115:/home/pi/VDA5050-Paper-Dev/configs/
+./scripts/rox.sh list
 ```
 
-Adjust Pi username/path as required.
-
-### 8.5 Generate a short commissioning order on the Pi
+Validate a goal without motion:
 
 ```bash
-cd ~/VDA5050-Paper-Dev
-source .venv/bin/activate
-python3 scripts/generate_rox_order.py \
-  --waypoints configs/rox_waypoints.yaml \
-  --route examples/routes/rox_short_motion_test.yaml \
-  --output examples/orders/order_rox_diff_v3.json \
-  --update-fleet-env configs/fleet_control.env
+./scripts/rox.sh goto-dry crane_handover
 ```
 
-Restart the master after the environment file changes.
-
-After short-motion testing succeeds, generate the full route:
+Send the exact YAML pose to Nav2 and verify the final TF pose against the YAML tolerances:
 
 ```bash
-python3 scripts/generate_rox_order.py \
-  --waypoints configs/rox_waypoints.yaml \
-  --route examples/routes/rox_crane_case_study.yaml \
-  --output examples/orders/order_rox_diff_v3.json \
-  --update-fleet-env configs/fleet_control.env
+./scripts/rox.sh goto crane_handover
 ```
 
-The generator refuses `configured: false`, validates the output against the official `order.schema`, uses continuous even/odd node-edge sequence IDs, and supports per-waypoint XY/orientation tolerances.
+Equivalent direct command:
 
-### 8.6 First-node rule
+```bash
+ros2 run rox_vda5050_adapter goto_waypoint \
+  --name crane_handover \
+  --waypoint-file configs/rox_waypoints.yaml
+```
 
-Before sending a new order, the ROX must be localized and physically within the configured tolerance of the first node. The adapter intentionally rejects an order if the robot is not near that start pose. This prevents a generated route from silently treating a distant point as already reached.
+Repeat every waypoint from different starting poses. Only after the full footprint, payload clearance, final yaw, scanner behavior, departure path and crane alignment are acceptable should `configured: true` be set.
 
-The `/automatic` master route sends `initializePosition` using the captured home pose. This sets the localization initial pose; it does not physically move the robot and does not replace verification in RViz.
+### 8.4 Generate orders on the Pi
+
+Copy the verified YAML to the Pi and generate the short or full order using the existing `scripts/generate_rox_order.py` workflow. The `map_id` in the waypoint file, generated VDA order and ROX adapter configuration must remain `df_map` unless all three are deliberately changed together.
 
 ---
 
 ## 9. Start and test the ROX adapter
 
-Source the Neobotix underlay and project overlay, then start native bringup and Nav2 first.
+The native hardware bringup is already running from boot. Start Nav2/AMCL first, then run the adapter from the project overlay.
 
 ### 9.1 Dry-run mode
 
@@ -454,7 +389,7 @@ Dry-run is the default and must be used first:
 ```bash
 ros2 launch rox_vda5050_adapter rox_vda5050_adapter.launch.py \
   mqtt_host:=192.168.50.115 \
-  map_id:=warehouse_case_study \
+  map_id:=df_map \
   dry_run_navigation:=true
 ```
 
@@ -492,7 +427,7 @@ Only after dry-run results are correct:
 ```bash
 ros2 launch rox_vda5050_adapter rox_vda5050_adapter.launch.py \
   mqtt_host:=192.168.50.115 \
-  map_id:=warehouse_case_study \
+  map_id:=df_map \
   dry_run_navigation:=false
 ```
 
@@ -553,7 +488,6 @@ The combined endpoint should only be used after both participants work independe
 - edge-action execution;
 - `zoneSet`, `responses`, zone requests and zone action states;
 - planned/intermediate path publication;
-- visualization topic;
 - multi-order scheduling on the robot;
 - verified production factsheet values;
 - automated ROS/Nav2 integration tests.
@@ -588,7 +522,7 @@ The delivered source was checked for:
 - rejection of unconfigured zero-coordinate waypoint files;
 - absence of the previously tracked crane access-code file.
 
-The delivery was **not** built in a ROS 2/Neobotix environment and was **not** executed on the Raspberry Pi, ROX-Diff, Nav2, MQTT broker or crane hardware. Those hardware/runtime steps remain necessary.
+The source bundle was statically checked outside the ROX environment. A real Jazzy/Neobotix `colcon build`, Nav2 action test, MQTT test and physical robot/crane commissioning are still required after applying the update.
 
 ---
 
@@ -598,3 +532,25 @@ The delivery was **not** built in a ROS 2/Neobotix environment and was **not** e
 - Neobotix ROX ROS repository: https://github.com/neobotix/rox
 - Neobotix ROS 2 startup documentation: https://neobotix-docs.de/ros/ros2/starting_with_ROS.html
 - Neobotix mapping/navigation documentation: https://neobotix-docs.de/ros/ros2/autonomous_navigation.html
+
+<!-- rox-pose-persistence-update -->
+## Automatic pose restoration
+
+`scripts/rox.sh nav` now launches Nav2 together with a disk-backed pose-persistence companion. When the robot has not been moved while navigation was off, the last `map -> base_link` pose is republished to AMCL through `/initialpose`, eliminating the routine manual RViz **2D Pose Estimate** step. The current pose is atomically updated under `runtime/rox_last_pose.yaml`, which is intentionally excluded from Git.
+
+First run or after physical movement:
+
+```bash
+./scripts/rox.sh pose-clear
+./scripts/rox.sh nav-fresh
+```
+
+Normal operation:
+
+```bash
+./scripts/rox.sh nav
+# In another terminal after localization is verified:
+./scripts/rox.sh goto home
+```
+
+See [`docs/POSE_PERSISTENCE.md`](docs/POSE_PERSISTENCE.md) for map-fingerprint checks, same-boot odometry movement detection, recovery commands and limitations.

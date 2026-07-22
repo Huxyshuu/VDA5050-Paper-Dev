@@ -1,7 +1,7 @@
-# Copy to configs/rox_waypoints.yaml after creating the ROX-Diff map.
-# Set configured: true only after all poses were captured in the SAME map frame,
-# verified in RViz, and successfully reached with ordinary Nav2 goals.
-map_id: warehouse_case_study
+# Copy to configs/rox_waypoints.yaml only when creating a new waypoint set.
+# Set configured: true only after every pose is captured on the same map and
+# repeatedly verified with ordinary Nav2 goals and physical clearance checks.
+map_id: df_map
 configured: false
 waypoints:
   home:
@@ -20,7 +20,6 @@ waypoints:
     x: 0.0
     y: 0.0
     theta: 0.0
-    # Start conservatively. Tighten only after repeatability measurements.
     allowed_deviation_xy: 0.12
     allowed_deviation_theta: 0.15
   warehouse_dropoff:

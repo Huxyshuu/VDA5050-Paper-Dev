@@ -1,188 +1,170 @@
 # Deployment Guide
 
-## 0. Verify the direct DTLabOpen path
+This guide records the current Aalto lab deployment. For commissioning order and safety gates, use [COMMISSIONING_RUNBOOK.md](COMMISSIONING_RUNBOOK.md). For daily ROX commands, use [ROX_COMMANDS.md](ROX_COMMANDS.md).
 
-On the Pi:
+## Current hosts and network
 
-```bash
-ip -br address
-ip route
-ip route get 192.168.50.50
-ping -c 3 192.168.50.50
+```text
+Raspberry Pi eth0 / DTLabOpen: 192.168.50.115
+ROX-Diff / DTLabOpen:         192.168.50.50
+Raspberry Pi Wi-Fi / Ilmatar: 192.168.0.116
+MQTT:                         192.168.50.115:1883
+Flask master:                 192.168.50.115:5000
 ```
 
-On the ROX-Diff:
+The Pi and ROX are direct DTLabOpen peers. No router, NAT or port forwarding is used between them.
+
+Verify from the ROX:
 
 ```bash
-ip -br address
-ip route
 ip route get 192.168.50.115
 ping -c 3 192.168.50.115
 nc -vz 192.168.50.115 1883
 ```
 
-Both devices are direct DTLabOpen peers; do not configure NAT, port forwarding or an additional training subnet.
-
-## 1. Raspberry Pi
-
-Expected current lab values:
-
-```text
-Pi eth0 / DTLabOpen: 192.168.50.115
-ROX / DTLabOpen:      192.168.50.50
-Pi Wi-Fi / Ilmatar:   192.168.0.116
-MQTT port:            1883
-Flask port:           5000
-```
-
-Install:
+## Raspberry Pi
 
 ```bash
+cd ~/VDA5050-Paper-Dev
+git pull --ff-only
 sudo apt update
 sudo apt install -y mosquitto mosquitto-clients python3-venv netcat-openbsd
 sudo systemctl enable --now mosquitto
-
-cd ~/VDA5050-Paper-Dev
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r fleet_control/requirements.txt
+python -m pip install --upgrade pip
+python -m pip install -r fleet_control/requirements.txt
 cp -n configs/fleet_control.env.example configs/fleet_control.env
-```
-
-For an isolated lab network, use the included listener example:
-
-```bash
-sudo cp deploy/mosquitto/vda5050-lab.conf.example \
-  /etc/mosquitto/conf.d/vda5050-lab.conf
-sudo systemctl restart mosquitto
-ss -ltnp | grep 1883
-```
-
-Start the master:
-
-```bash
+./scripts/run_static_checks.sh
 ./scripts/run_master_control.sh
 ```
 
-Inspect:
+Monitor:
 
 ```bash
 curl http://192.168.50.115:5000/runtime | python3 -m json.tool
 mosquitto_sub -h 192.168.50.115 -t 'vda5050/v3/#' -v
 ```
 
-The `deploy/systemd/vda5050-master.service.example` file can be adapted after manual startup succeeds.
+## ROX-Diff project overlay
 
-## 2. ROX-Diff project overlay
-
-Keep the Neobotix workspace as the underlay. Build this repository's `ros2_ws` separately:
-
-```bash
-cd ~/VDA5050-Paper-Dev/ros2_ws
-source /opt/ros/$ROS_DISTRO/setup.bash
-source ~/ros2_workspace/install/setup.bash
-rosdep install --from-paths src --ignore-src -r -y
-colcon build --symlink-install
-source install/setup.bash
-```
-
-Terminal source order:
-
-```bash
-source /opt/ros/$ROS_DISTRO/setup.bash
-source ~/ros2_workspace/install/setup.bash
-source ~/VDA5050-Paper-Dev/ros2_ws/install/setup.bash
-```
-
-Do not copy DBot packages and do not overwrite Neobotix `rox_bringup`, `rox_navigation`, drivers or message packages.
-
-## 3. Native ROX bringup
-
-Discover the exact native launch file and arguments installed on the delivered robot:
-
-```bash
-ros2 pkg prefix rox_bringup
-find "$(ros2 pkg prefix rox_bringup)/share/rox_bringup/launch" \
-  -maxdepth 1 -type f -name '*.launch.py' -printf '%f\n' | sort
-ros2 launch rox_bringup <ACTUAL_BRINGUP_FILE>.launch.py --show-arguments
-```
-
-Start that file with `rox_type:=diff` and only the scanner/frame/namespace arguments verified for the delivered configuration.
-
-Run:
-
-```bash
-./scripts/check_rox_ros_interfaces.sh
-```
-
-## 4. MQTT check from ROX
-
-```bash
-sudo apt install -y mosquitto-clients netcat-openbsd
-./scripts/check_pi_mqtt_from_rox.sh 192.168.50.115 1883
-```
-
-On Pi:
-
-```bash
-mosquitto_sub -h 192.168.50.115 \
-  -t 'vda5050/v3/commissioning/ping' -C 1 -v
-```
-
-## 5. Mapping and navigation
-
-Use [rox_diff_mapping_and_orders.md](rox_diff_mapping_and_orders.md). Save the map outside the Neobotix source tree, for example:
+The delivered Neobotix workspace remains the underlay:
 
 ```text
-~/maps/warehouse_case_study.yaml
-~/maps/warehouse_case_study.pgm
+/home/neobotix/ros2_workspace
 ```
 
-Start Nav2:
+The project is a separate overlay:
+
+```text
+/home/neobotix/Projects/VDA5050-Paper-Dev/ros2_ws
+```
+
+Build:
 
 ```bash
-ros2 launch rox_navigation navigation.launch.py \
+cd ~/Projects/VDA5050-Paper-Dev
+git pull --ff-only
+./scripts/rox.sh build
+source ros2_ws/install/setup.bash
+./scripts/rox.sh status
+```
+
+The helper avoids enabling Bash `nounset` while ROS-generated setup files are sourced.
+
+## Native hardware bringup
+
+The robot already starts the native hardware stack at boot through `ROS_AUTOSTART.sh`:
+
+```bash
+source ~/ros2_workspace/install/setup.bash
+sleep 2
+ros2 launch rox_bringup bringup_launch.py \
   rox_type:=diff \
-  map:=$HOME/maps/warehouse_case_study.yaml
+  imu_enable:=True \
+  use_d435:=True \
+  enable_io_board:=True
 ```
 
-## 6. Adapter dry run
-
-After bringup/Nav2 and overlay sourcing:
+Do not start a duplicate bringup. Verify it with:
 
 ```bash
-ros2 launch rox_vda5050_adapter rox_vda5050_adapter.launch.py \
-  mqtt_host:=192.168.50.115 \
-  map_id:=warehouse_case_study \
-  dry_run_navigation:=true
+./scripts/rox.sh interfaces
 ```
 
-Verify state/order/hold/release before setting dry run to false.
+## Nav2 and commissioned map
 
-## 7. Real adapter motion
+The current map pair is:
 
-Only after the short order has been generated and native Nav2 goals work:
+```text
+/home/neobotix/ros2_workspace/install/rox_navigation/share/rox_navigation/maps/df_map.yaml
+/home/neobotix/ros2_workspace/install/rox_navigation/share/rox_navigation/maps/df_map.pgm
+```
+
+Back up both files outside `install/`.
+
+Start Nav2, AMCL and RViz:
 
 ```bash
-ros2 launch rox_vda5050_adapter rox_vda5050_adapter.launch.py \
-  mqtt_host:=192.168.50.115 \
-  map_id:=warehouse_case_study \
-  dry_run_navigation:=false
+./scripts/rox.sh nav
 ```
 
-Use low speed, clear space, accessible emergency stops and no crane motion for the first run.
+Set the initial pose in RViz and verify:
 
-## 8. Environment alignment
+```bash
+./scripts/rox.sh status
+./scripts/rox.sh tf
+```
 
-The Pi does not need matching ROS middleware because communication is MQTT. ROS domain/RMW alignment matters only among ROS processes on the ROX computer or other machines intentionally joining its ROS graph.
+## Waypoint tools
 
-## 9. Credentials
+```bash
+./scripts/rox.sh visualize
+./scripts/rox.sh list
+./scripts/rox.sh goto-dry short_test
+./scripts/rox.sh goto short_test
+```
 
-Do not commit:
+Capture or recapture:
 
-- crane access code;
-- MQTT passwords;
-- private certificates;
-- machine-specific `.env` files containing secrets.
+```bash
+./scripts/rox.sh capture home
+./scripts/rox.sh capture short_test
+./scripts/rox.sh capture crane_handover
+./scripts/rox.sh capture warehouse_dropoff
+```
 
-The distributed source includes examples only. Anonymous MQTT is for isolated commissioning, not production.
+Any recapture resets `configured: false`. Restore `configured: true` only after repeated exact-goal and physical checks pass.
+
+## VDA adapter
+
+Dry-run first:
+
+```bash
+./scripts/rox.sh adapter-dry
+```
+
+Real Nav2 movement only after ordinary Nav2 waypoint tests and dry-run VDA tests pass:
+
+```bash
+./scripts/rox.sh adapter-real
+```
+
+Both runners use these defaults:
+
+```text
+VDA_MQTT_HOST=192.168.50.115
+VDA_MAP_ID=df_map
+```
+
+## Optional services
+
+Adapt and review before enabling:
+
+```text
+deploy/systemd/vda5050-master.service.example
+deploy/systemd/rox-vda5050-adapter-dry.service.example
+deploy/systemd/rox-vda5050-adapter-real.service.example
+```
+
+Start with the dry-run ROX service. Do not enable the real-motion service until supervised manual commissioning passes.

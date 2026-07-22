@@ -17,12 +17,8 @@
         "x": 1.7607,
         "y": -1.5857,
         "theta": 1.679,
-        "mapId": "warehouse_case_study",
-        "allowedDeviationXY": {
-          "a": 0.2,
-          "b": 0.2,
-          "theta": 0.0
-        },
+        "mapId": "df_map",
+        "allowedDeviationXY": {"a": 0.2, "b": 0.2, "theta": 0.0},
         "allowedDeviationTheta": 0.2
       },
       "actions": []
@@ -36,12 +32,8 @@
         "x": 3.5935,
         "y": -1.1262,
         "theta": 0.0811,
-        "mapId": "warehouse_case_study",
-        "allowedDeviationXY": {
-          "a": 0.2,
-          "b": 0.2,
-          "theta": 0.0
-        },
+        "mapId": "df_map",
+        "allowedDeviationXY": {"a": 0.2, "b": 0.2, "theta": 0.0},
         "allowedDeviationTheta": 0.2
       },
       "actions": [

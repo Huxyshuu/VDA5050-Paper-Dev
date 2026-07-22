@@ -1,10 +1,10 @@
-map_id: warehouse_case_study
+map_id: df_map
 configured: true
 waypoints:
   home:
-    x: 1.7607
-    y: -1.5857
-    theta: 1.679
+    x: 0.9756
+    y: -1.3663
+    theta: 0.06
     allowed_deviation_xy: 0.2
     allowed_deviation_theta: 0.2
   short_test:

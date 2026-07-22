@@ -1,196 +1,172 @@
 # Raspberry Pi to ROX-Diff Commissioning Test Plan
 
-Run stages in order. Do not combine crane and AMR movement until both have passed independent tests.
+Execute the stages in order. A stage passes only when its evidence is recorded and no unresolved safety or interface issue remains.
 
-## Stage 0 — Static repository checks
+## Stage 1 — Repository and static checks
 
-On Pi or development machine:
+On both hosts:
 
 ```bash
+git status --short
+git rev-parse --short HEAD
+```
+
+On the Pi:
+
+```bash
+cd ~/VDA5050-Paper-Dev
 ./scripts/run_static_checks.sh
 ```
 
-Expected: syntax/schema checks pass. This does not test ROS or hardware.
-
-## Stage 1 — Network and broker
-
-On Pi:
+On the ROX:
 
 ```bash
-ip addr
-ss -ltnp | grep 1883
-mosquitto_sub -h 192.168.50.115 \
-  -t 'vda5050/v3/commissioning/ping' -C 1 -v
+cd ~/Projects/VDA5050-Paper-Dev
+./scripts/rox.sh build
+source ros2_ws/install/setup.bash
+./scripts/rox.sh status
 ```
 
-On ROX:
+## Stage 2 — DTLabOpen and MQTT
+
+On the ROX:
 
 ```bash
 ping -c 3 192.168.50.115
+nc -vz 192.168.50.115 1883
 ./scripts/check_pi_mqtt_from_rox.sh 192.168.50.115 1883
 ```
 
-Acceptance:
-
-- TCP 1883 reachable;
-- Pi receives the commissioning MQTT message;
-- no routing/VPN ambiguity between robot and Pi.
-
-## Stage 2 — Native robot health
-
-Without VDA adapter:
-
-- start Neobotix bringup;
-- verify scanner and emergency-stop state;
-- teleoperate slowly;
-- verify `/odom`, `/scan`, `/tf`, `/battery_state`, `/emergency_stop_state`, `/safety_state`;
-- inspect actual message definitions;
-- ensure operating mode and field violation values make sense.
-
-Acceptance: native robot operation is stable and safety devices act as expected.
-
-## Stage 3 — Map and ordinary Nav2
-
-- create/save new map;
-- initialize localization;
-- verify costmaps and footprint;
-- send repeated RViz/Nav2 goals to intended areas;
-- capture `home`, `short_test`, `crane_handover`, `warehouse_dropoff`;
-- verify each captured pose with ordinary Nav2.
-
-Acceptance: all target poses are repeatable without VDA.
-
-## Stage 4 — Generate Pi order
-
-- copy waypoint YAML to Pi;
-- set `configured: true` only after review;
-- generate short route and update `fleet_control.env`;
-- restart master;
-- inspect generated JSON and `/runtime`.
-
-Acceptance: generated order validates and contains no DBot coordinates/identity.
-
-## Stage 5 — Adapter dry run
-
-Launch:
+On the Pi:
 
 ```bash
-ros2 launch rox_vda5050_adapter rox_vda5050_adapter.launch.py \
-  mqtt_host:=192.168.50.115 \
-  map_id:=warehouse_case_study \
-  dry_run_navigation:=true
+ping -c 3 192.168.50.50
+mosquitto_sub -h 127.0.0.1 -t 'vda5050/v3/commissioning/ping' -C 1 -v
 ```
 
-Send:
+Acceptance: bidirectional IP communication and successful ROX-to-Pi MQTT publication.
+
+## Stage 3 — Native ROX hardware interfaces
+
+Do not start another bringup; it already runs from boot.
 
 ```bash
-curl -X POST http://192.168.50.115:5000/order/rox
+./scripts/rox.sh interfaces
 ```
 
-Expected:
+Acceptance: `/tf`, `/tf_static`, `/odom`, `/scan`, `/battery_state`, `/emergency_stop_state` and `/safety_state` have the expected types. Nav2 action and `map -> base_link` may still be absent at this stage.
 
-1. retained connection is `ONLINE`;
-2. periodic schema-valid state appears;
-3. order is accepted;
-4. simulated node transitions occur;
-5. `holdPose` remains `RUNNING`;
-6. `/release_hold` changes it to `FINISHED`;
-7. order completes without robot motion.
+## Stage 4 — Nav2 localization
 
-Monitor:
+```bash
+./scripts/rox.sh nav
+```
+
+Set the initial pose in RViz. Then:
+
+```bash
+./scripts/rox.sh status
+./scripts/rox.sh tf
+```
+
+Acceptance: `/navigate_to_pose` exists, `map -> base_link` is stable, laser data aligns with `df_map`, and the robot can execute an ordinary supervised RViz goal.
+
+## Stage 5 — Waypoint visualization and exact goals
+
+In a separate terminal:
+
+```bash
+./scripts/rox.sh visualize
+```
+
+Add `/rox_waypoints/markers` as an RViz `MarkerArray` display.
+
+For each waypoint:
+
+```bash
+./scripts/rox.sh goto-dry WAYPOINT
+./scripts/rox.sh goto WAYPOINT
+```
+
+Repeat from different starting poses. Record final XY/yaw error and inspect complete footprint, payload clearance, scanner behavior, departure path and crane alignment.
+
+Acceptance: `WAYPOINT CHECK: PASS` repeatedly and physical suitability confirmed. Only then set `configured: true`.
+
+## Stage 6 — Generate and validate the ROX order
+
+Copy the verified waypoint file to the Pi:
+
+```bash
+scp configs/rox_waypoints.yaml \
+  raspberrypi@192.168.50.115:/home/raspberrypi/VDA5050-Paper-Dev/configs/
+```
+
+On the Pi:
+
+```bash
+cd ~/VDA5050-Paper-Dev
+source .venv/bin/activate
+python3 scripts/generate_rox_order.py \
+  --waypoints configs/rox_waypoints.yaml \
+  --route examples/routes/rox_short_motion_test.yaml \
+  --output examples/orders/order_rox_diff_v3.json \
+  --update-fleet-env configs/fleet_control.env
+./scripts/run_static_checks.sh
+```
+
+Acceptance: generated order uses `mapId: df_map`, schema checks pass, and `ROX_INIT_*` matches the first waypoint.
+
+## Stage 7 — VDA adapter dry run
+
+On the ROX:
+
+```bash
+./scripts/rox.sh adapter-dry
+```
+
+On the Pi:
 
 ```bash
 mosquitto_sub -h 192.168.50.115 \
   -t 'vda5050/v3/neobotix/rox_diff_1/#' -v
+curl -X POST http://192.168.50.115:5000/order/rox
 curl http://192.168.50.115:5000/runtime | python3 -m json.tool
 ```
 
-## Stage 6 — Instant actions
+Exercise pause, resume, cancel and hold release. Acceptance: correct schema-valid state/action progression with no physical robot motion.
 
-Test target-specific calls:
+## Stage 8 — Short real VDA motion
+
+Start the real adapter only after Stage 7 passes:
 
 ```bash
-curl -X POST http://192.168.50.115:5000/pause/rox
-curl -X POST http://192.168.50.115:5000/resume/rox
-curl -X POST http://192.168.50.115:5000/cancel/rox
-curl -X POST http://192.168.50.115:5000/automatic
+./scripts/rox.sh adapter-real
 ```
 
-The initialization route requires real `ROX_INIT_*` values. Confirm instant action states reach the expected terminal state.
+Use the short two-node order, reduced speed, no payload, clear area and reachable emergency stops.
 
-## Stage 7 — Short real VDA motion
+Acceptance: first node recognized correctly, exact short route completed, hold behavior correct, no safety-state inconsistency, and logs saved.
 
-- use `rox_short_motion_test.yaml` generated order;
-- lower platform/Nav2 speed limits;
-- clear the area;
-- keep emergency stops accessible;
-- localize ROX at `home` within tolerance;
-- launch adapter with `dry_run_navigation:=false`;
-- send only `/order/rox`;
-- verify `holdPose` then release it.
+## Stage 9 — Full ROX route without crane movement
+
+Generate the full route from `examples/routes/rox_crane_case_study.yaml`. Run it with the crane disabled from motion.
+
+Acceptance: ROX reaches and holds at `crane_handover`, continues only after approved release, reaches `warehouse_dropoff`, and returns home.
+
+## Stage 10 — Crane-only test
+
+Run the crane adapter and crane order without ROX motion and without load. Verify exact action IDs, PLC preflight, automatic mode, homing and safe-lift completion state.
+
+## Stage 11 — Coordinated no-load test
+
+Run both adapters and the combined order. Keep physical safety controls authoritative.
 
 Acceptance:
 
-- Nav2 goal sent once;
-- robot reaches correct position/orientation;
-- state node/action progression is consistent;
-- pause/resume and cancel do not cause late unintended movement.
+- ROX holds at the commissioned crane handover pose;
+- crane action milestones match the configured IDs;
+- ROX is not released before the exact safe-lift action finishes;
+- cancellation, broker loss and scanner intervention produce the documented safe response;
+- test repeats successfully from a known reset state.
 
-## Stage 8 — Full ROX route without crane motion
-
-Generate the full route and run:
-
-```text
-home -> handover hold -> drop-off -> home
-```
-
-Manually release hold. Confirm:
-
-- orientation at handover;
-- route clearance;
-- action ID maps to logical `node2`;
-- cancellation produces consistent state;
-- reconnect/restart does not silently resend an order.
-
-## Stage 9 — Crane only
-
-Run the crane adapter and send:
-
-```bash
-curl -X POST http://192.168.50.115:5000/order/crane
-```
-
-Confirm crane VDA state, action transitions, connection and hoist information independently.
-
-## Stage 10 — Coordinated handover without load
-
-Send both orders only after Stages 8 and 9 pass:
-
-```bash
-curl -X POST http://192.168.50.115:5000/order
-```
-
-Confirm:
-
-- ROX holds at the configured handover pose;
-- crane reaches its logical rendezvous;
-- master associates the correct action IDs and node IDs;
-- release is tied to the correct rendezvous;
-- ROX is not released until the configured crane safe-lift action reaches FINISHED;
-- no unsafe overlap occurs.
-
-## Stage 11 — Loaded and disturbance tests
-
-Only after supervised unloaded repetition:
-
-- intended payload;
-- pause/resume;
-- cancellation before movement;
-- cancellation during safe horizontal robot movement;
-- broker/adapter communication loss;
-- robot localization loss;
-- Nav2 failure;
-- scanner intervention;
-- document which recovery requires a person.
-
-Record logs and do not claim safety or performance validation beyond what was actually tested.
+Do not proceed to a loaded test until a responsible local operator approves the no-load evidence.
