@@ -1,0 +1,58 @@
+{
+  "headerId": 0,
+  "timestamp": "2026-07-21T12:58:06.835Z",
+  "version": "3.0.0",
+  "manufacturer": "neobotix",
+  "serialNumber": "rox_diff_1",
+  "orderId": "template-21ba3b0d-3929-4dec-9089-76c5e6bfc23b",
+  "orderUpdateId": 0,
+  "orderDescription": "ROX-Diff low-speed two-node commissioning route",
+  "nodes": [
+    {
+      "nodeId": "test_node1",
+      "sequenceId": 0,
+      "nodeDescriptor": "Commissioning start",
+      "released": true,
+      "nodePosition": {
+        "x": 1.7607,
+        "y": -1.5857,
+        "theta": 1.679,
+        "mapId": "df_map",
+        "allowedDeviationXY": {"a": 0.2, "b": 0.2, "theta": 0.0},
+        "allowedDeviationTheta": 0.2
+      },
+      "actions": []
+    },
+    {
+      "nodeId": "test_node2",
+      "sequenceId": 2,
+      "nodeDescriptor": "Short low-speed test target",
+      "released": true,
+      "nodePosition": {
+        "x": 3.5935,
+        "y": -1.1262,
+        "theta": 0.0811,
+        "mapId": "df_map",
+        "allowedDeviationXY": {"a": 0.2, "b": 0.2, "theta": 0.0},
+        "allowedDeviationTheta": 0.2
+      },
+      "actions": [
+        {
+          "actionType": "holdPose",
+          "actionId": "rox_short_test_hold",
+          "blockingType": "HARD",
+          "retriable": false
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "edgeId": "test_edge1",
+      "sequenceId": 1,
+      "edgeDescriptor": "Short commissioning movement",
+      "released": true,
+      "actions": []
+    }
+  ]
+}

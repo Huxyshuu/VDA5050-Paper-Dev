@@ -72,7 +72,7 @@ ROX uses ROS frames:
 map -> odom -> base_link
 ```
 
-VDA order node positions use the same numerical `map` frame coordinates and a stable project-level `mapId`, for example `warehouse_case_study`.
+VDA order node positions use the same numerical `map` frame coordinates and a stable project-level `mapId`, `df_map`.
 
 The crane and ROX logical node IDs can match for orchestration (`node2`/`node2`) even though their physical coordinate models are different. The master pairs logical workflow states; it does not compare crane XY and robot XY directly.
 

@@ -18,8 +18,8 @@ def generate_launch_description():
     return LaunchDescription(
         [
             DeclareLaunchArgument("config", default_value=default_config),
-            DeclareLaunchArgument("mqtt_host", default_value="192.168.1.115"),
-            DeclareLaunchArgument("map_id", default_value="warehouse_case_study"),
+            DeclareLaunchArgument("mqtt_host", default_value="192.168.50.115"),
+            DeclareLaunchArgument("map_id", default_value="df_map"),
             DeclareLaunchArgument("dry_run_navigation", default_value="true"),
             Node(
                 package="rox_vda5050_adapter",
@@ -31,7 +31,9 @@ def generate_launch_description():
                     {
                         "mqtt_host": mqtt_host,
                         "map_id": map_id,
-                        "dry_run_navigation": ParameterValue(dry_run, value_type=bool),
+                        "dry_run_navigation": ParameterValue(
+                            dry_run, value_type=bool
+                        ),
                     },
                 ],
             ),

@@ -84,7 +84,7 @@ Fill or verify at least:
 ```text
 VDA_MQTT_HOST=192.168.50.115
 VDA_MQTT_PORT=1883
-VDA_DEFAULT_MAP_ID=warehouse_case_study
+VDA_DEFAULT_MAP_ID=df_map
 CRANE_TOPIC_ROOT=vda5050/v3/konecranes/ilmatar_1
 ROX_TOPIC_ROOT=vda5050/v3/neobotix/rox_diff_1
 CRANE_AUTO_RELEASE_ACTION_ID=action4
@@ -158,103 +158,99 @@ At this stage the master may report that the generated ROX order is missing. Tha
 
 # Part B — Prepare the Neobotix ROX-Diff
 
-## B1. Copy or clone the project on the robot computer
+## B1. Clone or update the project on the robot computer
 
 ```bash
-cd ~
+mkdir -p ~/Projects
+cd ~/Projects
 git clone https://github.com/Huxyshuu/VDA5050-Paper-Dev.git
-cd ~/VDA5050-Paper-Dev
+cd ~/Projects/VDA5050-Paper-Dev
+git pull --ff-only
 ```
 
-For the supplied updated ZIP, copy and extract it instead, then make the directory name `~/VDA5050-Paper-Dev`.
+The active ROX project path used below is:
 
-## B2. Identify the installed ROS and Neobotix workspace
-
-```bash
-printenv ROS_DISTRO
-ls /opt/ros
-find ~ -maxdepth 3 -path '*/install/setup.bash' -print
+```text
+/home/neobotix/Projects/VDA5050-Paper-Dev
 ```
 
-The helper scripts assume:
+## B2. Current ROS environment
+
+The delivered system has:
 
 ```text
 ROS_DISTRO=jazzy
 NEOBOTIX_WS=$HOME/ros2_workspace
+RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+ROS_DOMAIN_ID=0
 ```
 
-Set different values if your delivered robot differs:
-
-```bash
-export ROS_DISTRO=<installed_ros_distribution>
-export NEOBOTIX_WS=<path_to_neobotix_workspace>
-```
-
-Example:
+The recommended `~/.bashrc` order is:
 
 ```bash
 export ROS_DISTRO=jazzy
-export NEOBOTIX_WS=$HOME/ros2_workspace
-```
+export NEOBOTIX_WS="$HOME/ros2_workspace"
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+export ROS_DOMAIN_ID=0
+export AMENT_TRACE_SETUP_FILES=""
 
-## B3. Verify the native Neobotix packages before building this project
-
-```bash
-source /opt/ros/$ROS_DISTRO/setup.bash
+source "/opt/ros/$ROS_DISTRO/setup.bash"
 source "$NEOBOTIX_WS/install/setup.bash"
-ros2 pkg prefix rox_bringup
-ros2 pkg prefix rox_navigation
+
+export VDA5050_PROJECT="$HOME/Projects/VDA5050-Paper-Dev"
+if [ -f "$VDA5050_PROJECT/ros2_ws/install/setup.bash" ]; then
+    source "$VDA5050_PROJECT/ros2_ws/install/setup.bash"
+fi
 ```
 
-List the exact launch files installed on this robot:
+Do not use the invalid fragment `source opt/ros/`.
+
+## B3. Native hardware bringup is automatic
+
+The ROX hardware drivers start whenever the robot boots through `ROS_AUTOSTART.sh`:
 
 ```bash
-find "$(ros2 pkg prefix rox_bringup)/share/rox_bringup/launch" \
-  -maxdepth 1 -type f -name '*.launch.py' -printf '%f\n' | sort
-find "$(ros2 pkg prefix rox_navigation)/share/rox_navigation/launch" \
-  -maxdepth 1 -type f -name '*.launch.py' -printf '%f\n' | sort
+source ~/ros2_workspace/install/setup.bash
+sleep 2
+ros2 launch rox_bringup bringup_launch.py \
+  rox_type:=diff \
+  imu_enable:=True \
+  use_d435:=True \
+  enable_io_board:=True
 ```
 
-Use the actual filenames printed by these commands. Verify launch arguments before starting the robot:
+This starts the ROX-Diff drivers with the IMU, RealSense D435 and I/O board enabled. Do **not** start another `rox_bringup` process in a terminal. A duplicate bringup can create duplicated drivers, topic publishers and hardware access conflicts.
+
+Use this only to inspect supported arguments:
 
 ```bash
-ros2 launch rox_navigation navigation.launch.py --show-arguments
+ros2 launch rox_bringup bringup_launch.py --show-arguments
 ```
 
-For the native bringup file, substitute the filename shown by the first `find` command:
+## B4. Build the project overlay
 
 ```bash
-ros2 launch rox_bringup <ACTUAL_BRINGUP_FILE>.launch.py --show-arguments
+cd ~/Projects/VDA5050-Paper-Dev
+./scripts/rox.sh build
+source ros2_ws/install/setup.bash
+./scripts/rox.sh status
 ```
 
-Record the correct values in `docs/SITE_CONFIGURATION_CHECKLIST.md`.
+The central helper sources ROS Jazzy, the Neobotix underlay and the project overlay in the correct order. It also avoids the ROS setup failure caused by enabling shell `nounset` before sourcing `/opt/ros/jazzy/setup.bash`.
 
-## B4. Build this repository as a separate overlay
-
-Do not copy the adapter into or overwrite Neobotix packages.
+Confirm the tools:
 
 ```bash
-cd ~/VDA5050-Paper-Dev
-export ROS_DISTRO=${ROS_DISTRO:-jazzy}
-export NEOBOTIX_WS=${NEOBOTIX_WS:-$HOME/ros2_workspace}
-./scripts/build_rox_overlay.sh
+ros2 pkg executables rox_vda5050_adapter | sort
 ```
 
-In every new ROX terminal, source in this order:
+Expected entries include:
 
-```bash
-export ROS_DISTRO=${ROS_DISTRO:-jazzy}
-export NEOBOTIX_WS=${NEOBOTIX_WS:-$HOME/ros2_workspace}
-source /opt/ros/$ROS_DISTRO/setup.bash
-source "$NEOBOTIX_WS/install/setup.bash"
-source ~/VDA5050-Paper-Dev/ros2_ws/install/setup.bash
-```
-
-Confirm the adapter is visible:
-
-```bash
-ros2 pkg prefix rox_vda5050_adapter
-ros2 pkg executables rox_vda5050_adapter
+```text
+capture_waypoint
+goto_waypoint
+rox_vda5050_adapter
+waypoint_visualizer
 ```
 
 ## B5. Verify Pi network and MQTT from ROX
@@ -262,229 +258,214 @@ ros2 pkg executables rox_vda5050_adapter
 ```bash
 ping -c 3 192.168.50.115
 nc -vz 192.168.50.115 1883
-```
-
-Install MQTT client tools if needed:
-
-```bash
-sudo apt update
-sudo apt install -y mosquitto-clients netcat-openbsd
-```
-
-Run the supplied check:
-
-```bash
-cd ~/VDA5050-Paper-Dev
+cd ~/Projects/VDA5050-Paper-Dev
 ./scripts/check_pi_mqtt_from_rox.sh 192.168.50.115 1883
 ```
 
-On the Pi, confirm that the message arrives:
+The ROX address is `192.168.50.50`; the Pi Ethernet address is `192.168.50.115`. They communicate directly on DTLabOpen.
+
+## B6. Verify observed hardware interfaces
 
 ```bash
-mosquitto_sub -h 127.0.0.1 \
-  -t 'vda5050/v3/commissioning/ping' -C 1 -v
+cd ~/Projects/VDA5050-Paper-Dev
+./scripts/rox.sh interfaces
 ```
 
-## B6. Start and verify native ROX only
+Verified topics are:
+
+```text
+/tf                       tf2_msgs/msg/TFMessage
+/tf_static                tf2_msgs/msg/TFMessage
+/odom                     nav_msgs/msg/Odometry
+/battery_state            sensor_msgs/msg/BatteryState
+/emergency_stop_state     neo_msgs2/msg/EmergencyStopState
+/safety_state             neo_msgs2/msg/SafetyState
+/scan                     sensor_msgs/msg/LaserScan
+```
+
+The absence of `/navigate_to_pose` and a `map -> base_link` transform is expected before Nav2/localization starts. Do not continue to VDA-controlled motion until teleoperation, odometry, lidar, scanner fields and physical emergency stops work correctly.
+
+---
+
+# Part C — Start the commissioned map and verify Nav2
+
+## C1. Current commissioned map
+
+The active files are:
+
+```text
+/home/neobotix/ros2_workspace/install/rox_navigation/share/rox_navigation/maps/df_map.yaml
+/home/neobotix/ros2_workspace/install/rox_navigation/share/rox_navigation/maps/df_map.pgm
+```
+
+Inside `df_map.yaml`, the `image:` field must reference `df_map.pgm`. Back up both files outside the generated workspace `install/` directory.
+
+The logical VDA/project map identifier is:
+
+```yaml
+map_id: df_map
+```
+
+This identifier is not a ROS TF frame and does not load the occupancy map.
+
+## C2. Start Nav2, AMCL and RViz
 
 Terminal ROX-1:
 
 ```bash
-source /opt/ros/$ROS_DISTRO/setup.bash
-source "$NEOBOTIX_WS/install/setup.bash"
-ros2 launch rox_bringup <ACTUAL_BRINGUP_FILE>.launch.py \
-  rox_type:=diff \
-  <OTHER_VERIFIED_ARGUMENTS>
+cd ~/Projects/VDA5050-Paper-Dev
+./scripts/rox.sh nav
 ```
 
-Do not copy the example arguments blindly. Use `--show-arguments` and the delivered robot configuration to determine scanner, frame and namespace settings.
-
-Terminal ROX-2:
+Equivalent direct command:
 
 ```bash
-source /opt/ros/$ROS_DISTRO/setup.bash
-source "$NEOBOTIX_WS/install/setup.bash"
-cd ~/VDA5050-Paper-Dev
-./scripts/check_rox_ros_interfaces.sh
-```
-
-Also inspect the actual topics and message types:
-
-```bash
-ros2 topic list | sort
-ros2 topic echo /odom --once
-ros2 topic echo /scan --once
-ros2 topic type /battery_state
-ros2 topic type /emergency_stop_state
-ros2 topic type /safety_state
-ros2 interface show neo_msgs2/msg/EmergencyStopState
-ros2 interface show neo_msgs2/msg/SafetyState
-ros2 run tf2_ros tf2_echo odom base_link
-```
-
-Do not continue until teleoperation, odometry, TF, lidar data, scanner fields and emergency-stop behavior are correct without the VDA adapter.
-
----
-
-# Part C — Create the ROX map and verify Nav2
-
-## C1. Discover the installed mapping launch command
-
-```bash
-source /opt/ros/$ROS_DISTRO/setup.bash
-source "$NEOBOTIX_WS/install/setup.bash"
-find "$(ros2 pkg prefix rox_navigation)/share/rox_navigation/launch" \
-  -maxdepth 1 -type f -iname '*map*.launch.py' -printf '%f\n' | sort
-```
-
-For every candidate printed, inspect its arguments:
-
-```bash
-ros2 launch rox_navigation <ACTUAL_MAPPING_FILE>.launch.py --show-arguments
-```
-
-The exact mapping launch filename is a delivered-software detail. Do not guess it from the old DBot project.
-
-## C2. Start mapping
-
-Keep native ROX bringup running in ROX-1.
-
-Terminal ROX-2:
-
-```bash
-source /opt/ros/$ROS_DISTRO/setup.bash
-source "$NEOBOTIX_WS/install/setup.bash"
-mkdir -p "$HOME/maps"
-ros2 launch rox_navigation <ACTUAL_MAPPING_FILE>.launch.py \
-  rox_type:=diff \
-  <OTHER_VERIFIED_ARGUMENTS>
-```
-
-If no Neobotix mapping launch is installed, use the mapping method supported by the delivered workspace, commonly `slam_toolbox`, after verifying the lidar topic and parameters. Do not replace the Neobotix navigation configuration without reviewing it.
-
-Drive slowly through the complete case-study area. Include the home area, short test target, crane approach, handover area, drop-off area and enough stable walls/features for localization.
-
-## C3. Save the map
-
-```bash
-ros2 run nav2_map_server map_saver_cli \
-  -f "$HOME/maps/warehouse_case_study"
-ls -l "$HOME/maps/warehouse_case_study.yaml" \
-      "$HOME/maps/warehouse_case_study.pgm"
-```
-
-Back up both files together.
-
-## C4. Start localization and navigation
-
-Stop the mapping launch. Keep native bringup running.
-
-Terminal ROX-2:
-
-```bash
-source /opt/ros/$ROS_DISTRO/setup.bash
-source "$NEOBOTIX_WS/install/setup.bash"
 ros2 launch rox_navigation navigation.launch.py \
   rox_type:=diff \
-  frame_type:=short \
-  use_amcl:=true \
-  map:="$HOME/maps/warehouse_case_study.yaml"
+  use_amcl:=True \
+  use_rviz:=True \
+  map:=/home/neobotix/ros2_workspace/install/rox_navigation/share/rox_navigation/maps/df_map.yaml
 ```
 
-Change `frame_type` or other arguments only to values confirmed for the delivered robot. The official package exposes the accepted arguments through `--show-arguments`.
+The installed `navigation.launch.py` accepts `rox_type`, `use_amcl`, `map` and `use_rviz`. It does **not** expose `frame_type`, so do not pass that obsolete argument.
 
-## C5. Verify Nav2 before VDA
-
-```bash
-ros2 action list -t | grep -E 'navigate_to_pose|NavigateToPose'
-ros2 run tf2_ros tf2_echo map base_link
-```
+## C3. Initialize localization
 
 In RViz:
 
-1. Set the initial pose.
-2. Confirm lidar overlays the map.
-3. Confirm global and local costmaps.
-4. Send at least three normal Nav2 goals.
-5. Repeat the crane approach from different directions.
-6. Confirm position and orientation repeatability.
-7. Confirm the robot can stop and depart without violating scanner fields.
+1. set **Fixed Frame** to `map`;
+2. select **2D Pose Estimate**;
+3. click the robot's approximate map position and drag in its real heading;
+4. confirm `/scan` aligns with walls and stable map features;
+5. wait for localization to settle.
 
-The VDA adapter must not be used to compensate for a poor map, incorrect TF, wrong footprint, unstable localization or untuned Nav2 controller.
+Verify:
+
+```bash
+ros2 action list -t | grep navigate_to_pose
+ros2 run tf2_ros tf2_echo map base_link
+```
+
+Both should now be available.
+
+## C4. Ordinary Nav2 checks
+
+Before using named waypoints or the VDA adapter:
+
+1. send at least three ordinary RViz Nav2 goals;
+2. approach the crane area from different directions;
+3. inspect the complete robot and payload footprint, not only `base_link`;
+4. verify global/local costmaps and scanner behavior;
+5. confirm the robot can stop, rotate if required and depart safely.
+
+## C5. Optional remapping
+
+The existing `df_map` is the commissioned map. Only remap when the environment or map quality requires it. The installed mapping launch file is `mapping.launch.py` and supports:
+
+```text
+autostart
+use_lifecycle_manager
+use_sim_time
+slam_params_file
+```
+
+It does not accept `rox_type`. Save a new map pair together and do not overwrite the commissioned files until the replacement is verified.
 
 ---
 
-# Part D — Capture waypoints and generate the VDA order
+# Part D — Capture, visualize and verify waypoints
 
-## D1. Create the site waypoint file on ROX
+## D1. Create the site waypoint file
 
 ```bash
-cd ~/VDA5050-Paper-Dev
+cd ~/Projects/VDA5050-Paper-Dev
 cp -n configs/rox_waypoints.yaml.example configs/rox_waypoints.yaml
 ```
 
-Keep `configured: false` until all poses have been captured and individually tested.
+Keep `configured: false` during capture and return testing.
 
-## D2. Capture each pose
+## D2. Capture each exact pose
 
-Source the project overlay in the terminal used for capture:
+Drive and localize the robot at each intended physical placement, then run:
 
 ```bash
-source /opt/ros/$ROS_DISTRO/setup.bash
-source "$NEOBOTIX_WS/install/setup.bash"
-source ~/VDA5050-Paper-Dev/ros2_ws/install/setup.bash
-cd ~/VDA5050-Paper-Dev
+./scripts/rox.sh capture home
+./scripts/rox.sh capture short_test
+./scripts/rox.sh capture crane_handover
+./scripts/rox.sh capture warehouse_dropoff
 ```
 
-At each physical pose, wait for localization to settle and run the corresponding command:
+These commands write the current `map -> base_link` pose into `configs/rox_waypoints.yaml` with `map_id: df_map` and preserve the existing tolerance values.
+
+Review:
 
 ```bash
-ros2 run rox_vda5050_adapter capture_waypoint \
-  --name home \
-  --output "$PWD/configs/rox_waypoints.yaml" \
-  --map-id warehouse_case_study
-```
-
-```bash
-ros2 run rox_vda5050_adapter capture_waypoint \
-  --name short_test \
-  --output "$PWD/configs/rox_waypoints.yaml" \
-  --map-id warehouse_case_study
-```
-
-```bash
-ros2 run rox_vda5050_adapter capture_waypoint \
-  --name crane_handover \
-  --output "$PWD/configs/rox_waypoints.yaml" \
-  --map-id warehouse_case_study
-```
-
-```bash
-ros2 run rox_vda5050_adapter capture_waypoint \
-  --name warehouse_dropoff \
-  --output "$PWD/configs/rox_waypoints.yaml" \
-  --map-id warehouse_case_study
-```
-
-Review the file:
-
-```bash
+./scripts/rox.sh list
 cat configs/rox_waypoints.yaml
 ```
 
-## D3. Verify every captured pose with normal Nav2
+## D3. Display the points in RViz
 
-For each waypoint, move away and return using RViz/Nav2 several times. Verify:
+Terminal ROX-2:
 
-- the robot center and full footprint;
+```bash
+cd ~/Projects/VDA5050-Paper-Dev
+./scripts/rox.sh visualize
+```
+
+In RViz, add a `MarkerArray` display using:
+
+```text
+/rox_waypoints/markers
+```
+
+The position dots, heading arrows, names and tolerance graphics are visual guidance. Standard markers are not buttons and do not command the robot.
+
+## D4. Send exact YAML waypoints to Nav2
+
+Preview an exact target without movement:
+
+```bash
+./scripts/rox.sh goto-dry crane_handover
+```
+
+Send the exact `x`, `y` and `theta` from YAML:
+
+```bash
+./scripts/rox.sh goto crane_handover
+```
+
+Equivalent direct command:
+
+```bash
+ros2 run rox_vda5050_adapter goto_waypoint \
+  --name crane_handover \
+  --waypoint-file configs/rox_waypoints.yaml
+```
+
+The command converts `theta` to a quaternion, sends `/navigate_to_pose`, waits for Nav2, reads the final `map -> base_link` transform and compares the actual error with `allowed_deviation_xy` and `allowed_deviation_theta`.
+
+It prints:
+
+```text
+WAYPOINT CHECK: PASS
+```
+
+only when Nav2 succeeds and both project tolerances are met. Nav2 can report success while the stricter project check fails; investigate localization, controller tuning, approach direction and physical clearance instead of simply increasing tolerances.
+
+## D5. Repeat and approve every waypoint
+
+For each waypoint, move away and return several times from different starting positions. Verify:
+
+- complete robot footprint;
 - payload clearance;
-- final yaw;
-- scanner fields;
-- crane reach and hook/load alignment;
-- departure path;
-- practical position/orientation tolerances.
+- final position and yaw;
+- scanner fields and emergency access;
+- crane reach and hook/load alignment at `crane_handover`;
+- safe departure path;
+- practical repeatability.
 
-Then edit:
+`configured: false` produces a warning in `goto_waypoint` but is intentionally allowed during this commissioning stage. Only after all waypoints pass repeatedly:
 
 ```bash
 nano configs/rox_waypoints.yaml
@@ -496,20 +477,18 @@ Set:
 configured: true
 ```
 
-Do not set this flag merely to bypass the generator check.
+Do not set the flag merely to bypass order-generation checks.
 
-## D4. Copy the waypoint file to the Pi
+## D6. Copy the verified waypoint file to the Pi
 
 From ROX:
 
 ```bash
-scp ~/VDA5050-Paper-Dev/configs/rox_waypoints.yaml \
-  <PI_USER>@192.168.50.115:/home/<PI_USER>/VDA5050-Paper-Dev/configs/
+scp ~/Projects/VDA5050-Paper-Dev/configs/rox_waypoints.yaml \
+  raspberrypi@192.168.50.115:/home/raspberrypi/VDA5050-Paper-Dev/configs/
 ```
 
-Replace `<PI_USER>` with the real Pi username.
-
-## D5. Generate the short test order on the Pi
+## D7. Generate the short test order on the Pi
 
 ```bash
 cd ~/VDA5050-Paper-Dev
@@ -522,21 +501,7 @@ python3 scripts/generate_rox_order.py \
 ./scripts/run_static_checks.sh
 ```
 
-Inspect the generated order and initial pose:
-
-```bash
-python3 -m json.tool examples/orders/order_rox_diff_v3.json | less
-grep '^ROX_INIT_' configs/fleet_control.env
-```
-
-Restart the Pi master so it reloads the order and environment:
-
-```bash
-# In the master terminal: Ctrl+C
-cd ~/VDA5050-Paper-Dev
-source .venv/bin/activate
-./scripts/run_master_control.sh
-```
+Restart the Pi master after the environment and order files change.
 
 ---
 
@@ -551,11 +516,11 @@ Use the native commands verified in Parts B and C.
 Terminal ROX-3:
 
 ```bash
-cd ~/VDA5050-Paper-Dev
+cd ~/Projects/VDA5050-Paper-Dev
 export ROS_DISTRO=${ROS_DISTRO:-jazzy}
 export NEOBOTIX_WS=${NEOBOTIX_WS:-$HOME/ros2_workspace}
 export VDA_MQTT_HOST=192.168.50.115
-export VDA_MAP_ID=warehouse_case_study
+export VDA_MAP_ID=df_map
 ./scripts/run_rox_adapter_dry.sh
 ```
 
@@ -630,11 +595,11 @@ Use RViz and the native robot tools. Confirm that `map -> base_link` is within t
 Terminal ROX-3:
 
 ```bash
-cd ~/VDA5050-Paper-Dev
+cd ~/Projects/VDA5050-Paper-Dev
 export ROS_DISTRO=${ROS_DISTRO:-jazzy}
 export NEOBOTIX_WS=${NEOBOTIX_WS:-$HOME/ros2_workspace}
 export VDA_MQTT_HOST=192.168.50.115
-export VDA_MAP_ID=warehouse_case_study
+export VDA_MAP_ID=df_map
 ./scripts/run_rox_adapter_real.sh
 ```
 
@@ -666,7 +631,7 @@ Acceptance criteria:
 On the Pi:
 
 ```bash
-cd ~/VDA5050-Paper-Dev
+cd ~/Projects/VDA5050-Paper-Dev
 source .venv/bin/activate
 python3 scripts/generate_rox_order.py \
   --waypoints configs/rox_waypoints.yaml \

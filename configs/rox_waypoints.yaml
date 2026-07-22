@@ -1,27 +1,30 @@
-map_id: warehouse_case_study
-configured: true
+map_id: df_map
+# Keep false until every pose has been repeatedly tested with normal Nav2,
+# checked against its practical tolerances, and physically approved.
+configured: false
 waypoints:
   home:
     x: 1.7607
     y: -1.5857
     theta: 1.679
-    allowed_deviation_xy: 0.2
-    allowed_deviation_theta: 0.2
+    allowed_deviation_xy: 0.20
+    allowed_deviation_theta: 0.20
   short_test:
     x: 3.5935
     y: -1.1262
     theta: 0.0811
-    allowed_deviation_xy: 0.2
-    allowed_deviation_theta: 0.2
+    allowed_deviation_xy: 0.20
+    allowed_deviation_theta: 0.20
   crane_handover:
     x: 3.5635
     y: 1.7679
     theta: -1.4854
+    # Tight commissioning values: retain only if repeated physical tests pass.
     allowed_deviation_xy: 0.12
     allowed_deviation_theta: 0.15
   warehouse_dropoff:
     x: 0.6063
     y: 0.2589
     theta: -3.0648
-    allowed_deviation_xy: 0.2
-    allowed_deviation_theta: 0.2
+    allowed_deviation_xy: 0.20
+    allowed_deviation_theta: 0.20

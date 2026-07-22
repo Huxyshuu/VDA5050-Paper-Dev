@@ -2,13 +2,6 @@
 
 Complete this file on the real equipment. Do not replace unknown values with guesses.
 
-## Commands for launch arguments
-ros2 launch rox_bringup bringup_launch.py --show-arguments
-ros2 launch rox_navigation mapping.launch.py --show-arguments
-ros2 launch rox_navigation navigation.launch.py --show-arguments
-ros2 launch rox_navigation localization_neo.launch.py --show-arguments
-
-
 ## Raspberry Pi and network
 
 - [x] Pi username: `raspberrypi`

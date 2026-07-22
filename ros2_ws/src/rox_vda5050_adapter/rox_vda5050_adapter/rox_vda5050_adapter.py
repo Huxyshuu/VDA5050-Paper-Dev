@@ -139,7 +139,7 @@ class RoxVda5050Adapter(Node):
     # Configuration
     def _declare_parameters(self) -> None:
         defaults = {
-            "mqtt_host": "192.168.1.115",
+            "mqtt_host": "192.168.50.115",
             "mqtt_port": 1883,
             "mqtt_username": "",
             "mqtt_password": "",
@@ -149,7 +149,7 @@ class RoxVda5050Adapter(Node):
             "protocol_version": "3.0.0",
             "manufacturer": "neobotix",
             "serial_number": "rox_diff_1",
-            "map_id": "warehouse_case_study",
+            "map_id": "df_map",
             "map_version": "1.0",
             "map_frame": "map",
             "base_frame": "base_link",
