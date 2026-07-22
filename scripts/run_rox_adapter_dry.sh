@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -eo pipefail
-
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NEOBOTIX_WS="${NEOBOTIX_WS:-$HOME/ros2_workspace}"
 PROJECT_WS="$ROOT/ros2_ws"

@@ -11,5 +11,6 @@ allow_anonymous true
 listener 1883 192.168.50.115
 allow_anonymous true
 
+# Make sure ../mosquitto doesn't these lines below
 persistence true
 persistence_location /var/lib/mosquitto/
