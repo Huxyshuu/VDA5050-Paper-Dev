@@ -563,3 +563,13 @@ See [`docs/POSE_PERSISTENCE.md`](docs/POSE_PERSISTENCE.md) for map-fingerprint c
 Ubuntu 24.04 operator computers can run the same `rox` command interface as the ROX-Diff. `rox nav` starts headless robot-side Nav2 when needed and opens the standard Neobotix Nav2 RViz locally with the robot model, live map/scan/costmaps and named waypoint markers. One-time shell installation removes the need to source ROS workspaces manually.
 
 See [docs/REMOTE_OPERATOR_WORKSTATION.md](docs/REMOTE_OPERATOR_WORKSTATION.md) for installation, SSH setup, daily operation and troubleshooting.
+
+## Web mission control
+
+The Raspberry Pi Flask UI provides dynamic ROX waypoint orders, VDA 5050 v3
+pause/resume/cancel/retry controls, live node/edge progress, ROX and crane
+status, repeatable ROX-first scenarios, and an event log.
+
+See [`docs/FLASK_MISSION_CONTROL.md`](docs/FLASK_MISSION_CONTROL.md) for setup,
+operation, protocol mapping and the staged ROX test procedure.
+

@@ -1,0 +1,35 @@
+# Dashboard mission sequences. Each ROX step is sent as a separate VDA 5050
+# v3.0 new order only after the previous order has finished.
+scenarios:
+  short_commissioning:
+    label: Short commissioning loop
+    description: Home → short test → home. Use this before longer physical tests.
+    target: rox
+    waypoints: [home, short_test, home]
+    enabled: true
+    risk: low
+
+  rox_case_study_route:
+    label: ROX case-study route
+    description: ROX-only route through the current handover and drop-off poses.
+    target: rox
+    waypoints: [home, short_test, crane_handover, warehouse_dropoff, home]
+    enabled: true
+    risk: supervised
+
+  crane_approach_only:
+    label: ROX crane approach
+    description: Navigate only the ROX-Diff to crane_handover. No crane command is sent.
+    target: rox
+    waypoints: [crane_handover]
+    enabled: true
+    risk: supervised
+
+  coordinated_handover:
+    label: Coordinated crane handover
+    description: Reserved for the commissioned ROX + crane sequence.
+    target: coordinated
+    waypoints: [crane_handover]
+    enabled: false
+    disabled_reason: Crane is currently unavailable and has not been commissioned for this test phase.
+    risk: locked

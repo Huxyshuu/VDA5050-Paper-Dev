@@ -33,7 +33,7 @@ app = Flask(__name__)
 # ---------------- MQTT / VDA5050 v3.0 config ----------------
 BROKER_HOST = os.getenv(
     "VDA_MQTT_HOST",
-    "192.168.1.115",  # This is currently the raspberry pi ip (Jul 10 2026)
+    "192.168.50.115",  # This is currently the raspberry pi ip (Jul 10 2026)
 )
 BROKER_PORT = int(os.getenv("VDA_MQTT_PORT", "1883"))
 
@@ -44,7 +44,7 @@ VDA_INTERFACE_NAME = os.getenv("VDA_INTERFACE_NAME", "vda5050")
 VDA_MAJOR_VERSION = os.getenv("VDA_MAJOR_VERSION", "v3")
 VDA_MQTT_QOS = int(os.getenv("VDA_MQTT_QOS", "0"))
 
-DEFAULT_MAP_ID = os.getenv("VDA_DEFAULT_MAP_ID", "map")
+DEFAULT_MAP_ID = os.getenv("VDA_DEFAULT_MAP_ID", "df_map")
 
 # Explicit action IDs from the order templates. Handover decisions are made from
 # VDA action lifecycle states, never from free-text information[] telemetry.
@@ -392,6 +392,7 @@ def _handle_state_msg(target: str, payload: Dict[str, Any]):
 
     with STATE_LOCK:
         STATE[target]["last_state"] = payload
+        STATE[target]["last_state_received_at"] = time.time()
         if target == "crane":
             running_button = _extract_running_action(action_states, "buttonPress")
             STATE["crane"]["buttonpress_running_aid"] = running_button
@@ -439,6 +440,7 @@ def _on_message(client, userdata, msg):
                     break
                 with STATE_LOCK:
                     STATE[target]["connection"] = data
+                    STATE[target]["connection_received_at"] = time.time()
                 break
             if msg.topic == _sub_topic_factsheet_for(target):
                 if FACTSHEET_SCHEMA is not None:
@@ -452,6 +454,7 @@ def _on_message(client, userdata, msg):
                     break
                 with STATE_LOCK:
                     STATE[target]["factsheet"] = data
+                    STATE[target]["factsheet_received_at"] = time.time()
                 break
 
 
@@ -1096,6 +1099,16 @@ def runtime_status():
         }
     )
 
+# VDA5050_DASHBOARD_V3_BEGIN
+# Register the live VDA 5050 v3 dashboard after the legacy routes and MQTT
+# helpers exist, but before the Flask development server is started.
+try:
+    from dashboard_v3 import register_dashboard as _register_dashboard_v3
+except ImportError:  # Allows importing fleet_control.master_control as a module.
+    from fleet_control.dashboard_v3 import register_dashboard as _register_dashboard_v3
+
+_register_dashboard_v3(app, globals())
+# VDA5050_DASHBOARD_V3_END
 
 # ---------------- Main ----------------
 if __name__ == "__main__":
