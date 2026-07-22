@@ -35,12 +35,17 @@ resolve_map_yaml() {
     printf '%s\n' "$ROX_MAP_YAML"
     return
   fi
+  if [[ -f "$HOME/maps/df_map.yaml" ]]; then
+    printf '%s\n' "$HOME/maps/df_map.yaml"
+    return
+  fi
   local prefix
   prefix="$(ros2 pkg prefix rox_navigation 2>/dev/null || true)"
   if [[ -n "$prefix" ]]; then
     printf '%s\n' "$prefix/share/rox_navigation/maps/df_map.yaml"
   else
-    printf '%s\n' "$NEOBOTIX_WS/install/rox_navigation/share/rox_navigation/maps/df_map.yaml"
+    printf '%s\n' \
+      "$NEOBOTIX_WS/install/rox_navigation/share/rox_navigation/maps/df_map.yaml"
   fi
 }
 
@@ -107,7 +112,6 @@ EOF
     }
     exec ros2 launch rox_navigation navigation.launch.py \
       rox_type:=diff \
-      use_amcl:=True \
       use_rviz:=True \
       map:="$map_yaml"
     ;;
