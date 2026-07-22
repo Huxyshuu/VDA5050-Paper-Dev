@@ -15,6 +15,7 @@ The old DBot source remains under `legacy/` for traceability only. It is not par
 ## Start here
 
 - [ROX command reference](docs/ROX_COMMANDS.md) — one-command entry point for Nav2, RViz markers, capture, exact waypoint goals and adapter operation.
+- [Automatic pose persistence](docs/POSE_PERSISTENCE.md) — restore the last validated AMCL estimate and remove routine manual 2D pose setup.
 - [Complete commissioning runbook](docs/COMMISSIONING_RUNBOOK.md) — exact Pi, ROX, mapping, order-generation, crane and coordinated-test sequence.
 - [Current DTLabOpen network](docs/NETWORK_CONFIGURATION.md) — direct Pi/ROX addressing and route checks.
 - [Site configuration checklist](docs/SITE_CONFIGURATION_CHECKLIST.md) — values that must be measured or discovered on the real equipment.
@@ -33,6 +34,7 @@ The old DBot source remains under `legacy/` for traceability only. It is not par
 - Added a safe waypoint-capture and order-generation workflow.
 - Added an RViz waypoint visualizer and an exact named-waypoint Nav2 goal sender with final TF tolerance checks.
 - Added `scripts/rox.sh` as the central ROX commissioning command interface.
+- Added disk-backed Nav2 pose persistence with automatic AMCL `/initialpose` restoration, map fingerprint validation and same-boot odometry movement checks.
 - Added a short two-node commissioning route and a full crane case-study route.
 - Added official-schema validation for stored orders, states, factsheets, generated ROX orders, and live adapter traffic.
 - Added master endpoints for independent crane/ROX order tests, pause, resume, cancellation, factsheet requests, initialization, and custom instant actions.
@@ -304,14 +306,17 @@ cd ~/Projects/VDA5050-Paper-Dev
 ./scripts/rox.sh nav
 ```
 
-Equivalent direct command:
+Equivalent direct command with automatic pose restoration:
 
 ```bash
-ros2 launch rox_navigation navigation.launch.py \
+ros2 launch rox_vda5050_adapter \
+  navigation_with_pose_persistence.launch.py \
   rox_type:=diff \
-  use_amcl:=True \
   use_rviz:=True \
-  map:=/home/neobotix/ros2_workspace/install/rox_navigation/share/rox_navigation/maps/df_map.yaml
+  map:="$HOME/maps/df_map.yaml" \
+  map_id:=df_map \
+  pose_file:="$HOME/Projects/VDA5050-Paper-Dev/runtime/rox_last_pose.yaml" \
+  auto_restore:=true
 ```
 
 ### 8.2 Visualize the named waypoints
@@ -527,3 +532,25 @@ The source bundle was statically checked outside the ROX environment. A real Jaz
 - Neobotix ROX ROS repository: https://github.com/neobotix/rox
 - Neobotix ROS 2 startup documentation: https://neobotix-docs.de/ros/ros2/starting_with_ROS.html
 - Neobotix mapping/navigation documentation: https://neobotix-docs.de/ros/ros2/autonomous_navigation.html
+
+<!-- rox-pose-persistence-update -->
+## Automatic pose restoration
+
+`scripts/rox.sh nav` now launches Nav2 together with a disk-backed pose-persistence companion. When the robot has not been moved while navigation was off, the last `map -> base_link` pose is republished to AMCL through `/initialpose`, eliminating the routine manual RViz **2D Pose Estimate** step. The current pose is atomically updated under `runtime/rox_last_pose.yaml`, which is intentionally excluded from Git.
+
+First run or after physical movement:
+
+```bash
+./scripts/rox.sh pose-clear
+./scripts/rox.sh nav-fresh
+```
+
+Normal operation:
+
+```bash
+./scripts/rox.sh nav
+# In another terminal after localization is verified:
+./scripts/rox.sh goto home
+```
+
+See [`docs/POSE_PERSISTENCE.md`](docs/POSE_PERSISTENCE.md) for map-fingerprint checks, same-boot odometry movement detection, recovery commands and limitations.

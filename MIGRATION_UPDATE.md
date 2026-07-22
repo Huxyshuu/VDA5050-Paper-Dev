@@ -69,3 +69,10 @@ The real captured coordinates are retained in `configs/rox_waypoints.yaml`, but 
 - run VDA dry-run, short-motion, full-route, crane-only and coordinated no-load tests in order.
 
 This repository does not replace the robot or crane safety systems and does not constitute safety certification.
+
+<!-- rox-pose-persistence-migration -->
+## Automatic Nav2 pose persistence and restoration
+
+The ROX command workflow now includes disk-backed localization startup support. `scripts/rox.sh nav` launches the delivered Neobotix navigation stack together with `pose_persistence`, which restores a validated last pose through `/initialpose` and atomically updates `runtime/rox_last_pose.yaml` while localization is active.
+
+Safety controls include map-ID and map-file fingerprint checks, same-boot odometry movement detection, a fresh-localization mode, and explicit status/save/restore/clear commands. The runtime pose is deliberately excluded from Git because it is site state rather than portable source configuration.

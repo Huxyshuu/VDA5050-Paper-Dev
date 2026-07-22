@@ -1,6 +1,6 @@
 # `rox_vda5050_adapter`
 
-ROS 2 package for the Neobotix ROX-Diff case study. It provides the VDA 5050 v3 MQTT-to-Nav2 adapter plus commissioning tools for named map waypoints.
+ROS 2 package for the Neobotix ROX-Diff VDA 5050 v3 case study. It contains the MQTT-to-Nav2 adapter and commissioning utilities for capturing, visualizing, commanding and persistently restoring named map poses.
 
 ## Installed executables
 
@@ -10,10 +10,11 @@ ROS 2 package for the Neobotix ROX-Diff case study. It provides the VDA 5050 v3 
 | `capture_waypoint` | Capture the current `map -> base_link` pose into `rox_waypoints.yaml` |
 | `waypoint_visualizer` | Publish waypoint names, headings and tolerances as RViz `MarkerArray` markers |
 | `goto_waypoint` | Send one exact YAML waypoint to Nav2 and verify the final TF pose |
+| `pose_persistence` | Save the last localized pose to disk and restore it to AMCL through `/initialpose` |
 
 ## Build
 
-The native Neobotix workspace remains the underlay. This package is built in the project overlay:
+The native Neobotix workspace remains the underlay and this repository is a separate overlay:
 
 ```bash
 cd ~/Projects/VDA5050-Paper-Dev
@@ -21,71 +22,80 @@ cd ~/Projects/VDA5050-Paper-Dev
 source ros2_ws/install/setup.bash
 ```
 
-The ROX hardware bringup is already started at boot by `ROS_AUTOSTART.sh`. Do not launch a duplicate `rox_bringup` instance.
+The ROX hardware bringup is already started at boot by `ROS_AUTOSTART.sh`. Do not launch another `rox_bringup` instance.
 
-## Waypoint workflow
+## Normal operation
 
-Start Nav2 and RViz:
+Start Nav2, RViz and automatic pose restoration:
 
 ```bash
 ./scripts/rox.sh nav
 ```
 
-In a second terminal, publish the YAML markers:
+When the robot has not been moved since the preceding Nav2 session, the saved pose is supplied to AMCL automatically. In another terminal, after checking scan/map alignment:
+
+```bash
+./scripts/rox.sh goto home
+```
+
+On the first run, after changing the map, or after physically moving the robot while Nav2 was off:
+
+```bash
+./scripts/rox.sh nav-fresh
+```
+
+Then set **2D Pose Estimate** once in RViz. The companion node begins saving the localized pose automatically.
+
+## Waypoint workflow
 
 ```bash
 ./scripts/rox.sh visualize
-```
-
-List exact coordinates:
-
-```bash
 ./scripts/rox.sh list
-```
-
-Capture the robot's current pose:
-
-```bash
 ./scripts/rox.sh capture crane_handover
-```
-
-Validate the exact command without motion:
-
-```bash
 ./scripts/rox.sh goto-dry crane_handover
-```
-
-Send the exact YAML pose to `/navigate_to_pose` and compare the final `map -> base_link` pose with the YAML tolerances:
-
-```bash
 ./scripts/rox.sh goto crane_handover
 ```
 
-Equivalent direct command:
+The RViz markers are visual only. `goto_waypoint` is the component that commands motion.
+
+## Pose persistence commands
 
 ```bash
-ros2 run rox_vda5050_adapter goto_waypoint \
-  --name crane_handover \
-  --waypoint-file configs/rox_waypoints.yaml
+./scripts/rox.sh pose-status
+./scripts/rox.sh pose-save
+./scripts/rox.sh pose-restore
+./scripts/rox.sh pose-clear
 ```
 
-The RViz markers themselves remain visual only. `goto_waypoint` is the component that sends motion.
+The default site-specific runtime file is:
+
+```text
+runtime/rox_last_pose.yaml
+```
+
+It is excluded from Git and must not be published in the public repository.
 
 ## Current site defaults
 
 ```text
-ROS distribution:      jazzy
-RMW implementation:    rmw_cyclonedds_cpp
+ROS distribution:     jazzy
+RMW implementation:   rmw_cyclonedds_cpp
 ROS domain:            0
 ROX project:           ~/Projects/VDA5050-Paper-Dev
 Neobotix workspace:    ~/ros2_workspace
 ROS map frame:         map
 Robot base frame:      base_link
+Odometry frame:        odom
 Nav2 action:           /navigate_to_pose
+AMCL initial pose:     /initialpose
 VDA map_id:            df_map
-Map YAML:              <rox_navigation prefix>/share/rox_navigation/maps/df_map.yaml
+Map YAML:              ~/maps/df_map.yaml (preferred)
 Waypoint YAML:         configs/rox_waypoints.yaml
+Saved pose:            runtime/rox_last_pose.yaml
 Marker topic:          /rox_waypoints/markers
 ```
 
-See [`docs/ROX_COMMANDS.md`](../../../docs/ROX_COMMANDS.md) for the complete command reference and staged operating procedure.
+See:
+
+- [`docs/ROX_COMMANDS.md`](../../../docs/ROX_COMMANDS.md)
+- [`docs/POSE_PERSISTENCE.md`](../../../docs/POSE_PERSISTENCE.md)

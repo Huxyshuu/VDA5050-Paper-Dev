@@ -28,7 +28,10 @@ source_ros() {
 }
 
 waypoint_file="${ROX_WAYPOINT_FILE:-$PROJECT_ROOT/configs/rox_waypoints.yaml}"
+pose_file="${ROX_LAST_POSE_FILE:-$PROJECT_ROOT/runtime/rox_last_pose.yaml}"
 map_id="${VDA_MAP_ID:-df_map}"
+auto_restore="${ROX_AUTO_RESTORE:-true}"
+max_pose_age_hours="${ROX_MAX_POSE_AGE_HOURS:-0.0}"
 
 resolve_map_yaml() {
   if [[ -n "${ROX_MAP_YAML:-}" ]]; then
@@ -55,13 +58,18 @@ Usage: ./scripts/rox.sh COMMAND [ARGUMENTS]
 
 Daily commands:
   build                   Build the project ROS overlay
-  nav [MAP_YAML]          Start Nav2/AMCL/RViz using df_map.yaml
+  nav [MAP_YAML]          Start Nav2/RViz; auto-restore and persist pose
+  nav-fresh [MAP_YAML]    Start Nav2/RViz without restoring an old pose
   interfaces              Check ROX topics, messages, TF and Nav2 action
   visualize [YAML]        Publish YAML waypoints as RViz MarkerArray markers
   list [YAML]             List exact waypoint poses and tolerances
   goto NAME [YAML]        Send the exact named waypoint to Nav2 and verify TF
   goto-dry NAME [YAML]    Print/validate the exact goal without moving
   capture NAME [YAML]     Capture current map->base_link pose into YAML
+  pose-save               Save the current localized pose immediately
+  pose-restore            Publish the saved pose to AMCL immediately
+  pose-status             Show saved pose, age, map match and boot match
+  pose-clear              Delete the saved pose; next Nav2 start is manual
   tf                      Echo map->base_link continuously
   status                  Show relevant topics, actions and configured files
   adapter-dry             Start the VDA adapter without real Nav2 movement
@@ -72,9 +80,14 @@ Daily commands:
 Environment overrides:
   ROS_DISTRO, NEOBOTIX_WS, RMW_IMPLEMENTATION, ROS_DOMAIN_ID
   ROX_MAP_YAML, ROX_WAYPOINT_FILE, VDA_MAP_ID
+  ROX_LAST_POSE_FILE, ROX_AUTO_RESTORE, ROX_MAX_POSE_AGE_HOURS
 
 The native rox_bringup is already started at robot boot by ROS_AUTOSTART.sh.
 Do not start a second bringup instance.
+
+IMPORTANT: automatic pose restore is valid only when the robot was not physically
+moved while Nav2 was off. Run 'pose-clear' and use RViz 2D Pose Estimate whenever
+that assumption is not true or scan/map alignment looks wrong.
 EOF
 }
 
@@ -96,6 +109,9 @@ RMW_IMPLEMENTATION=$RMW_IMPLEMENTATION
 ROS_DOMAIN_ID=$ROS_DOMAIN_ID
 ROX_MAP_YAML=$map_yaml
 ROX_WAYPOINT_FILE=$waypoint_file
+ROX_LAST_POSE_FILE=$pose_file
+ROX_AUTO_RESTORE=$auto_restore
+ROX_MAX_POSE_AGE_HOURS=$max_pose_age_hours
 VDA_MAP_ID=$map_id
 EOF
     ;;
@@ -103,17 +119,29 @@ EOF
     cd "$PROJECT_ROOT"
     exec "$PROJECT_ROOT/scripts/build_rox_overlay.sh"
     ;;
-  nav)
+  nav|nav-fresh)
     source_ros
     map_yaml="${1:-$(resolve_map_yaml)}"
     [[ -f "$map_yaml" ]] || {
       echo "ERROR: map YAML not found: $map_yaml" >&2
       exit 2
     }
-    exec ros2 launch rox_navigation navigation.launch.py \
+    restore_value="$auto_restore"
+    mkdir -p "$(dirname "$pose_file")"
+    if [[ "$command" == "nav-fresh" ]]; then
+      restore_value=false
+      rm -f "$pose_file"
+      echo "Cleared saved pose for fresh manual localization: $pose_file"
+    fi
+    exec ros2 launch rox_vda5050_adapter \
+      navigation_with_pose_persistence.launch.py \
       rox_type:=diff \
       use_rviz:=True \
-      map:="$map_yaml"
+      map:="$map_yaml" \
+      pose_file:="$pose_file" \
+      map_id:="$map_id" \
+      auto_restore:="$restore_value" \
+      max_age_hours:="$max_pose_age_hours"
     ;;
   interfaces)
     source_ros
@@ -166,6 +194,31 @@ EOF
       --output "$file" \
       --map-id "$map_id"
     ;;
+  pose-save|pose-restore|pose-status)
+    source_ros
+    map_yaml="$(resolve_map_yaml)"
+    [[ -f "$map_yaml" ]] || {
+      echo "ERROR: map YAML not found: $map_yaml" >&2
+      exit 2
+    }
+    subcommand="${command#pose-}"
+    extra_ros_args=()
+    [[ "$command" == "pose-save" ]] && extra_ros_args+=(--ros-args -r __node:=rox_pose_save_once)
+    [[ "$command" == "pose-restore" ]] && extra_ros_args+=(--ros-args -r __node:=rox_pose_restore_once)
+    exec ros2 run rox_vda5050_adapter pose_persistence "$subcommand" \
+      --pose-file "$pose_file" \
+      --map-id "$map_id" \
+      --map-yaml "$map_yaml" \
+      "${extra_ros_args[@]}"
+    ;;
+  pose-clear)
+    if [[ -f "$pose_file" ]]; then
+      rm -f "$pose_file"
+      echo "Deleted saved pose: $pose_file"
+    else
+      echo "No saved pose exists: $pose_file"
+    fi
+    ;;
   tf)
     source_ros
     exec ros2 run tf2_ros tf2_echo map base_link
@@ -179,15 +232,23 @@ EOF
     echo "ROS_DOMAIN_ID=$ROS_DOMAIN_ID"
     echo "map=$map_yaml"
     echo "waypoints=$waypoint_file"
+    echo "last_pose=$pose_file"
     echo
     echo "== Core topics =="
-    ros2 topic list -t | grep -E '^/(tf|tf_static|odom|scan|battery_state|emergency_stop_state|safety_state)' || true
+    ros2 topic list -t | grep -E '^/(tf|tf_static|odom|scan|battery_state|emergency_stop_state|safety_state|initialpose|map)' || true
     echo
     echo "== Navigation action =="
     ros2 action list -t | grep navigate_to_pose || true
     echo
-    echo "== Waypoint tools =="
-    ros2 pkg executables rox_vda5050_adapter | grep -E 'capture_waypoint|goto_waypoint|waypoint_visualizer' || true
+    echo "== Waypoint and pose tools =="
+    ros2 pkg executables rox_vda5050_adapter \
+      | grep -E 'capture_waypoint|goto_waypoint|waypoint_visualizer|pose_persistence' || true
+    echo
+    echo "== Saved pose =="
+    ros2 run rox_vda5050_adapter pose_persistence status \
+      --pose-file "$pose_file" \
+      --map-id "$map_id" \
+      --map-yaml "$map_yaml" || true
     ;;
   adapter-dry)
     cd "$PROJECT_ROOT"

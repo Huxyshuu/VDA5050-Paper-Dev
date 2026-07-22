@@ -6,7 +6,7 @@ package_name = "rox_vda5050_adapter"
 
 setup(
     name=package_name,
-    version="0.2.0",
+    version="0.3.0",
     packages=find_packages(exclude=["test"]),
     data_files=[
         ("share/ament_index/resource_index/packages", ["resource/" + package_name]),
@@ -27,6 +27,7 @@ setup(
             "capture_waypoint = rox_vda5050_adapter.capture_waypoint:main",
             "waypoint_visualizer = rox_vda5050_adapter.waypoint_visualizer:main",
             "goto_waypoint = rox_vda5050_adapter.goto_waypoint:main",
+            "pose_persistence = rox_vda5050_adapter.pose_persistence:main",
         ],
     },
 )
