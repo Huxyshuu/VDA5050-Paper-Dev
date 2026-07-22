@@ -6,7 +6,7 @@ package_name = "rox_vda5050_adapter"
 
 setup(
     name=package_name,
-    version="0.3.0",
+    version="0.4.0",
     packages=find_packages(exclude=["test"]),
     data_files=[
         ("share/ament_index/resource_index/packages", ["resource/" + package_name]),
@@ -19,7 +19,10 @@ setup(
     zip_safe=True,
     maintainer="Hugo Tamm",
     maintainer_email="hugo.tamm@aalto.fi",
-    description="VDA 5050 v3.0 MQTT/Nav2 adapter and waypoint tools for Neobotix ROX-Diff",
+    description=(
+        "VDA 5050 v3.0 MQTT/Nav2 adapter, waypoint tools, pose persistence "
+        "and remote operator support for Neobotix ROX-Diff"
+    ),
     license="Apache-2.0",
     entry_points={
         "console_scripts": [

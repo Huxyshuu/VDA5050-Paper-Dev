@@ -15,6 +15,7 @@ The old DBot source remains under `legacy/` for traceability only. It is not par
 ## Start here
 
 - [ROX command reference](docs/ROX_COMMANDS.md) — one-command entry point for Nav2, RViz markers, capture, exact waypoint goals and adapter operation.
+- [Remote operator workstation](docs/REMOTE_OPERATOR_WORKSTATION.md) — run the same `rox` commands from Ubuntu laptops with local Neobotix RViz.
 - [Automatic pose persistence](docs/POSE_PERSISTENCE.md) — restore the last validated AMCL estimate and remove routine manual 2D pose setup.
 - [Complete commissioning runbook](docs/COMMISSIONING_RUNBOOK.md) — exact Pi, ROX, mapping, order-generation, crane and coordinated-test sequence.
 - [Current DTLabOpen network](docs/NETWORK_CONFIGURATION.md) — direct Pi/ROX addressing and route checks.
@@ -86,7 +87,7 @@ ROX-Diff onboard computer
       └── TF + odom + battery + safety -> VDA state
 ```
 
-The Raspberry Pi does **not** need ROS 2. The Pi and ROX are direct peers on DTLabOpen (`192.168.50.115` and `192.168.50.50`) and communicate with the Pi-hosted MQTT broker without NAT or port forwarding. The Pi also retains its separate Ilmatar Wi-Fi address `192.168.0.116`. ROS 2 and Nav2 remain local to the robot. The crane remains locally controlled by its PLC/safety system through the crane adapter.
+The Raspberry Pi does **not** need ROS 2. The Pi and ROX are direct peers on DTLabOpen (`192.168.50.115` and `192.168.50.50`) and communicate with the Pi-hosted MQTT broker without NAT or port forwarding. The Pi also retains its separate Ilmatar Wi-Fi address `192.168.0.116`. Hardware bringup, localization, Nav2 and safety-critical execution remain on the robot. ROS 2 visualization and command clients may run on configured operator computers over DDS. The crane remains locally controlled by its PLC/safety system through the crane adapter.
 
 Suggested topic roots:
 
@@ -554,3 +555,11 @@ Normal operation:
 ```
 
 See [`docs/POSE_PERSISTENCE.md`](docs/POSE_PERSISTENCE.md) for map-fingerprint checks, same-boot odometry movement detection, recovery commands and limitations.
+
+---
+
+## Remote operator workstation
+
+Ubuntu 24.04 operator computers can run the same `rox` command interface as the ROX-Diff. `rox nav` starts headless robot-side Nav2 when needed and opens the standard Neobotix Nav2 RViz locally with the robot model, live map/scan/costmaps and named waypoint markers. One-time shell installation removes the need to source ROS workspaces manually.
+
+See [docs/REMOTE_OPERATOR_WORKSTATION.md](docs/REMOTE_OPERATOR_WORKSTATION.md) for installation, SSH setup, daily operation and troubleshooting.

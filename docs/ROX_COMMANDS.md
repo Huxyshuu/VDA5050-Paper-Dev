@@ -1,123 +1,139 @@
 # ROX-Diff command reference
 
-Run all commands from:
+`scripts/rox.sh` is the central command interface on both the ROX-Diff and configured operator computers. After the one-time shell installer, run it as `rox` from any directory.
+
+## One-time setup
+
+Operator computer:
 
 ```bash
 cd ~/Projects/VDA5050-Paper-Dev
+./scripts/install_rox_shell.sh operator \
+  --neobotix-ws "$HOME/neobotix_view_ws"
+exec bash
+rox build
+rox doctor
 ```
 
-The native hardware bringup already starts at boot through `ROS_AUTOSTART.sh`. Do not launch a second `rox_bringup`.
-
-## Build after source changes
+ROX-Diff:
 
 ```bash
-./scripts/rox.sh build
-source ros2_ws/install/setup.bash
-./scripts/rox.sh status
+cd ~/Projects/VDA5050-Paper-Dev
+./scripts/install_rox_shell.sh robot \
+  --neobotix-ws "$HOME/ros2_workspace"
+exec bash
+rox build
 ```
 
-## Normal daily operation
+See [REMOTE_OPERATOR_WORKSTATION.md](REMOTE_OPERATOR_WORKSTATION.md) for complete installation and troubleshooting.
 
-### Terminal 1 — Nav2, RViz and automatic pose restoration
+## Daily commands
+
+| Command | Robot behavior | Operator-computer behavior |
+|---|---|---|
+| `rox nav` | Starts Nav2, pose persistence, local Neobotix RViz and waypoint markers | Starts headless Nav2 remotely when absent, then opens the same RViz and waypoint markers locally |
+| `rox nav-fresh` | Deletes saved pose and starts Nav2/RViz | Restarts managed robot Nav2 without pose restoration and opens local RViz |
+| `rox rviz` | Opens local RViz and markers without changing Nav2 | Same |
+| `rox goto NAME` | Sends named goal through local ROS graph | Sends named goal over DDS to robot Nav2 |
+| `rox goto-dry NAME` | Validates goal without motion | Same |
+| `rox capture NAME` | Captures TF into robot-local YAML | Captures remote TF into laptop-local YAML |
+| `rox list` | Lists local waypoint file | Lists laptop waypoint file |
+| `rox status` | Shows robot graph and local tools | Shows shared graph plus robot managed-nav status |
+| `rox tf` | Echoes `map -> base_link` | Echoes the same remote transform |
+| `rox interfaces` | Checks robot topics | Checks the remotely visible topics |
+| `rox pose-*` | Operates on robot pose file | Routes command to robot over SSH |
+| `rox adapter-*` | Starts adapter locally | Starts adapter on robot over interactive SSH |
+
+## Navigation lifecycle
 
 ```bash
-./scripts/rox.sh nav
+rox nav-start
+rox nav-start-fresh
+rox nav-status
+rox nav-log 100
+rox nav-log -f
+rox nav-stop
 ```
 
-This starts the Neobotix navigation launch and the pose-persistence companion. When a valid saved pose exists, it is sent to AMCL automatically. The current pose is then saved periodically until Nav2 stops.
-
-The first-ever run, or a run after the robot was moved, must instead use:
-
-```bash
-./scripts/rox.sh nav-fresh
-```
-
-Use RViz **2D Pose Estimate** once, verify scan/map alignment, and allow several seconds for the new pose to be saved.
-
-### Terminal 2 — inspect and command exact waypoints
-
-```bash
-./scripts/rox.sh list
-./scripts/rox.sh goto-dry home
-./scripts/rox.sh goto home
-```
-
-`goto` reads the exact `x`, `y` and `theta` from `configs/rox_waypoints.yaml`, sends `NavigateToPose`, and checks the final TF pose against the configured waypoint tolerances.
-
-### Terminal 3 — optional RViz waypoint markers
-
-```bash
-./scripts/rox.sh visualize
-```
-
-Add `/rox_waypoints/markers` as an RViz `MarkerArray` display. Markers are visual only; `goto` commands motion.
-
-## Persistent-pose commands
-
-```bash
-./scripts/rox.sh pose-status
-./scripts/rox.sh pose-save
-./scripts/rox.sh pose-restore
-./scripts/rox.sh pose-clear
-```
-
-The runtime file is normally:
+On an operator computer these commands are routed to `neobotix@192.168.50.50`. Managed headless Nav2 writes:
 
 ```text
-runtime/rox_last_pose.yaml
+runtime/rox_nav.pid
+runtime/rox_nav.log
 ```
 
-It is deliberately ignored by Git.
+`rox nav` is normally preferable because it starts/connects Nav2 and opens local RViz in one operation.
 
-Detailed behavior and limitations are documented in [POSE_PERSISTENCE.md](POSE_PERSISTENCE.md).
-
-## Waypoint capture
+## Waypoints
 
 ```bash
-./scripts/rox.sh capture home
-./scripts/rox.sh capture short_test
-./scripts/rox.sh capture crane_handover
-./scripts/rox.sh capture warehouse_dropoff
+rox visualize
+rox list
+rox capture home
+rox goto-dry home
+rox goto home
 ```
 
-Capturing any waypoint resets `configured: false`. Set it to true only after repeated exact Nav2 return tests and physical clearance/alignment checks.
+The integrated RViz launcher publishes markers on:
+
+```text
+/waypoints
+```
+
+This matches the MarkerArray display already present in the standard Neobotix Nav2 RViz configuration. The standalone visualizer uses the same topic through `rox visualize`.
+
+## Pose persistence
+
+```bash
+rox pose-status
+rox pose-save
+rox pose-restore
+rox pose-clear
+```
+
+On an operator computer these modify the robot-side runtime pose, not a laptop copy.
+
+Use:
+
+```bash
+rox nav-fresh
+```
+
+whenever the robot was physically moved while navigation was off or when scan/map alignment is uncertain.
 
 ## Diagnostics
 
 ```bash
-./scripts/rox.sh env
-./scripts/rox.sh interfaces
-./scripts/rox.sh status
-./scripts/rox.sh tf
+rox doctor
+rox env
+rox status
+rox nav-status
+rox nav-log 150
 ```
 
-Expected after navigation/localization starts:
+`rox doctor` validates the local model/navigation packages, middleware settings, network reachability and password-free SSH.
+
+## Environment overrides
+
+Common overrides:
 
 ```text
-/navigate_to_pose
-map -> base_link
+ROX_ROLE=robot|operator|auto
+NEOBOTIX_WS=/path/to/workspace
+ROX_ROBOT_IP=192.168.50.50
+ROX_ROBOT_USER=neobotix
+ROX_REMOTE_PROJECT=/home/neobotix/Projects/VDA5050-Paper-Dev
+ROX_WAYPOINT_FILE=/path/to/rox_waypoints.yaml
+ROX_WAYPOINT_MARKER_TOPIC=/waypoints
+ROX_MAP_YAML=/path/to/df_map.yaml
+ROS_DOMAIN_ID=0
+ROS_STATIC_PEERS=192.168.50.50
 ```
 
-## VDA adapter
+Persistent machine-local settings live in:
 
-```bash
-./scripts/rox.sh adapter-dry
-./scripts/rox.sh adapter-real
+```text
+~/.config/rox/rox.env
 ```
 
-Use dry-run before real Nav2 movement.
-
-## Useful overrides
-
-```bash
-ROX_MAP_YAML=/absolute/path/df_map.yaml ./scripts/rox.sh nav
-ROX_WAYPOINT_FILE=/absolute/path/waypoints.yaml ./scripts/rox.sh goto home
-ROX_LAST_POSE_FILE=/absolute/path/last_pose.yaml ./scripts/rox.sh nav
-ROX_AUTO_RESTORE=false ./scripts/rox.sh nav
-ROX_MAX_POSE_AGE_HOURS=24 ./scripts/rox.sh nav
-VDA_MAP_ID=df_map ./scripts/rox.sh nav
-```
-
-## Safety rule
-
-Automatic restoration is only an initial localization estimate. Never command motion when the robot was moved while Nav2 was off or when the scan does not align with the map. Clear the pose and initialize manually in those cases.
+Re-run `install_rox_shell.sh` instead of manually duplicating source statements in `~/.bashrc`.

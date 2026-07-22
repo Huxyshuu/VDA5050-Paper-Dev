@@ -76,3 +76,7 @@ This repository does not replace the robot or crane safety systems and does not 
 The ROX command workflow now includes disk-backed localization startup support. `scripts/rox.sh nav` launches the delivered Neobotix navigation stack together with `pose_persistence`, which restores a validated last pose through `/initialpose` and atomically updates `runtime/rox_last_pose.yaml` while localization is active.
 
 Safety controls include map-ID and map-file fingerprint checks, same-boot odometry movement detection, a fresh-localization mode, and explicit status/save/restore/clear commands. The runtime pose is deliberately excluded from Git because it is site state rather than portable source configuration.
+
+## Remote operator workstation update (2026-07-22)
+
+The central ROX command helper is now role-aware. The robot continues to own bringup, Nav2, localization and pose persistence, while Ubuntu operator computers can use the same commands over DDS and password-free SSH. The operator `rox nav` workflow opens the standard Neobotix Nav2 RViz locally and automatically publishes named waypoint markers. See `docs/REMOTE_OPERATOR_WORKSTATION.md` and `docs/REPOSITORY_UPDATE_NOTES_2026-07-22_REMOTE_OPERATOR.md`.
