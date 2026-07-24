@@ -14,6 +14,7 @@ import copy
 import os
 import threading
 import time
+import math
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
@@ -86,6 +87,21 @@ def _age_seconds(payload: Optional[Mapping[str, Any]]) -> Optional[float]:
     stamp = _parse_timestamp(payload.get("timestamp"))
     return None if stamp is None else max(0.0, time.time() - stamp)
 
+def _json_safe(value: Any) -> Any:
+    """Recursively convert non-finite floats into JSON null values."""
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+
+    if isinstance(value, Mapping):
+        return {
+            str(key): _json_safe(item)
+            for key, item in value.items()
+        }
+
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+
+    return value
 
 def _safe_float(value: Any, default: float = 0.0) -> float:
     try:
@@ -890,7 +906,7 @@ class DashboardController:
 
         @app.get("/api/dashboard")
         def dashboard_snapshot():
-            return jsonify(self.snapshot())
+            return jsonify(_json_safe(self.snapshot()))
 
         @app.get("/api/waypoints")
         def waypoints_endpoint():

@@ -99,7 +99,7 @@ ORDER_BOOK = {
 }
 
 # --- Runtime state cache (guarded by STATE_LOCK) ---
-STATE_LOCK = threading.Lock()
+STATE_LOCK = threading.RLock()
 
 STATE = {
     "crane": {
