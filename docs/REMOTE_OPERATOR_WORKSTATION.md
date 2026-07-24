@@ -156,7 +156,7 @@ Expected operator values include:
 ```text
 ROX_EFFECTIVE_ROLE=operator
 RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-ROS_DOMAIN_ID=0
+ROS_DOMAIN_ID=169
 ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET
 ROS_STATIC_PEERS=192.168.50.50
 ```
@@ -289,7 +289,7 @@ export VDA5050_PROJECT="$HOME/Projects/VDA5050-Paper-Dev"
 export NEOBOTIX_WS="$HOME/neobotix_view_ws"
 export ROS_DISTRO=jazzy
 export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-export ROS_DOMAIN_ID=0
+export ROS_DOMAIN_ID=169
 export ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET
 export ROS_STATIC_PEERS=192.168.50.50
 export ROX_ROBOT_IP=192.168.50.50

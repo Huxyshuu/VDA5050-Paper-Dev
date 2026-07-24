@@ -126,7 +126,7 @@ ROX_REMOTE_PROJECT=/home/neobotix/Projects/VDA5050-Paper-Dev
 ROX_WAYPOINT_FILE=/path/to/rox_waypoints.yaml
 ROX_WAYPOINT_MARKER_TOPIC=/waypoints
 ROX_MAP_YAML=/path/to/df_map.yaml
-ROS_DOMAIN_ID=0
+ROS_DOMAIN_ID=169
 ROS_STATIC_PEERS=192.168.50.50
 ```
 

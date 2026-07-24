@@ -12,7 +12,7 @@ This update consolidates the current ROX-Diff commissioning workflow and adds ex
 
 - ROS 2 Jazzy
 - `rmw_cyclonedds_cpp`
-- `ROS_DOMAIN_ID=0`
+- `ROS_DOMAIN_ID=169`
 - ROX project path `~/Projects/VDA5050-Paper-Dev`
 - Neobotix workspace `~/ros2_workspace`
 - Pi MQTT address `192.168.50.115`

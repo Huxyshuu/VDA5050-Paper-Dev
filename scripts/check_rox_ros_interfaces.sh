@@ -4,7 +4,7 @@ set -o pipefail
 printf '\n== ROS distribution / middleware ==\n'
 echo "ROS_DISTRO=${ROS_DISTRO:-<not set>}"
 echo "RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-<not set>}"
-echo "ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}"
+echo "ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-169}"
 
 printf '\n== Required Nav2 action ==\n'
 action_line="$(ros2 action list -t 2>/dev/null | grep -E '^/navigate_to_pose([[:space:]]|$)' || true)"

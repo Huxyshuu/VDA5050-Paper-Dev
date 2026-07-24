@@ -182,7 +182,7 @@ The delivered system has:
 ROS_DISTRO=jazzy
 NEOBOTIX_WS=$HOME/ros2_workspace
 RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-ROS_DOMAIN_ID=0
+ROS_DOMAIN_ID=169
 ```
 
 The recommended `~/.bashrc` order is:
@@ -191,7 +191,7 @@ The recommended `~/.bashrc` order is:
 export ROS_DISTRO=jazzy
 export NEOBOTIX_WS="$HOME/ros2_workspace"
 export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-export ROS_DOMAIN_ID=0
+export ROS_DOMAIN_ID=169
 export AMENT_TRACE_SETUP_FILES=""
 
 source "/opt/ros/$ROS_DISTRO/setup.bash"
