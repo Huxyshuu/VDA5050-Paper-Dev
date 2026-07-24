@@ -2,15 +2,15 @@ map_id: df_map
 configured: true
 waypoints:
   home:
-    x: 0.9756
-    y: -1.3663
-    theta: 0.06
+    x: 1.7989
+    y: -2.1325
+    theta: 1.668
     allowed_deviation_xy: 0.2
     allowed_deviation_theta: 0.2
   short_test:
-    x: 3.5935
-    y: -1.1262
-    theta: 0.0811
+    x: 3.7367
+    y: -0.1559
+    theta: 0.0733
     allowed_deviation_xy: 0.2
     allowed_deviation_theta: 0.2
   crane_handover:
