@@ -2,925 +2,213 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#07111d">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>VDA 5050 Mission Control</title>
   <style>
     :root {
       color-scheme: dark;
-      --bg: #050a11;
-      --bg-2: #07111d;
-      --panel: rgba(12, 25, 40, .88);
-      --panel-2: rgba(16, 33, 51, .72);
-      --line: rgba(139, 184, 219, .16);
-      --line-strong: rgba(73, 210, 255, .30);
-      --text: #e8f3fb;
-      --muted: #8ca6b8;
-      --cyan: #48d6ff;
-      --blue: #5c87ff;
-      --green: #53e6a1;
-      --amber: #ffcf6a;
-      --red: #ff6f7d;
-      --purple: #b494ff;
-      --shadow: 0 24px 70px rgba(0, 0, 0, .38);
-      --radius: 18px;
-      --radius-sm: 12px;
+      --bg:#06111b; --bg2:#081827; --panel:#0b1d2c; --panel2:#0e2638;
+      --line:#1b3a4d; --line2:#285469; --text:#edf8ff; --muted:#8fb1c4;
+      --cyan:#5ee7ff; --cyan2:#42c8f5; --green:#4ee6aa; --amber:#f8c85b;
+      --red:#ff6c7d; --blue:#80a7ff; --shadow:0 18px 50px rgba(0,0,0,.26);
+      --radius:18px; --radius-sm:12px;
     }
-
-    * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      background:
-        radial-gradient(circle at 12% -8%, rgba(72, 214, 255, .13), transparent 33%),
-        radial-gradient(circle at 88% 8%, rgba(92, 135, 255, .11), transparent 32%),
-        linear-gradient(180deg, #06101a 0%, var(--bg) 72%);
-      color: var(--text);
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      font-size: 14px;
-      line-height: 1.5;
-    }
-
-    body::before {
-      content: "";
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      opacity: .22;
-      background-image:
-        linear-gradient(rgba(110, 184, 230, .04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(110, 184, 230, .04) 1px, transparent 1px);
-      background-size: 44px 44px;
-      mask-image: linear-gradient(to bottom, black, transparent 85%);
-    }
-
-    button, input, select { font: inherit; }
-    button { color: inherit; }
-    button:focus-visible, input:focus-visible, select:focus-visible {
-      outline: 2px solid var(--cyan);
-      outline-offset: 2px;
-    }
-
-    .shell {
-      position: relative;
-      width: min(1680px, calc(100% - 36px));
-      margin: 0 auto;
-      padding: 22px 0 42px;
-    }
-
-    .topbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 18px;
-      margin-bottom: 18px;
-      padding: 14px 18px;
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      background: rgba(6, 17, 29, .80);
-      backdrop-filter: blur(16px);
-      box-shadow: var(--shadow);
-      position: sticky;
-      top: 10px;
-      z-index: 30;
-    }
-
-    .brand { display: flex; align-items: center; gap: 13px; min-width: 0; }
-    .brand-mark {
-      width: 39px;
-      height: 39px;
-      border-radius: 11px;
-      display: grid;
-      place-items: center;
-      font-weight: 800;
-      letter-spacing: -.04em;
-      color: #041017;
-      background: linear-gradient(135deg, var(--cyan), #96ecff 55%, var(--blue));
-      box-shadow: 0 0 30px rgba(72, 214, 255, .23);
-    }
-    .brand h1 { margin: 0; font-size: 17px; line-height: 1.1; letter-spacing: -.02em; }
-    .brand p { margin: 4px 0 0; color: var(--muted); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
-
-    .top-meta { display: flex; align-items: center; justify-content: flex-end; gap: 9px; flex-wrap: wrap; }
-    .chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      min-height: 30px;
-      padding: 5px 10px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      background: rgba(19, 38, 57, .67);
-      color: var(--muted);
-      font-size: 11px;
-      white-space: nowrap;
-    }
-    .chip strong { color: var(--text); font-weight: 650; }
-    .pulse {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--muted);
-      box-shadow: 0 0 0 4px rgba(140, 166, 184, .08);
-    }
-    .pulse.ok { background: var(--green); box-shadow: 0 0 0 4px rgba(83, 230, 161, .10), 0 0 13px rgba(83, 230, 161, .5); }
-    .pulse.warn { background: var(--amber); box-shadow: 0 0 0 4px rgba(255, 207, 106, .10); }
-    .pulse.bad { background: var(--red); box-shadow: 0 0 0 4px rgba(255, 111, 125, .10); }
-
-    .hero {
-      display: grid;
-      grid-template-columns: minmax(0, 1.45fr) minmax(340px, .55fr);
-      gap: 16px;
-      margin-bottom: 16px;
-    }
-
-    .panel {
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: linear-gradient(150deg, rgba(15, 30, 46, .92), rgba(8, 18, 30, .86));
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
-    .panel-header {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 14px;
-      padding: 18px 20px 14px;
-      border-bottom: 1px solid rgba(139, 184, 219, .11);
-    }
-    .panel-header h2 { margin: 0; font-size: 14px; letter-spacing: .01em; }
-    .panel-header p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
-    .panel-body { padding: 18px 20px 20px; }
-    .eyebrow { color: var(--cyan); font-size: 10px; font-weight: 750; letter-spacing: .16em; text-transform: uppercase; }
-
-    .mission-hero { position: relative; min-height: 250px; }
-    .mission-hero::after {
-      content: "";
-      position: absolute;
-      right: -80px;
-      top: -95px;
-      width: 260px;
-      height: 260px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(72, 214, 255, .14), transparent 67%);
-      pointer-events: none;
-    }
-    .mission-heading { display: flex; align-items: center; gap: 10px; margin-top: 7px; }
-    .mission-title { margin: 0; font-size: clamp(24px, 3vw, 38px); letter-spacing: -.045em; line-height: 1.05; }
-    .mission-copy { max-width: 750px; color: var(--muted); margin: 10px 0 18px; }
-
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 5px 9px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      font-size: 10px;
-      font-weight: 800;
-      letter-spacing: .08em;
-      text-transform: uppercase;
-      background: rgba(140, 166, 184, .08);
-      color: var(--muted);
-    }
-    .status-badge[data-status="RUNNING"], .status-badge[data-status="ACCEPTED"] { color: var(--cyan); border-color: rgba(72,214,255,.28); background: rgba(72,214,255,.08); }
-    .status-badge[data-status="FINISHED"], .status-badge[data-status="AVAILABLE"], .status-badge[data-status="ONLINE"] { color: var(--green); border-color: rgba(83,230,161,.27); background: rgba(83,230,161,.08); }
-    .status-badge[data-status="PAUSED"], .status-badge[data-status="RETRIABLE"], .status-badge[data-status="CANCELLING"] { color: var(--amber); border-color: rgba(255,207,106,.28); background: rgba(255,207,106,.08); }
-    .status-badge[data-status="FAILED"], .status-badge[data-status="REJECTED"], .status-badge[data-status="CANCELLED"], .status-badge[data-status="UNAVAILABLE"], .status-badge[data-status="OFFLINE"] { color: var(--red); border-color: rgba(255,111,125,.28); background: rgba(255,111,125,.08); }
-    .status-badge[data-status="SENT"] { color: var(--purple); border-color: rgba(180,148,255,.27); background: rgba(180,148,255,.08); }
-
-    .mission-metrics {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 10px;
-      margin-top: 17px;
-    }
-    .metric {
-      min-width: 0;
-      padding: 13px;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--line);
-      background: rgba(10, 23, 36, .60);
-    }
-    .metric span { display: block; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .09em; }
-    .metric strong { display: block; margin-top: 5px; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-    .empty-state {
-      display: grid;
-      place-items: center;
-      min-height: 150px;
-      text-align: center;
-      color: var(--muted);
-      border: 1px dashed var(--line);
-      border-radius: var(--radius-sm);
-      background: rgba(3, 10, 17, .22);
-      padding: 22px;
-    }
-    .empty-state strong { display: block; color: var(--text); margin-bottom: 4px; }
-
-    .control-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
-    .btn {
-      border: 1px solid var(--line);
-      border-radius: 11px;
-      min-height: 42px;
-      padding: 9px 13px;
-      background: linear-gradient(180deg, rgba(29, 51, 72, .75), rgba(15, 31, 47, .78));
-      cursor: pointer;
-      transition: transform .16s ease, border-color .16s ease, background .16s ease, opacity .16s ease;
-      font-weight: 700;
-      font-size: 12px;
-    }
-    .btn:hover:not(:disabled) { transform: translateY(-1px); border-color: var(--line-strong); background: rgba(31, 60, 82, .78); }
-    .btn:active:not(:disabled) { transform: translateY(0); }
-    .btn:disabled { cursor: not-allowed; opacity: .35; filter: saturate(.4); }
-    .btn.primary { color: #031019; border-color: transparent; background: linear-gradient(135deg, var(--cyan), #9aefff); }
-    .btn.success { color: var(--green); border-color: rgba(83,230,161,.28); background: rgba(83,230,161,.08); }
-    .btn.warning { color: var(--amber); border-color: rgba(255,207,106,.28); background: rgba(255,207,106,.08); }
-    .btn.danger { color: var(--red); border-color: rgba(255,111,125,.28); background: rgba(255,111,125,.08); }
-    .btn.ghost { background: transparent; }
-    .btn.full { grid-column: 1 / -1; }
-    .btn.small { min-height: 34px; padding: 7px 10px; font-size: 11px; }
-
-    .content-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1.3fr) minmax(360px, .7fr);
-      gap: 16px;
-      align-items: start;
-    }
-    .stack { display: grid; gap: 16px; }
-
-    .waypoint-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-      gap: 11px;
-    }
-    .waypoint-card {
-      position: relative;
-      display: flex;
-      min-height: 158px;
-      flex-direction: column;
-      justify-content: space-between;
-      padding: 15px;
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      background: linear-gradient(150deg, rgba(19, 39, 58, .72), rgba(8, 20, 31, .68));
-      overflow: hidden;
-    }
-    .waypoint-card::before {
-      content: "";
-      position: absolute;
-      width: 100px;
-      height: 100px;
-      right: -36px;
-      top: -42px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(72,214,255,.12), transparent 68%);
-    }
-    .waypoint-top { display: flex; justify-content: space-between; gap: 10px; position: relative; }
-    .waypoint-card h3 { margin: 0; font-size: 14px; }
-    .waypoint-card p { color: var(--muted); font-size: 11px; margin: 7px 0 11px; min-height: 33px; }
-    .coordinates { color: #adc4d4; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .waypoint-action { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 13px; }
-    .reason { color: var(--amber); font-size: 10px; line-height: 1.35; margin-top: 9px; }
-
-    .timeline { display: grid; gap: 0; }
-    .timeline-step { display: grid; grid-template-columns: 22px 1fr; gap: 11px; min-height: 56px; }
-    .timeline-rail { position: relative; display: flex; justify-content: center; }
-    .timeline-rail::after { content: ""; position: absolute; width: 1px; top: 20px; bottom: -2px; background: var(--line); }
-    .timeline-step:last-child .timeline-rail::after { display: none; }
-    .timeline-dot { position: relative; z-index: 1; width: 11px; height: 11px; border-radius: 50%; margin-top: 5px; background: #243d50; border: 2px solid #436175; }
-    .timeline-step.completed .timeline-dot { background: var(--green); border-color: rgba(83,230,161,.4); box-shadow: 0 0 13px rgba(83,230,161,.35); }
-    .timeline-step.active .timeline-dot { background: var(--cyan); border-color: rgba(72,214,255,.45); box-shadow: 0 0 15px rgba(72,214,255,.5); animation: breathe 1.6s ease-in-out infinite; }
-    .timeline-step.cancelled .timeline-dot { background: var(--red); border-color: rgba(255,111,125,.4); }
-    .timeline-copy { padding-bottom: 13px; }
-    .timeline-copy strong { display: block; font-size: 12px; }
-    .timeline-copy span { color: var(--muted); font-size: 10px; }
-    @keyframes breathe { 50% { transform: scale(1.27); } }
-
-    .device-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
-    .device-card { padding: 15px; border: 1px solid var(--line); border-radius: 14px; background: rgba(10, 23, 36, .58); }
-    .device-card.muted { opacity: .65; }
-    .device-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-    .device-head h3 { margin: 0; font-size: 13px; }
-    .device-head p { margin: 4px 0 0; color: var(--muted); font-size: 10px; }
-    .device-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 13px; }
-    .mini-stat { padding: 9px; border: 1px solid rgba(139,184,219,.10); border-radius: 10px; background: rgba(3, 11, 18, .25); }
-    .mini-stat span { display: block; color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .08em; }
-    .mini-stat strong { display: block; margin-top: 3px; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .device-alert { margin-top: 11px; color: var(--amber); font-size: 10px; }
-
-    .scenario-list { display: grid; gap: 10px; }
-    .scenario-card { padding: 14px; border-radius: 13px; border: 1px solid var(--line); background: rgba(10, 23, 36, .58); }
-    .scenario-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-    .scenario-card h3 { margin: 0; font-size: 13px; }
-    .scenario-card p { margin: 6px 0 10px; color: var(--muted); font-size: 11px; }
-    .route { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 12px; }
-    .route span { padding: 4px 7px; border-radius: 7px; background: rgba(72,214,255,.07); border: 1px solid rgba(72,214,255,.13); color: #bcecff; font-size: 9px; }
-    .scenario-footer { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
-    .risk { color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .1em; }
-
-    .progress-track { height: 7px; border-radius: 999px; background: rgba(139,184,219,.10); overflow: hidden; margin: 13px 0; }
-    .progress-fill { height: 100%; width: 0%; border-radius: inherit; background: linear-gradient(90deg, var(--cyan), var(--green)); transition: width .35s ease; }
-
-    .event-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-    .select {
-      min-height: 34px;
-      border: 1px solid var(--line);
-      border-radius: 9px;
-      background: #0b1b29;
-      color: var(--text);
-      padding: 6px 10px;
-      font-size: 11px;
-    }
-    .event-log { max-height: 440px; overflow: auto; padding-right: 4px; scrollbar-color: #2e536a transparent; }
-    .event-row { display: grid; grid-template-columns: 75px 70px 1fr; gap: 10px; padding: 10px 3px; border-bottom: 1px solid rgba(139,184,219,.08); font-size: 11px; }
-    .event-row:last-child { border-bottom: 0; }
-    .event-time { color: var(--muted); font-variant-numeric: tabular-nums; }
-    .event-source { color: #b9ccda; text-transform: uppercase; font-size: 9px; letter-spacing: .08em; padding-top: 2px; }
-    .event-message { color: #dceaf3; }
-    .event-message small { display: block; margin-top: 3px; color: var(--muted); }
-    .event-row.ERROR .event-message, .event-row.CRITICAL .event-message { color: var(--red); }
-    .event-row.WARNING .event-message { color: var(--amber); }
-
-    .recent-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-    .recent-table th { color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .08em; font-weight: 650; text-align: left; padding: 0 8px 8px; }
-    .recent-table td { padding: 10px 8px; border-top: 1px solid rgba(139,184,219,.08); vertical-align: middle; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .truncate { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-    .footer-note { margin-top: 16px; padding: 0 2px; display: flex; justify-content: space-between; gap: 10px; color: #668194; font-size: 10px; }
-
-    .modal-backdrop {
-      position: fixed;
-      inset: 0;
-      z-index: 100;
-      display: none;
-      place-items: center;
-      padding: 20px;
-      background: rgba(1, 6, 10, .76);
-      backdrop-filter: blur(10px);
-    }
-    .modal-backdrop.open { display: grid; }
-    .modal { width: min(460px, 100%); border: 1px solid var(--line-strong); border-radius: 17px; background: #0b1926; box-shadow: 0 30px 100px rgba(0,0,0,.65); padding: 20px; }
-    .modal h2 { margin: 0; font-size: 19px; }
-    .modal p { color: var(--muted); }
-    .modal-details { padding: 12px; border-radius: 11px; border: 1px solid var(--line); background: rgba(3,10,16,.4); margin: 14px 0; }
-    .modal-actions { display: flex; justify-content: flex-end; gap: 9px; }
-
-    .toast-stack { position: fixed; right: 20px; bottom: 20px; z-index: 120; display: grid; gap: 8px; width: min(390px, calc(100% - 40px)); }
-    .toast { padding: 12px 14px; border-radius: 11px; border: 1px solid var(--line); background: #0c1d2b; box-shadow: 0 14px 50px rgba(0,0,0,.4); animation: toast-in .2s ease; font-size: 11px; }
-    .toast.ok { border-color: rgba(83,230,161,.3); }
-    .toast.error { border-color: rgba(255,111,125,.35); color: #ffd9dd; }
-    @keyframes toast-in { from { opacity: 0; transform: translateY(7px); } }
-
-    .skeleton { position: relative; overflow: hidden; background: rgba(139,184,219,.08); color: transparent !important; border-radius: 6px; }
-    .skeleton::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255,255,255,.07), transparent); animation: shimmer 1.4s infinite; }
-    @keyframes shimmer { 100% { transform: translateX(100%); } }
-
-    @media (max-width: 1050px) {
-      .hero, .content-grid { grid-template-columns: 1fr; }
-      .mission-metrics { grid-template-columns: 1fr 1fr; }
-    }
-    @media (max-width: 690px) {
-      .shell { width: min(100% - 20px, 1680px); padding-top: 10px; }
-      .topbar { top: 5px; padding: 12px; align-items: flex-start; }
-      .top-meta .chip:not(:first-child) { display: none; }
-      .brand p { display: none; }
-      .panel-header, .panel-body { padding-left: 14px; padding-right: 14px; }
-      .mission-metrics, .device-grid, .control-grid { grid-template-columns: 1fr 1fr; }
-      .event-row { grid-template-columns: 66px 1fr; }
-      .event-source { display: none; }
-      .recent-table th:nth-child(2), .recent-table td:nth-child(2) { display: none; }
-      .footer-note { flex-direction: column; }
-    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;background:
+      radial-gradient(circle at 12% 2%,rgba(43,190,221,.13),transparent 27%),
+      radial-gradient(circle at 85% 10%,rgba(80,109,255,.11),transparent 28%),
+      linear-gradient(180deg,var(--bg),#040b12 65%);color:var(--text);
+      font:14px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      min-height:100vh}
+    button,input,textarea{font:inherit}
+    button{cursor:pointer}
+    button:disabled{cursor:not-allowed;opacity:.42}
+    a{color:inherit}
+    .shell{max-width:1640px;margin:0 auto;padding:18px 24px 42px}
+    .topbar{position:sticky;top:10px;z-index:50;display:flex;justify-content:space-between;align-items:center;
+      gap:18px;padding:13px 17px;margin-bottom:18px;border:1px solid var(--line);border-radius:17px;
+      background:rgba(6,18,29,.92);backdrop-filter:blur(18px);box-shadow:0 12px 42px rgba(0,0,0,.24)}
+    .brand{display:flex;align-items:center;gap:12px;min-width:0}.brandmark{width:42px;height:42px;border-radius:12px;
+      display:grid;place-items:center;color:#041018;font-weight:900;background:linear-gradient(135deg,#8bf6ff,#6fa5ff);
+      box-shadow:0 0 28px rgba(94,231,255,.3)}
+    .brand h1{font-size:16px;margin:0;letter-spacing:.01em}.brand p{margin:2px 0 0;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.16em}
+    .top-status{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+    .chip,.badge{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:999px;padding:7px 10px;
+      background:rgba(16,38,55,.8);font-size:11px;color:var(--muted);white-space:nowrap}
+    .chip strong{color:var(--text)}.dot{width:8px;height:8px;border-radius:50%;background:var(--red);box-shadow:0 0 10px currentColor}
+    .online .dot{background:var(--green)}
+    .grid{display:grid;gap:16px}.hero-grid{grid-template-columns:minmax(0,1.65fr) minmax(360px,.85fr)}
+    .lower-grid{grid-template-columns:minmax(0,1.2fr) minmax(360px,.8fr)}
+    .panel{border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(145deg,rgba(12,31,46,.96),rgba(7,20,31,.95));box-shadow:var(--shadow);overflow:hidden}
+    .panel-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;padding:17px 19px;border-bottom:1px solid rgba(38,79,99,.58)}
+    .panel-head h2{font-size:15px;margin:3px 0 0}.panel-head p{font-size:11px;color:var(--muted);margin:4px 0 0}.eyebrow{font-size:10px;color:var(--cyan);text-transform:uppercase;letter-spacing:.16em;font-weight:800}
+    .panel-body{padding:18px}
+    .map-wrap{position:relative;min-height:530px;background:#030b12;overflow:hidden}
+    #mapCanvas{display:block;width:100%;height:530px}
+    .map-overlay{position:absolute;left:14px;top:14px;display:flex;gap:7px;flex-wrap:wrap;pointer-events:none}
+    .map-overlay .chip{background:rgba(4,14,23,.82);backdrop-filter:blur(8px)}
+    .map-legend{position:absolute;bottom:13px;left:13px;display:flex;gap:13px;padding:8px 11px;border-radius:11px;background:rgba(4,14,23,.82);font-size:10px;color:var(--muted)}
+    .legend-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}.robot-dot{background:var(--cyan)}.target-dot{background:var(--amber)}.done-dot{background:var(--green)}
+    .map-empty{position:absolute;inset:0;display:none;place-items:center;text-align:center;color:var(--muted);padding:40px}.map-empty strong{display:block;color:var(--text);font-size:15px;margin-bottom:7px}
+    .mission-panel{display:flex;flex-direction:column;min-height:530px}.mission-summary{padding:17px 18px 11px}.mission-summary h2{font-size:24px;margin:6px 0 4px;letter-spacing:-.03em}.mission-summary p{color:var(--muted);font-size:12px;margin:0}
+    .progress-track{height:5px;border-radius:99px;background:#102b3d;margin-top:13px;overflow:hidden}.progress-bar{height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--green));transition:width .35s}
+    .chain{padding:4px 18px 16px;max-height:330px;overflow:auto}.chain-step{display:grid;grid-template-columns:30px 1fr auto;gap:10px;align-items:center;position:relative;padding:9px 0}
+    .chain-step:not(:last-child)::after{content:"";position:absolute;left:14px;top:38px;bottom:-8px;width:2px;background:var(--line)}
+    .chain-index{width:29px;height:29px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--line2);background:#0a1b29;font-size:11px;font-weight:800;z-index:1}
+    .chain-step.completed .chain-index{background:rgba(78,230,170,.15);border-color:var(--green);color:var(--green)}
+    .chain-step.active .chain-index{background:rgba(94,231,255,.15);border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 18px rgba(94,231,255,.25);animation:pulse 1.6s infinite}
+    .chain-step.failed .chain-index,.chain-step.cancelled .chain-index{border-color:var(--red);color:var(--red)}
+    @keyframes pulse{50%{box-shadow:0 0 28px rgba(94,231,255,.48)}}
+    .chain-label strong{display:block;font-size:12px}.chain-label span{font-size:10px;color:var(--muted)}
+    .chain-empty{padding:38px 10px;text-align:center;color:var(--muted)}
+    .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 18px 15px}.metric{border:1px solid var(--line);border-radius:11px;padding:10px;background:rgba(7,22,34,.67)}.metric span{display:block;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.1em}.metric strong{display:block;margin-top:4px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .controls{margin-top:auto;border-top:1px solid var(--line);padding:15px 18px}.control-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.btn{border:1px solid var(--line2);border-radius:11px;padding:10px 12px;background:#0d2638;color:var(--text);font-weight:750;font-size:11px;transition:.16s}
+    .btn:hover:not(:disabled){transform:translateY(-1px);border-color:var(--cyan);box-shadow:0 8px 25px rgba(0,0,0,.18)}.btn.primary{background:linear-gradient(135deg,#7df2ff,#68b9ff);color:#041018;border:0}.btn.success{border-color:rgba(78,230,170,.45);color:var(--green)}.btn.warning{border-color:rgba(248,200,91,.45);color:var(--amber)}.btn.danger{border-color:rgba(255,108,125,.45);color:var(--red)}.btn.ghost{background:transparent}.btn.small{padding:8px 10px}
+    .section{margin-top:16px}.section-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px}.destination{padding:14px;border:1px solid var(--line);border-radius:14px;background:linear-gradient(145deg,rgba(14,40,57,.82),rgba(8,24,36,.8));min-height:176px;display:flex;flex-direction:column}
+    .destination-top{display:flex;justify-content:space-between;gap:8px}.destination h3{font-size:13px;margin:0}.destination code{font-size:10px;color:var(--cyan2)}.destination p{font-size:11px;color:var(--muted);margin:9px 0}.coords{font:10px ui-monospace,SFMono-Regular,Menlo,monospace;color:#b8d5e4;margin-top:auto}.destination-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px}
+    .badge{font-size:9px;text-transform:uppercase;letter-spacing:.08em;font-weight:800;padding:6px 9px}.badge[data-status="ONLINE"],.badge[data-status="AVAILABLE"],.badge[data-status="FINISHED"],.badge[data-status="COMPLETED"]{color:var(--green);border-color:rgba(78,230,170,.36);background:rgba(78,230,170,.08)}
+    .badge[data-status="RUNNING"],.badge[data-status="ACCEPTED"],.badge[data-status="SENT"],.badge[data-status="ACTIVE"]{color:var(--cyan);border-color:rgba(94,231,255,.35);background:rgba(94,231,255,.08)}
+    .badge[data-status="PAUSED"],.badge[data-status="RETRIABLE"],.badge[data-status="UPCOMING"]{color:var(--amber);border-color:rgba(248,200,91,.35);background:rgba(248,200,91,.08)}
+    .badge[data-status="FAILED"],.badge[data-status="REJECTED"],.badge[data-status="CANCELLED"],.badge[data-status="UNAVAILABLE"],.badge[data-status="OFFLINE"]{color:var(--red);border-color:rgba(255,108,125,.35);background:rgba(255,108,125,.08)}
+    .scenario-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.scenario{border:1px solid var(--line);border-radius:14px;padding:14px;background:rgba(8,25,38,.67)}.scenario h3{margin:0;font-size:13px}.scenario p{color:var(--muted);font-size:11px;min-height:32px}.route{display:flex;gap:5px;flex-wrap:wrap;margin:10px 0}.route span{padding:5px 7px;border:1px solid var(--line);border-radius:7px;font-size:9px;color:#a9ccdc}.scenario-foot{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .device-card{display:grid;grid-template-columns:1fr auto;gap:12px;padding:15px;border:1px solid var(--line);border-radius:14px;background:rgba(8,25,38,.67)}.device-card h3{margin:0 0 3px;font-size:13px}.device-card p{margin:0;color:var(--muted);font-size:10px}.device-stats{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.device-stat{background:#071a28;border-radius:9px;padding:8px}.device-stat span{display:block;color:var(--muted);font-size:8px;text-transform:uppercase}.device-stat strong{font-size:11px}
+    .experiment-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.toggle{position:relative;width:48px;height:26px;border:0;border-radius:99px;background:#183447;padding:3px}.toggle::after{content:"";display:block;width:20px;height:20px;border-radius:50%;background:#89a7b7;transition:.2s}.toggle.on{background:rgba(78,230,170,.28)}.toggle.on::after{transform:translateX(22px);background:var(--green)}
+    .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}.stat-card{padding:10px;border:1px solid var(--line);border-radius:10px}.stat-card span{display:block;color:var(--muted);font-size:8px;text-transform:uppercase}.stat-card strong{font-size:16px}
+    .history{display:grid;gap:7px;max-height:275px;overflow:auto}.history-row{display:grid;grid-template-columns:1fr auto;gap:8px;padding:10px;border-bottom:1px solid rgba(34,74,95,.55)}.history-row strong{font-size:11px}.history-row small{display:block;color:var(--muted);font-size:9px;margin-top:2px}.history-reason{color:var(--red);font-family:var(--mono)}
+    .events{max-height:420px;overflow:auto}.event{display:grid;grid-template-columns:70px 58px 1fr;gap:10px;padding:10px 0;border-bottom:1px solid rgba(34,74,95,.48);font-size:10px}.event time,.event .source{color:var(--muted)}.event.ERROR .message{color:var(--red)}.event.WARNING .message{color:var(--amber)}
+    .subtle{color:var(--muted);font-size:10px}.empty{padding:30px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px}
+    .modal-backdrop{position:fixed;inset:0;background:rgba(1,7,12,.78);backdrop-filter:blur(8px);z-index:100;display:none;place-items:center;padding:20px}.modal-backdrop.open{display:grid}.modal{width:min(520px,100%);border:1px solid var(--line2);border-radius:18px;background:linear-gradient(145deg,#10283a,#071722);box-shadow:0 30px 100px rgba(0,0,0,.56);padding:22px}.modal h2{font-size:20px;margin:7px 0}.modal p{color:var(--muted);font-size:12px}.modal-details{border:1px solid var(--line);border-radius:12px;padding:13px;margin:14px 0;background:#071823}.modal-actions{display:flex;justify-content:flex-end;gap:9px}.form-field{display:grid;gap:5px;margin-top:10px}.form-field label{font-size:9px;color:var(--muted);text-transform:uppercase}.form-field input,.form-field textarea{border:1px solid var(--line);background:#061521;color:var(--text);border-radius:9px;padding:9px}.form-field textarea{min-height:72px;resize:vertical}
+    .toasts{position:fixed;right:18px;bottom:18px;z-index:120;display:grid;gap:8px}.toast{padding:11px 14px;border:1px solid var(--line2);border-radius:11px;background:#102a3c;box-shadow:var(--shadow);font-size:11px}.toast.error{border-color:var(--red);color:#ffd5db}
+    footer{display:flex;justify-content:space-between;gap:12px;color:var(--muted);font-size:9px;margin-top:18px;padding:0 4px}
+    @media(max-width:1100px){.hero-grid,.lower-grid{grid-template-columns:1fr}.section-grid{grid-template-columns:repeat(2,1fr)}.map-wrap,#mapCanvas{min-height:460px;height:460px}}
+    @media(max-width:680px){.shell{padding:10px}.topbar{top:5px;align-items:flex-start}.top-status{display:none}.section-grid,.scenario-list,.device-stats,.stats-row{grid-template-columns:1fr}.control-grid,.metrics{grid-template-columns:repeat(2,1fr)}.map-wrap,#mapCanvas{min-height:390px;height:390px}.event{grid-template-columns:55px 42px 1fr}}
   </style>
 </head>
 <body>
-  <main class="shell">
-    <header class="topbar">
-      <div class="brand">
-        <div class="brand-mark">V3</div>
-        <div>
-          <h1>VDA 5050 Mission Control</h1>
-          <p>ROX-Diff + Ilmatar research cell</p>
-        </div>
-      </div>
-      <div class="top-meta">
-        <div class="chip"><span id="globalPulse" class="pulse warn"></span><strong id="globalState">Connecting</strong></div>
-        <div class="chip">Protocol <strong id="protocolChip">VDA 5050 3.0.0</strong></div>
-        <div class="chip">Map <strong id="mapChip">—</strong></div>
-        <div class="chip">Updated <strong id="updatedChip">—</strong></div>
-      </div>
-    </header>
-
-    <section class="hero">
-      <article class="panel mission-hero">
-        <div class="panel-body">
-          <span class="eyebrow">Current command chain</span>
-          <div class="mission-heading">
-            <h2 id="missionTitle" class="mission-title">Waiting for a VDA order</h2>
-            <span id="missionBadge" class="status-badge" data-status="IDLE">IDLE</span>
-          </div>
-          <p id="missionDescription" class="mission-copy">Select a mapped destination below. The master controller will create a schema-valid two-node VDA 5050 v3 order using the current localized pose as its released start node.</p>
-          <div id="missionTimeline" class="timeline">
-            <div class="empty-state"><div><strong>No active order</strong>Completed, current and future nodes will appear here.</div></div>
-          </div>
-          <div class="mission-metrics">
-            <div class="metric"><span>Order ID</span><strong id="orderIdMetric">—</strong></div>
-            <div class="metric"><span>Last node</span><strong id="lastNodeMetric">—</strong></div>
-            <div class="metric"><span>Motion</span><strong id="motionMetric">Idle</strong></div>
-            <div class="metric"><span>Active scenario</span><strong id="scenarioMetric">None</strong></div>
-          </div>
-        </div>
-      </article>
-
-      <article class="panel">
-        <div class="panel-header">
-          <div><span class="eyebrow">Immediate controls</span><h2>ROX-Diff order control</h2><p>VDA 5050 v3 instant actions</p></div>
-          <span id="controlStateBadge" class="status-badge" data-status="OFFLINE">OFFLINE</span>
-        </div>
-        <div class="panel-body">
-          <div class="control-grid">
-            <button id="pauseBtn" class="btn warning" data-control="pause">Pause</button>
-            <button id="resumeBtn" class="btn success" data-control="resume">Resume</button>
-            <button id="retryBtn" class="btn" data-control="retry">Retry action</button>
-            <button id="skipRetryBtn" class="btn" data-control="skip-retry">Skip retry</button>
-            <button id="factsheetBtn" class="btn ghost" data-control="factsheet">Request factsheet</button>
-            <button id="cancelBtn" class="btn danger" data-control="cancel">Cancel order</button>
-          </div>
-          <p id="controlHint" class="reason">Controls activate automatically from the reported VDA state.</p>
-          <div id="instantActionFeed" style="margin-top:16px"></div>
-        </div>
-      </article>
-    </section>
-
-    <div class="content-grid">
-      <div class="stack">
-        <section class="panel">
-          <div class="panel-header">
-            <div><span class="eyebrow">Dynamic destinations</span><h2>Mapped ROX-Diff waypoints</h2><p>Generated directly from <span class="mono">configs/rox_waypoints.yaml</span></p></div>
-            <span id="waypointCount" class="chip"><strong>0</strong> available</span>
-          </div>
-          <div class="panel-body">
-            <div id="waypointGrid" class="waypoint-grid">
-              <div class="empty-state"><div><strong>Loading waypoints</strong>Waiting for the fleet controller API.</div></div>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-header">
-            <div><span class="eyebrow">Repeatable tests</span><h2>Commissioning scenarios</h2><p>Each step is a separate new order after the previous step has finished</p></div>
-            <button id="stopScenarioBtn" class="btn danger small" disabled>Stop active scenario</button>
-          </div>
-          <div class="panel-body">
-            <div id="activeScenario"></div>
-            <div id="scenarioList" class="scenario-list"></div>
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-header">
-            <div><span class="eyebrow">Audit trail</span><h2>Recent missions</h2><p>Commands dispatched during this server session</p></div>
-          </div>
-          <div class="panel-body" style="overflow:auto">
-            <table class="recent-table">
-              <thead><tr><th>Destination</th><th>Order ID</th><th>Source</th><th>Status</th></tr></thead>
-              <tbody id="recentMissions"><tr><td colspan="4" style="color:var(--muted)">No commands sent yet.</td></tr></tbody>
-            </table>
-          </div>
-        </section>
-      </div>
-
-      <aside class="stack">
-        <section class="panel">
-          <div class="panel-header">
-            <div><span class="eyebrow">Live participants</span><h2>Cell status</h2><p>Server, mobile robot and crane</p></div>
-          </div>
-          <div class="panel-body">
-            <div id="deviceGrid" class="device-grid"></div>
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-header">
-            <div><span class="eyebrow">System diagnostics</span><h2>Server health</h2><p>Master-control runtime and configuration</p></div>
-          </div>
-          <div class="panel-body">
-            <div id="serverStats" class="device-stats"></div>
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-header">
-            <div><span class="eyebrow">Live history</span><h2>Event log</h2><p>State transitions and operator commands</p></div>
-            <div class="event-toolbar">
-              <select id="eventFilter" class="select" aria-label="Event level filter">
-                <option value="ALL">All levels</option>
-                <option value="INFO">Info</option>
-                <option value="WARNING">Warning</option>
-                <option value="ERROR">Error</option>
-              </select>
-              <button id="clearEventsBtn" class="btn ghost small">Clear</button>
-            </div>
-          </div>
-          <div class="panel-body">
-            <div id="eventLog" class="event-log"></div>
-          </div>
-        </section>
-      </aside>
+<div class="shell">
+  <header class="topbar">
+    <div class="brand"><div class="brandmark">V3</div><div><h1>VDA 5050 Mission Control</h1><p>ROX-Diff + Ilmatar research cell</p></div></div>
+    <div class="top-status">
+      <span id="cellChip" class="chip"><span class="dot"></span><strong>Connecting</strong></span>
+      <span class="chip">Protocol <strong id="protocolChip">VDA 5050 3.0.0</strong></span>
+      <span class="chip">Map <strong id="mapChip">—</strong></span>
+      <span class="chip">Updated <strong id="updatedChip">—</strong></span>
     </div>
+  </header>
 
-    <footer class="footer-note">
-      <span>Control decisions use schema-valid VDA state fields; <span class="mono">information[]</span> is display/debug only.</span>
-      <span id="pollStatus">Dashboard polling every 1 s</span>
-    </footer>
-  </main>
-
-  <div id="confirmBackdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
-    <div class="modal">
-      <span class="eyebrow">Confirm motion order</span>
-      <h2 id="confirmTitle">Send robot to waypoint?</h2>
-      <p id="confirmCopy"></p>
-      <div id="confirmDetails" class="modal-details"></div>
-      <div class="modal-actions">
-        <button id="confirmCancel" class="btn ghost">Go back</button>
-        <button id="confirmSend" class="btn primary">Send VDA order</button>
+  <section class="grid hero-grid">
+    <article class="panel">
+      <div class="panel-head"><div><span class="eyebrow">Live cell view</span><h2>Map, robot pose and mission route</h2><p>The line links logical VDA waypoints; Nav2 may choose a different obstacle-avoiding trajectory.</p></div><span id="mapStatus" class="badge" data-status="OFFLINE">MAP</span></div>
+      <div class="map-wrap">
+        <canvas id="mapCanvas"></canvas>
+        <div class="map-overlay"><span class="chip">Pose <strong id="mapPose">— / —</strong></span><span class="chip">Heading <strong id="mapHeading">—</strong></span></div>
+        <div class="map-legend"><span><i class="legend-dot robot-dot"></i>ROX-Diff</span><span><i class="legend-dot target-dot"></i>Current target</span><span><i class="legend-dot done-dot"></i>Completed</span></div>
+        <div id="mapEmpty" class="map-empty"><div><strong>Map image not installed</strong><span>The dashboard will use a coordinate view until df_map.yaml and df_map.pgm are copied to the Pi.</span></div></div>
       </div>
+    </article>
+
+    <article class="panel mission-panel">
+      <div class="mission-summary"><span class="eyebrow">Current command chain</span><div style="display:flex;align-items:center;gap:9px"><h2 id="chainTitle">Waiting for a VDA order</h2><span id="chainBadge" class="badge" data-status="IDLE">IDLE</span></div><p id="chainDescription">Select a mapped destination or repeatable scenario.</p><div class="progress-track"><div id="chainProgress" class="progress-bar"></div></div></div>
+      <div id="commandChain" class="chain"><div class="chain-empty">No command chain yet.</div></div>
+      <div class="metrics"><div class="metric"><span>Order ID</span><strong id="orderMetric">—</strong></div><div class="metric"><span>Last node</span><strong id="nodeMetric">—</strong></div><div class="metric"><span>Motion</span><strong id="motionMetric">Idle</strong></div></div>
+      <div class="controls"><div class="control-grid">
+        <button id="pauseBtn" class="btn" disabled>Pause</button><button id="resumeBtn" class="btn" disabled>Resume</button><button id="factsheetBtn" class="btn" disabled>Factsheet</button>
+        <button id="retryBtn" class="btn warning" disabled>Retry action</button><button id="skipRetryBtn" class="btn warning" disabled>Skip retry</button><button id="cancelBtn" class="btn danger" disabled>Cancel order</button>
+      </div><p id="controlHint" class="subtle" style="margin:10px 1px 0">Controls activate from live VDA state.</p></div>
+    </article>
+  </section>
+
+  <section class="panel section">
+    <div class="panel-head"><div><span class="eyebrow">Dynamic destinations</span><h2>Mapped ROX-Diff waypoints</h2><p>Generated from configs/rox_waypoints.yaml</p></div><span id="waypointCount" class="chip">0 available</span></div>
+    <div id="waypointGrid" class="panel-body section-grid"><div class="empty" style="grid-column:1/-1">Loading waypoints…</div></div>
+  </section>
+
+  <section class="panel section">
+    <div class="panel-head"><div><span class="eyebrow">Mission library</span><h2>Repeatable commissioning scenarios</h2><p>Each step is dispatched only after the previous VDA order is finished.</p></div><button id="stopScenarioBtn" class="btn danger small" disabled>Stop active scenario</button></div>
+    <div id="scenarioList" class="panel-body scenario-list"></div>
+  </section>
+
+  <section class="grid lower-grid section">
+    <div class="grid">
+      <article class="panel"><div class="panel-head"><div><span class="eyebrow">Live participants</span><h2>Cell status</h2><p>Essential operator information; detailed VDA data remains available through the API.</p></div></div><div id="deviceList" class="panel-body grid"></div></article>
+      <article class="panel"><div class="panel-head"><div><span class="eyebrow">Recent activity</span><h2>Mission history</h2><p>Terminal states are immutable: a finished run can no longer become rejected later.</p></div></div><div id="missionHistory" class="panel-body history"></div></article>
     </div>
-  </div>
+    <div class="grid">
+      <article class="panel"><div class="panel-head experiment-head"><div><span class="eyebrow">Research data</span><h2>Experiment mode</h2><p>Persist run timing, distance, pauses, final error, battery and VDA errors to SQLite.</p></div><button id="experimentToggle" class="toggle" aria-label="Toggle experiment mode"></button></div><div class="panel-body"><div id="experimentSession" class="subtle">Logging disabled</div><div class="stats-row"><div class="stat-card"><span>Runs</span><strong id="statRuns">0</strong></div><div class="stat-card"><span>Success</span><strong id="statSuccess">—</strong></div><div class="stat-card"><span>Avg time</span><strong id="statTime">—</strong></div><div class="stat-card"><span>Distance</span><strong id="statDistance">0 m</strong></div></div><div style="display:flex;gap:8px;margin-top:12px"><a class="btn ghost small" href="/api/experiments/export.csv">Export CSV</a><a class="btn ghost small" href="/api/experiments" target="_blank" rel="noopener">Open JSON</a></div></div></article>
+      <article class="panel"><div class="panel-head"><div><span class="eyebrow">Live history</span><h2>Event log</h2><p>Meaningful transitions and operator commands</p></div><div style="display:flex;gap:7px"><select id="eventLevel" class="btn small"><option value="ALL">All levels</option><option>INFO</option><option>WARNING</option><option>ERROR</option></select><button id="clearEventsBtn" class="btn ghost small">Clear</button></div></div><div id="eventLog" class="panel-body events"></div></article>
+    </div>
+  </section>
 
-  <div id="toastStack" class="toast-stack" aria-live="polite"></div>
+  <footer><span>Control decisions use schema-valid VDA state fields; information[] remains display/debug only.</span><span id="footerStatus">Polling every 1 s</span></footer>
+</div>
 
-  <script>
-    const state = {
-      dashboard: null,
-      pollTimer: null,
-      polling: false,
-      selectedWaypoint: null,
-      eventFilter: 'ALL',
-      lastFetchOk: false,
-    };
+<div id="modalBackdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal"><span id="modalEyebrow" class="eyebrow">Confirm command</span><h2 id="modalTitle">Confirm</h2><p id="modalCopy"></p><div id="modalDetails" class="modal-details"></div><div id="modalFields"></div><div class="modal-actions"><button id="modalCancel" class="btn ghost">Go back</button><button id="modalConfirm" class="btn primary">Confirm</button></div></div>
+</div>
+<div id="toasts" class="toasts"></div>
 
-    const $ = (id) => document.getElementById(id);
-    const esc = (value) => String(value ?? '')
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#039;');
+<script>
+  const $ = id => document.getElementById(id);
+  const state = {dashboard:null, modalAction:null, mapImage:null, mapImageUrl:null};
+  const esc = value => String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  const fmt = (value,digits=2) => Number.isFinite(Number(value)) ? Number(value).toFixed(digits) : '—';
+  const timeOnly = value => {try{return new Date(value).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})}catch{return '—'}};
+  const statusBadge = status => `<span class="badge" data-status="${esc(status || 'UNKNOWN')}">${esc(status || 'UNKNOWN')}</span>`;
+  function toast(message,kind='ok'){const el=document.createElement('div');el.className=`toast ${kind==='error'?'error':''}`;el.textContent=message;$('toasts').appendChild(el);setTimeout(()=>el.remove(),4200)}
+  async function api(path,options={}){const response=await fetch(path,{headers:{'Content-Type':'application/json',...(options.headers||{})},...options});let payload={};try{payload=await response.json()}catch{}if(!response.ok)throw new Error(payload.description||payload.message||`${response.status} ${response.statusText}`);return payload}
+  function setBadge(el,status){el.dataset.status=status;el.textContent=status}
 
-    const fmt = (value, digits = 2, fallback = '—') => {
-      const number = Number(value);
-      return Number.isFinite(number) ? number.toFixed(digits) : fallback;
-    };
+  function openModal({eyebrow='Confirm command',title,copy,details='',confirmLabel='Confirm',confirmClass='primary',fields='',action}){
+    $('modalEyebrow').textContent=eyebrow;$('modalTitle').textContent=title;$('modalCopy').textContent=copy;$('modalDetails').innerHTML=details;$('modalDetails').style.display=details?'block':'none';$('modalFields').innerHTML=fields;
+    $('modalConfirm').textContent=confirmLabel;$('modalConfirm').className=`btn ${confirmClass}`;$('modalConfirm').disabled=false;state.modalAction=action;$('modalBackdrop').classList.add('open');$('modalConfirm').focus();
+  }
+  function closeModal(){state.modalAction=null;$('modalBackdrop').classList.remove('open')}
+  $('modalCancel').onclick=closeModal;$('modalBackdrop').onclick=e=>{if(e.target===$('modalBackdrop'))closeModal()};$('modalConfirm').onclick=async()=>{if(!state.modalAction)return;$('modalConfirm').disabled=true;try{await state.modalAction();closeModal()}catch(error){toast(error.message,'error');$('modalConfirm').disabled=false}};
 
-    const fmtAge = (seconds) => {
-      const n = Number(seconds);
-      if (!Number.isFinite(n)) return '—';
-      if (n < 60) return `${Math.round(n)} s`;
-      if (n < 3600) return `${Math.floor(n / 60)}m ${Math.round(n % 60)}s`;
-      return `${Math.floor(n / 3600)}h ${Math.floor((n % 3600) / 60)}m`;
-    };
+  function renderGlobal(data){const ok=Boolean(data.server?.mqtt_connected&&data.devices?.rox?.online);$('cellChip').classList.toggle('online',ok);$('cellChip').querySelector('strong').textContent=ok?'Cell online':'Cell offline';$('protocolChip').textContent=data.server?.protocol||'—';$('mapChip').textContent=data.server?.map_id||'—';$('updatedChip').textContent=timeOnly(data.generated_at);$('footerStatus').textContent=`Live state ${timeOnly(data.generated_at)} · polling every 1 s`}
 
-    const timeOnly = (iso) => {
-      if (!iso) return '—';
-      const d = new Date(iso);
-      return Number.isNaN(d.getTime()) ? '—' : d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'});
-    };
+  function renderChain(data){const chain=data.command_chain||{};const rox=data.devices?.rox||{};$('chainTitle').textContent=chain.title||'Waiting for a VDA order';$('chainDescription').textContent=chain.description||'';setBadge($('chainBadge'),chain.status||'IDLE');$('chainProgress').style.width=`${Math.max(0,Math.min(100,Number(chain.progress_percent)||0))}%`;
+    const steps=chain.steps||[];$('commandChain').innerHTML=steps.length?steps.map((step,index)=>{const phase=step.phase||'upcoming';const status=step.status||phase.toUpperCase();return `<div class="chain-step ${esc(phase)}"><div class="chain-index">${phase==='completed'?'✓':index+1}</div><div class="chain-label"><strong>${esc(step.label||step.waypoint||step.id||'Step')}</strong><span>${esc(step.kind==='edge'?'Travel edge':step.waypoint||step.id||'')}</span></div>${statusBadge(status)}</div>`}).join(''):'<div class="chain-empty">No active command chain. Choose a waypoint or scenario below.</div>';
+    $('orderMetric').textContent=data.mission?.order_id||rox.order_id||'—';$('nodeMetric').textContent=rox.last_node_id||'—';$('motionMetric').textContent=rox.paused?'Paused':rox.driving?'Moving':'Idle';
+  }
 
-    const badge = (status) => `<span class="status-badge" data-status="${esc(status || 'UNKNOWN')}">${esc(status || 'UNKNOWN')}</span>`;
+  function renderControls(data){const a=data.control_availability||{};[['pauseBtn','pause'],['resumeBtn','resume'],['factsheetBtn','factsheet'],['retryBtn','retry'],['skipRetryBtn','skip_retry'],['cancelBtn','cancel']].forEach(([id,key])=>$ (id).disabled=!a[key]);const rox=data.devices?.rox||{};$('controlHint').textContent=!rox.online?'ROX-Diff is offline.':rox.dispatch_ready?'Robot is ready for a waypoint or scenario.':(rox.dispatch_reasons||[]).join(' · ')||'Robot is idle.'}
 
-    function toast(message, kind = 'ok') {
-      const node = document.createElement('div');
-      node.className = `toast ${kind}`;
-      node.textContent = message;
-      $('toastStack').appendChild(node);
-      setTimeout(() => node.remove(), 4200);
-    }
+  function renderWaypoints(data){const rows=data.waypoints||[];$('waypointCount').textContent=`${rows.length} available`;$('waypointGrid').innerHTML=rows.length?rows.map(w=>`<article class="destination"><div class="destination-top"><div><h3>${esc(w.label)}</h3><code>${esc(w.name)}</code></div>${statusBadge(w.status||'IDLE')}</div><p>${esc(w.description)}</p><div class="coords">x ${fmt(w.x,3)} · y ${fmt(w.y,3)} · θ ${fmt(w.theta,3)}</div><div class="destination-foot"><span class="chip">±${fmt(w.allowed_deviation_xy,2)} m</span><button class="btn primary small go-btn" data-name="${esc(w.name)}" ${w.dispatch_ready?'':'disabled'}>${w.status==='FINISHED'?'Go again':'Go here'}</button></div></article>`).join(''):'<div class="empty" style="grid-column:1/-1">No valid waypoints found.</div>';
+    document.querySelectorAll('.go-btn').forEach(btn=>btn.onclick=()=>confirmWaypoint(btn.dataset.name));
+  }
+  function confirmWaypoint(name){const w=state.dashboard?.waypoints?.find(item=>item.name===name);if(!w)return;openModal({eyebrow:'Confirm motion order',title:`Send ROX-Diff to ${w.label}?`,copy:'This publishes a new released VDA 5050 v3 base order. Supervise the route and keep the emergency-stop system available.',details:`<strong>${esc(w.label)}</strong><div class="coords" style="margin-top:7px">map ${esc(w.map_id)} · x ${fmt(w.x,3)} · y ${fmt(w.y,3)} · θ ${fmt(w.theta,3)} · tolerance ±${fmt(w.allowed_deviation_xy,2)} m</div>`,confirmLabel:'Send VDA order',action:async()=>{const result=await api(`/api/waypoints/${encodeURIComponent(name)}/dispatch`,{method:'POST',body:'{}'});toast(`Order sent: ${result.mission?.label||name}`);await poll()}})}
 
-    async function api(path, options = {}) {
-      const response = await fetch(path, {
-        headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
-        ...options,
-      });
-      const text = await response.text();
-      let data = {};
-      try { data = text ? JSON.parse(text) : {}; } catch { data = {}; }
-      if (!response.ok) {
-        const message = data.description || data.message || text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() || `HTTP ${response.status}`;
-        throw new Error(message);
-      }
-      return data;
-    }
+  function renderScenarios(data){const active=data.active_scenario;const busy=active&&['RUNNING','PAUSED','CANCELLING'].includes(active.status);$('stopScenarioBtn').disabled=!busy;const rows=data.scenarios||[];$('scenarioList').innerHTML=rows.map(s=>`<article class="scenario"><div style="display:flex;justify-content:space-between;gap:8px"><div><h3>${esc(s.label)}</h3><span class="eyebrow">${esc(s.risk||'supervised')}</span></div>${statusBadge(s.enabled?'AVAILABLE':'UNAVAILABLE')}</div><p>${esc(s.description)}</p><div class="route">${(s.waypoints||[]).map(w=>`<span>${esc(w)}</span>`).join('')}</div><div class="scenario-foot"><span class="subtle">${(s.waypoints||[]).length} sequential order(s)</span><button class="btn ${s.risk==='low'?'success':'warning'} small scenario-btn" data-id="${esc(s.id)}" ${!s.enabled||busy?'disabled':''}>Start</button></div>${s.disabled_reason?`<p style="color:var(--amber);margin-bottom:0">${esc(s.disabled_reason)}</p>`:''}</article>`).join('');document.querySelectorAll('.scenario-btn').forEach(btn=>btn.onclick=()=>confirmScenario(btn.dataset.id))}
+  function confirmScenario(id){const s=state.dashboard?.scenarios?.find(item=>item.id===id);if(!s)return;openModal({eyebrow:'Confirm repeatable test',title:`Start ${s.label}?`,copy:'The controller will dispatch each waypoint as a separate new VDA order only after the previous one reports completion.',details:`<strong>Route</strong><div class="route">${(s.waypoints||[]).map((w,i)=>`<span>${i+1}. ${esc(w)}</span>`).join('')}</div><div class="subtle">Risk classification: ${esc(s.risk||'supervised')}</div>`,confirmLabel:'Start scenario',confirmClass:s.risk==='low'?'success':'warning',action:async()=>{await api(`/api/scenarios/${encodeURIComponent(id)}/start`,{method:'POST',body:'{}'});toast(`Scenario started: ${s.label}`);await poll()}})}
 
-    function setGlobalStatus(ok, dashboard) {
-      const mqtt = Boolean(dashboard?.server?.mqtt_connected);
-      const rox = Boolean(dashboard?.devices?.rox?.online);
-      $('globalPulse').className = `pulse ${ok && mqtt && rox ? 'ok' : ok && mqtt ? 'warn' : 'bad'}`;
-      $('globalState').textContent = !ok ? 'API offline' : !mqtt ? 'MQTT offline' : !rox ? 'ROX waiting' : 'Cell online';
-      $('protocolChip').textContent = dashboard?.server?.protocol || 'VDA 5050 3.0.0';
-      $('mapChip').textContent = dashboard?.server?.map_id || '—';
-      $('updatedChip').textContent = dashboard ? timeOnly(dashboard.generated_at) : '—';
-    }
+  function deviceMarkup(key,d){const battery=d.battery?.state_of_charge;const position=d.position||{};return `<article class="device-card"><div><h3>${esc(d.label||key)}</h3><p>${key==='rox'?'Primary navigation target':'Future crane commissioning'}</p></div>${statusBadge(d.enabled?(d.online?'ONLINE':'OFFLINE'):'UNAVAILABLE')}<div class="device-stats"><div class="device-stat"><span>Mode</span><strong>${esc(d.operating_mode||'UNKNOWN')}</strong></div><div class="device-stat"><span>Battery</span><strong>${battery==null?'—':`${fmt(battery,0)}%`}</strong></div><div class="device-stat"><span>Position</span><strong>${position.x==null?'—':`${fmt(position.x,2)} / ${fmt(position.y,2)}`}</strong></div><div class="device-stat"><span>Safety</span><strong>${d.safety?.field_violation?'Field occupied':d.safety?.active_emergency_stop&&d.safety.active_emergency_stop!=='NONE'?d.safety.active_emergency_stop:'Clear'}</strong></div></div></article>`}
+  function renderDevices(data){$('deviceList').innerHTML=Object.entries(data.devices||{}).map(([key,d])=>deviceMarkup(key,d)).join('')}
 
-    function renderMission(data) {
-      const mission = data.mission;
-      const rox = data.devices?.rox || {};
-      $('orderIdMetric').textContent = mission?.order_id || rox.order_id || '—';
-      $('lastNodeMetric').textContent = rox.last_node_id || '—';
-      $('motionMetric').textContent = rox.paused ? 'Paused' : rox.driving ? 'Driving' : rox.active_order ? 'Executing' : 'Idle';
-      $('scenarioMetric').textContent = data.active_scenario?.label || 'None';
+  function renderHistory(data){const rows=data.missions||[];$('missionHistory').innerHTML=rows.length?rows.map(m=>`<div class="history-row"><div><strong>${esc(m.label)}</strong><small>${timeOnly(m.created_at)} · ${esc(m.source)} · ${m.duration_s==null?'—':`${fmt(m.duration_s,1)} s`}<br><span class="coords">${esc(m.order_id)}</span>${m.terminal_reason&&m.status!=='FINISHED'?`<br><span class="history-reason">${esc(m.terminal_reason)}</span>`:''}</small></div>${statusBadge(m.status)}</div>`).join(''):'<div class="empty">No missions sent during this server session.</div>'}
+  function renderEvents(data){const level=$('eventLevel').value;const rows=(data.events||[]).filter(e=>level==='ALL'||e.level===level);$('eventLog').innerHTML=rows.length?rows.slice(0,80).map(e=>`<div class="event ${esc(e.level)}"><time>${timeOnly(e.timestamp)}</time><span class="source">${esc(e.source)}</span><span class="message">${esc(e.message)}<small style="display:block;color:var(--muted)">${esc(e.code||'')}</small></span></div>`).join(''):'<div class="empty">No matching events.</div>'}
+  function renderExperiment(data){const x=data.experiment||{};$('experimentToggle').classList.toggle('on',Boolean(x.enabled));$('experimentSession').textContent=x.enabled?`Recording: ${x.session?.label||'active session'} · ${x.database}`:`Logging disabled · database ${x.database||'not configured'}`;const s=x.statistics||{};$('statRuns').textContent=s.runs??0;$('statSuccess').textContent=s.success_rate==null?'—':`${fmt(s.success_rate,0)}%`;$('statTime').textContent=s.average_duration_s==null?'—':`${fmt(s.average_duration_s,1)} s`;$('statDistance').textContent=`${fmt(s.distance_m||0,1)} m`}
 
-      if (!mission) {
-        $('missionTitle').textContent = rox.active_order ? 'External order in progress' : 'Waiting for a VDA order';
-        $('missionDescription').textContent = rox.active_order
-          ? 'The robot reports an active order that was not dispatched from this dashboard session.'
-          : 'Select a mapped destination below. The master controller will create a schema-valid two-node VDA 5050 v3 order using the current localized pose as its released start node.';
-        $('missionBadge').dataset.status = rox.active_order ? 'RUNNING' : 'IDLE';
-        $('missionBadge').textContent = rox.active_order ? 'RUNNING' : 'IDLE';
-        $('missionTimeline').innerHTML = '<div class="empty-state"><div><strong>No dashboard mission active</strong>Completed, current and future nodes will appear here.</div></div>';
-        return;
-      }
+  function worldToPixel(x,y,map){const [ox,oy,oyaw]=map.origin||[0,0,0],c=Math.cos(-oyaw),s=Math.sin(-oyaw),dx=x-ox,dy=y-oy,mx=(c*dx-s*dy)/map.resolution,my=(s*dx+c*dy)/map.resolution;return [mx,map.height-my]}
+  function renderMap(data){const canvas=$('mapCanvas'),ctx=canvas.getContext('2d'),rect=canvas.getBoundingClientRect(),ratio=Math.min(window.devicePixelRatio||1,2);canvas.width=Math.max(1,Math.round(rect.width*ratio));canvas.height=Math.max(1,Math.round(rect.height*ratio));ctx.setTransform(ratio,0,0,ratio,0,0);const W=rect.width,H=rect.height,map=data.map||{},rox=data.devices?.rox||{},waypoints=data.waypoints||[];$('mapPose').textContent=rox.position?.x==null?'— / —':`${fmt(rox.position.x,2)} / ${fmt(rox.position.y,2)}`;$('mapHeading').textContent=rox.position?.theta==null?'—':`${fmt(rox.position.theta,2)} rad`;setBadge($('mapStatus'),map.available?'ONLINE':'COORDINATE VIEW');$('mapEmpty').style.display='none';ctx.clearRect(0,0,W,H);ctx.fillStyle='#030b12';ctx.fillRect(0,0,W,H);
+    let project,scale,offX,offY;
+    if(map.available){const imageKey=`${map.image_url}|${map.revision||map.yaml_path||'map'}`;if(state.mapImageUrl!==imageKey){state.mapImageUrl=imageKey;state.mapImage=new Image();state.mapImage.onload=()=>renderMap(state.dashboard);state.mapImage.src=`${map.image_url}?rev=${encodeURIComponent(map.revision||map.yaml_path||'map')}`}
+      scale=Math.min(W/map.width,H/map.height);offX=(W-map.width*scale)/2;offY=(H-map.height*scale)/2;if(state.mapImage?.complete)ctx.drawImage(state.mapImage,offX,offY,map.width*scale,map.height*scale);project=(x,y)=>{const [px,py]=worldToPixel(x,y,map);return[offX+px*scale,offY+py*scale]}}
+    else{const points=waypoints.map(w=>[Number(w.x),Number(w.y)]).filter(p=>p.every(Number.isFinite));if(Number.isFinite(Number(rox.position?.x)))points.push([Number(rox.position.x),Number(rox.position.y)]);if(!points.length){$('mapEmpty').style.display='grid';return}const xs=points.map(p=>p[0]),ys=points.map(p=>p[1]),minX=Math.min(...xs)-.7,maxX=Math.max(...xs)+.7,minY=Math.min(...ys)-.7,maxY=Math.max(...ys)+.7;scale=Math.min(W/(maxX-minX),H/(maxY-minY));offX=(W-(maxX-minX)*scale)/2;offY=(H-(maxY-minY)*scale)/2;ctx.strokeStyle='#123247';ctx.lineWidth=1;for(let x=0;x<W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}for(let y=0;y<H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}project=(x,y)=>[offX+(x-minX)*scale,H-(offY+(y-minY)*scale)]}
+    const chain=data.command_chain||{},chainPoints=(chain.steps||[]).filter(step=>Number.isFinite(Number(step.x))&&Number.isFinite(Number(step.y)));if(chainPoints.length>1){ctx.lineWidth=3;ctx.setLineDash([8,7]);for(let i=1;i<chainPoints.length;i++){const a=project(Number(chainPoints[i-1].x),Number(chainPoints[i-1].y)),b=project(Number(chainPoints[i].x),Number(chainPoints[i].y));ctx.strokeStyle=chainPoints[i].phase==='completed'?'#4ee6aa':chainPoints[i].phase==='active'?'#5ee7ff':'#536f80';ctx.beginPath();ctx.moveTo(...a);ctx.lineTo(...b);ctx.stroke()}ctx.setLineDash([])}
+    const activeName=chainPoints.find(p=>p.phase==='active')?.waypoint;waypoints.forEach(w=>{const [x,y]=project(Number(w.x),Number(w.y)),isActive=w.name===activeName,completed=chainPoints.some(p=>p.waypoint===w.name&&p.phase==='completed');ctx.beginPath();ctx.arc(x,y,isActive?8:5,0,Math.PI*2);ctx.fillStyle=isActive?'#f8c85b':completed?'#4ee6aa':'#80a7ff';ctx.fill();ctx.strokeStyle='#06111b';ctx.lineWidth=2;ctx.stroke();ctx.fillStyle='#dff7ff';ctx.font='10px system-ui';ctx.fillText(w.label,x+9,y-8)});
+    if(Number.isFinite(Number(rox.position?.x))){const [x,y]=project(Number(rox.position.x),Number(rox.position.y)),t=-Number(rox.position.theta||0);ctx.save();ctx.translate(x,y);ctx.rotate(t);ctx.beginPath();ctx.moveTo(12,0);ctx.lineTo(-8,-8);ctx.lineTo(-5,0);ctx.lineTo(-8,8);ctx.closePath();ctx.fillStyle='#5ee7ff';ctx.shadowColor='#5ee7ff';ctx.shadowBlur=14;ctx.fill();ctx.restore()}}
 
-      $('missionTitle').textContent = mission.label;
-      $('missionDescription').textContent = mission.description || `Navigate to ${mission.waypoint}`;
-      $('missionBadge').dataset.status = mission.status;
-      $('missionBadge').textContent = mission.status;
-      const steps = mission.steps || [];
-      $('missionTimeline').innerHTML = steps.length ? steps.map(step => `
-        <div class="timeline-step ${esc(step.phase)}">
-          <div class="timeline-rail"><span class="timeline-dot"></span></div>
-          <div class="timeline-copy">
-            <strong>${esc(step.label || step.id)}</strong>
-            <span>${esc(step.kind)} · sequence ${esc(step.sequence_id)} · ${esc(step.phase)}</span>
-          </div>
-        </div>`).join('') : '<div class="empty-state"><div><strong>Awaiting state acknowledgement</strong>The order was sent and is waiting to appear in the robot state.</div></div>';
-    }
+  function render(data){state.dashboard=data;renderGlobal(data);renderChain(data);renderControls(data);renderWaypoints(data);renderScenarios(data);renderDevices(data);renderHistory(data);renderEvents(data);renderExperiment(data);renderMap(data)}
+  async function poll(){try{const data=await api('/api/dashboard');render(data)}catch(error){$('cellChip').classList.remove('online');$('cellChip').querySelector('strong').textContent='Dashboard offline';$('footerStatus').textContent=error.message}}
 
-    function renderControls(data) {
-      const a = data.control_availability || {};
-      const rox = data.devices?.rox || {};
-      const mapping = {
-        pauseBtn: a.pause,
-        resumeBtn: a.resume,
-        cancelBtn: a.cancel,
-        factsheetBtn: a.factsheet,
-        retryBtn: a.retry,
-        skipRetryBtn: a.skip_retry,
-      };
-      Object.entries(mapping).forEach(([id, enabled]) => { $(id).disabled = !enabled; });
-      $('controlStateBadge').dataset.status = rox.online ? (rox.paused ? 'PAUSED' : rox.active_order ? 'RUNNING' : 'ONLINE') : 'OFFLINE';
-      $('controlStateBadge').textContent = $('controlStateBadge').dataset.status;
-      $('controlHint').textContent = !rox.enabled ? 'ROX-Diff is disabled in the controller configuration.'
-        : !rox.online ? 'Waiting for a VDA connection message from ROX-Diff.'
-        : rox.safety?.active_emergency_stop !== 'NONE' ? `Emergency stop: ${rox.safety?.active_emergency_stop}`
-        : rox.safety?.field_violation ? 'Safety field violation is active.'
-        : a.retry ? `A RETRIABLE action is waiting: ${(a.retriable_action_ids || []).join(', ')}`
-        : rox.active_order ? 'Controls reflect the active order and reported pause state.'
-        : 'Robot is idle. Select a waypoint or scenario.';
-
-      const controls = (data.controls || []).slice().reverse().slice(0, 4);
-      $('instantActionFeed').innerHTML = controls.length ? `
-        <div class="eyebrow" style="margin-bottom:8px">Recent instant actions</div>
-        ${controls.map(item => `<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--line)"><span class="mono" style="font-size:10px">${esc(item.action_type)}</span>${badge(item.status)}</div>`).join('')}` : '';
-    }
-
-    function renderWaypoints(data) {
-      const rows = data.waypoints || [];
-      $('waypointCount').innerHTML = `<strong>${rows.length}</strong> available`;
-      if (!rows.length) {
-        $('waypointGrid').innerHTML = '<div class="empty-state"><div><strong>No valid waypoints</strong>Check the waypoint YAML path and structure.</div></div>';
-        return;
-      }
-      $('waypointGrid').innerHTML = rows.map(wp => {
-        const disabled = !wp.dispatch_ready;
-        const reason = (wp.disabled_reasons || [])[0] || '';
-        const activeStatuses = ['SENT', 'ACCEPTED', 'RUNNING', 'PAUSED', 'RETRIABLE', 'CANCELLING'];
-        const buttonText = activeStatuses.includes(wp.status) ? 'In progress' : wp.status === 'FINISHED' ? 'Go again' : 'Go here';
-        return `<article class="waypoint-card">
-          <div>
-            <div class="waypoint-top"><div><h3>${esc(wp.label)}</h3><div class="coordinates">${esc(wp.name)}</div></div>${badge(wp.status)}</div>
-            <p>${esc(wp.description)}</p>
-            <div class="coordinates">x ${fmt(wp.x, 3)} · y ${fmt(wp.y, 3)} · θ ${fmt(wp.theta, 3)}</div>
-          </div>
-          <div>
-            ${reason ? `<div class="reason">${esc(reason)}</div>` : ''}
-            <div class="waypoint-action">
-              <span class="chip">± ${fmt(wp.allowed_deviation_xy, 2)} m</span>
-              <button class="btn primary small waypoint-send" data-waypoint="${esc(wp.name)}" ${disabled ? 'disabled' : ''}>${buttonText}</button>
-            </div>
-          </div>
-        </article>`;
-      }).join('');
-      document.querySelectorAll('.waypoint-send').forEach(button => {
-        button.addEventListener('click', () => openWaypointConfirm(button.dataset.waypoint));
-      });
-    }
-
-    function renderDevices(data) {
-      const devices = data.devices || {};
-      const rows = ['rox', 'crane'].map(key => {
-        const d = devices[key] || {};
-        const p = d.position || {};
-        const soc = d.battery?.state_of_charge;
-        const safetyOk = d.safety?.active_emergency_stop === 'NONE' && !d.safety?.field_violation;
-        const reasons = d.dispatch_reasons || [];
-        return `<article class="device-card ${d.enabled ? '' : 'muted'}">
-          <div class="device-head">
-            <div><h3>${esc(d.label || key)}</h3><p>${key === 'rox' ? 'Primary test target' : 'Retained for future commissioning'}</p></div>
-            ${badge(d.enabled ? (d.online ? 'AVAILABLE' : 'OFFLINE') : 'UNAVAILABLE')}
-          </div>
-          <div class="device-stats">
-            <div class="mini-stat"><span>Connection</span><strong>${esc(d.connection || 'UNKNOWN')}</strong></div>
-            <div class="mini-stat"><span>Mode</span><strong>${esc(d.operating_mode || 'UNKNOWN')}</strong></div>
-            <div class="mini-stat"><span>Position</span><strong>${key === 'rox' ? `${fmt(p.x)} / ${fmt(p.y)}` : '—'}</strong></div>
-            <div class="mini-stat"><span>${key === 'rox' ? 'Battery' : 'Status'}</span><strong>${key === 'rox' && Number.isFinite(Number(soc)) ? `${fmt(Number(soc) * (Number(soc) <= 1 ? 100 : 1), 0)}%` : d.enabled ? 'Ready' : 'Locked'}</strong></div>
-            <div class="mini-stat"><span>Localization</span><strong>${key === 'rox' ? (p.localized === true ? 'Valid' : p.localized === false ? 'Invalid' : 'Unknown') : 'N/A'}</strong></div>
-            <div class="mini-stat"><span>Safety</span><strong>${safetyOk ? 'Clear' : 'Attention'}</strong></div>
-          </div>
-          ${reasons.length ? `<div class="device-alert">${esc(reasons[0])}</div>` : ''}
-        </article>`;
-      });
-      $('deviceGrid').innerHTML = rows.join('');
-    }
-
-    function renderServer(data) {
-      const s = data.server || {};
-      const stats = [
-        ['Flask server', s.status || 'UNKNOWN'],
-        ['MQTT broker', s.broker || '—'],
-        ['MQTT link', s.mqtt_connected ? 'Connected' : 'Disconnected'],
-        ['Uptime', fmtAge(s.uptime_s)],
-        ['Map ID', s.map_id || '—'],
-        ['Waypoints', s.waypoints_configured ? 'Configured' : 'Not confirmed'],
-      ];
-      $('serverStats').innerHTML = stats.map(([label, value]) => `<div class="mini-stat"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`).join('');
-      if (s.waypoint_error) $('serverStats').innerHTML += `<div class="device-alert" style="grid-column:1/-1">${esc(s.waypoint_error)}</div>`;
-    }
-
-    function renderScenarios(data) {
-      const active = data.active_scenario;
-      const scenarios = data.scenarios || [];
-      $('stopScenarioBtn').disabled = !active || !['RUNNING', 'PAUSED', 'CANCELLING'].includes(active.status);
-      if (active) {
-        $('activeScenario').innerHTML = `<article class="scenario-card" style="border-color:var(--line-strong);margin-bottom:13px">
-          <div class="scenario-top"><div><span class="eyebrow">Active run</span><h3>${esc(active.label)}</h3></div>${badge(active.status)}</div>
-          <p>${esc(active.description)}</p>
-          <div class="progress-track"><div class="progress-fill" style="width:${Number(active.progress_percent || 0)}%"></div></div>
-          <div class="route">${(active.steps || []).map(step => `<span style="opacity:${step.phase === 'upcoming' ? '.45' : '1'}">${esc(step.waypoint)} · ${esc(step.phase)}</span>`).join('')}</div>
-        </article>`;
-      } else {
-        $('activeScenario').innerHTML = '';
-      }
-      $('scenarioList').innerHTML = scenarios.map(s => `<article class="scenario-card">
-        <div class="scenario-top"><div><h3>${esc(s.label)}</h3><span class="risk">${esc(s.risk || 'supervised')}</span></div>${badge(s.enabled ? 'AVAILABLE' : 'UNAVAILABLE')}</div>
-        <p>${esc(s.description)}</p>
-        <div class="route">${(s.waypoints || []).map(name => `<span>${esc(name)}</span>`).join('')}</div>
-        <div class="scenario-footer">
-          <span class="reason">${s.enabled ? `${(s.waypoints || []).length} sequential order(s)` : esc(s.disabled_reason || 'Disabled')}</span>
-          <button class="btn ${s.risk === 'low' ? 'success' : 'warning'} small scenario-start" data-scenario="${esc(s.id)}" ${!s.enabled || Boolean(active && ['RUNNING','PAUSED','CANCELLING'].includes(active.status)) ? 'disabled' : ''}>Start</button>
-        </div>
-      </article>`).join('');
-      document.querySelectorAll('.scenario-start').forEach(button => button.addEventListener('click', () => startScenario(button.dataset.scenario)));
-    }
-
-    function renderEvents(data) {
-      const filter = state.eventFilter;
-      const events = (data.events || []).filter(event => filter === 'ALL' || event.level === filter);
-      $('eventLog').innerHTML = events.length ? events.map(event => `<div class="event-row ${esc(event.level)}">
-        <span class="event-time">${timeOnly(event.timestamp)}</span>
-        <span class="event-source">${esc(event.source)}</span>
-        <span class="event-message">${esc(event.message)}${event.code ? `<small>${esc(event.code)}</small>` : ''}</span>
-      </div>`).join('') : '<div class="empty-state"><div><strong>No matching events</strong>New state changes and commands will appear here.</div></div>';
-    }
-
-    function renderMissions(data) {
-      const missions = data.missions || [];
-      $('recentMissions').innerHTML = missions.length ? missions.map(m => `<tr>
-        <td>${esc(m.label || m.waypoint)}</td>
-        <td class="mono truncate" title="${esc(m.order_id)}">${esc(m.order_id)}</td>
-        <td>${esc(m.source || 'waypoint')}</td>
-        <td>${badge(m.status)}</td>
-      </tr>`).join('') : '<tr><td colspan="4" style="color:var(--muted)">No commands sent yet.</td></tr>';
-    }
-
-    function render(data) {
-      state.dashboard = data;
-      setGlobalStatus(true, data);
-      renderMission(data);
-      renderControls(data);
-      renderWaypoints(data);
-      renderDevices(data);
-      renderServer(data);
-      renderScenarios(data);
-      renderEvents(data);
-      renderMissions(data);
-      $('pollStatus').textContent = `Live state received ${timeOnly(data.generated_at)} · polling every 1 s`;
-    }
-
-    async function poll() {
-      if (state.polling) return;
-      state.polling = true;
-      try {
-        const data = await api('/api/dashboard');
-        state.lastFetchOk = true;
-        render(data);
-      } catch (error) {
-        if (state.lastFetchOk) toast(`Dashboard connection lost: ${error.message}`, 'error');
-        state.lastFetchOk = false;
-        setGlobalStatus(false, state.dashboard);
-        $('pollStatus').textContent = `Dashboard API unavailable · ${error.message}`;
-      } finally {
-        state.polling = false;
-      }
-    }
-
-    function openWaypointConfirm(name) {
-      const wp = state.dashboard?.waypoints?.find(item => item.name === name);
-      if (!wp) return;
-      state.selectedWaypoint = name;
-      $('confirmTitle').textContent = `Send ROX-Diff to ${wp.label}?`;
-      $('confirmCopy').textContent = 'This publishes a new released VDA 5050 v3 base order. Keep the physical path supervised and the emergency-stop system available.';
-      $('confirmDetails').innerHTML = `<strong>${esc(wp.label)}</strong><div class="coordinates" style="margin-top:7px">map ${esc(wp.map_id)} · x ${fmt(wp.x,3)} · y ${fmt(wp.y,3)} · θ ${fmt(wp.theta,3)} · tolerance ±${fmt(wp.allowed_deviation_xy,2)} m</div>`;
-      $('confirmBackdrop').classList.add('open');
-      $('confirmSend').focus();
-    }
-
-    function closeConfirm() {
-      $('confirmBackdrop').classList.remove('open');
-      state.selectedWaypoint = null;
-    }
-
-    async function dispatchSelectedWaypoint() {
-      const name = state.selectedWaypoint;
-      if (!name) return;
-      $('confirmSend').disabled = true;
-      try {
-        const result = await api(`/api/waypoints/${encodeURIComponent(name)}/dispatch`, {method: 'POST', body: '{}'});
-        toast(`Order sent: ${result.mission?.label || name}`);
-        closeConfirm();
-        await poll();
-      } catch (error) {
-        toast(error.message, 'error');
-      } finally {
-        $('confirmSend').disabled = false;
-      }
-    }
-
-    async function sendControl(action) {
-      if (action === 'cancel' && !window.confirm('Cancel the active ROX-Diff order? The robot will stop as soon as the adapter can safely stop it.')) return;
-      let body = {};
-      const retriable = state.dashboard?.control_availability?.retriable_action_ids || [];
-      if (['retry', 'skip-retry'].includes(action) && retriable.length > 1) {
-        const choice = window.prompt(`Enter one RETRIABLE actionId:\n${retriable.join('\n')}`, retriable[0]);
-        if (!choice) return;
-        body.actionId = choice;
-      }
-      try {
-        const result = await api(`/api/controls/rox/${action}`, {method: 'POST', body: JSON.stringify(body)});
-        toast(`Instant action sent: ${result.control?.action_type || action}`);
-        await poll();
-      } catch (error) { toast(error.message, 'error'); }
-    }
-
-    async function startScenario(id) {
-      const scenario = state.dashboard?.scenarios?.find(item => item.id === id);
-      if (!scenario) return;
-      const route = (scenario.waypoints || []).join(' → ');
-      if (!window.confirm(`Start “${scenario.label}”?\n\nRoute: ${route}\n\nEach waypoint is dispatched only after the previous VDA order has finished.`)) return;
-      try {
-        await api(`/api/scenarios/${encodeURIComponent(id)}/start`, {method: 'POST', body: '{}'});
-        toast(`Scenario started: ${scenario.label}`);
-        await poll();
-      } catch (error) { toast(error.message, 'error'); }
-    }
-
-    async function stopScenario() {
-      if (!window.confirm('Stop the active scenario and cancel its current robot order?')) return;
-      try {
-        await api('/api/scenarios/active/stop', {method: 'POST', body: '{}'});
-        toast('Scenario stop requested');
-        await poll();
-      } catch (error) { toast(error.message, 'error'); }
-    }
-
-    document.querySelectorAll('[data-control]').forEach(button => button.addEventListener('click', () => sendControl(button.dataset.control)));
-    $('stopScenarioBtn').addEventListener('click', stopScenario);
-    $('clearEventsBtn').addEventListener('click', async () => {
-      try { await api('/api/events/clear', {method: 'POST', body: '{}'}); await poll(); }
-      catch (error) { toast(error.message, 'error'); }
-    });
-    $('eventFilter').addEventListener('change', event => { state.eventFilter = event.target.value; if (state.dashboard) renderEvents(state.dashboard); });
-    $('confirmCancel').addEventListener('click', closeConfirm);
-    $('confirmSend').addEventListener('click', dispatchSelectedWaypoint);
-    $('confirmBackdrop').addEventListener('click', event => { if (event.target === $('confirmBackdrop')) closeConfirm(); });
-    document.addEventListener('keydown', event => { if (event.key === 'Escape') closeConfirm(); });
-
-    poll();
-    state.pollTimer = setInterval(poll, 1000);
-  </script>
+  async function sendControl(action){const labels={factsheet:'Request factsheet',pause:'Pause order',resume:'Resume order',retry:'Retry action','skip-retry':'Skip retry',cancel:'Cancel active order'};const execute=async()=>{await api(`/api/controls/rox/${action}`,{method:'POST',body:'{}'});toast(`${labels[action]} sent`);await poll()};if(action==='cancel'){openModal({eyebrow:'Confirm instant action',title:'Cancel the active VDA order?',copy:'The adapter will request a controlled stop. Cancellation remains in progress until motion and cancelable actions have stopped.',details:'<strong>VDA instantAction: cancelOrder</strong>',confirmLabel:'Cancel order',confirmClass:'danger',action:execute})}else await execute()}
+  $('pauseBtn').onclick=()=>sendControl('pause').catch(e=>toast(e.message,'error'));$('resumeBtn').onclick=()=>sendControl('resume').catch(e=>toast(e.message,'error'));$('factsheetBtn').onclick=()=>sendControl('factsheet').catch(e=>toast(e.message,'error'));$('retryBtn').onclick=()=>sendControl('retry').catch(e=>toast(e.message,'error'));$('skipRetryBtn').onclick=()=>sendControl('skip-retry').catch(e=>toast(e.message,'error'));$('cancelBtn').onclick=()=>sendControl('cancel').catch(e=>toast(e.message,'error'));
+  $('stopScenarioBtn').onclick=()=>openModal({eyebrow:'Confirm scenario stop',title:'Stop the active scenario?',copy:'The scenario queue will stop and the current VDA order will be cancelled through cancelOrder.',details:`<strong>${esc(state.dashboard?.active_scenario?.label||'Active scenario')}</strong>`,confirmLabel:'Stop scenario',confirmClass:'danger',action:async()=>{await api('/api/scenarios/active/stop',{method:'POST',body:'{}'});toast('Scenario stop requested');await poll()}});
+  $('clearEventsBtn').onclick=async()=>{try{await api('/api/events/clear',{method:'POST',body:'{}'});await poll()}catch(e){toast(e.message,'error')}};$('eventLevel').onchange=()=>state.dashboard&&renderEvents(state.dashboard);
+  $('experimentToggle').onclick=()=>{const enabled=!state.dashboard?.experiment?.enabled;if(enabled){openModal({eyebrow:'Research data logging',title:'Enable experiment mode?',copy:'Every subsequently dispatched mission will be persisted with timing, distance, pauses, battery, final error and VDA errors.',details:'<strong>SQLite + CSV/JSON export</strong><div class="subtle" style="margin-top:5px">Existing runs remain untouched.</div>',fields:'<div class="form-field"><label for="experimentLabel">Session label</label><input id="experimentLabel" placeholder="e.g. ROX commissioning run 1"></div><div class="form-field"><label for="experimentNotes">Notes</label><textarea id="experimentNotes" placeholder="Test conditions, payload, operator notes…"></textarea></div>',confirmLabel:'Enable logging',confirmClass:'success',action:async()=>{await api('/api/experiment-mode',{method:'POST',body:JSON.stringify({enabled:true,label:$('experimentLabel').value,notes:$('experimentNotes').value})});toast('Experiment logging enabled');await poll()}})}else{openModal({eyebrow:'Research data logging',title:'Stop experiment logging?',copy:'The current session will be closed. Recorded runs remain in the SQLite database and exports.',confirmLabel:'Stop logging',confirmClass:'warning',action:async()=>{await api('/api/experiment-mode',{method:'POST',body:JSON.stringify({enabled:false})});toast('Experiment logging disabled');await poll()}})}};
+  window.addEventListener('resize',()=>state.dashboard&&renderMap(state.dashboard));new ResizeObserver(()=>state.dashboard&&renderMap(state.dashboard)).observe($('mapCanvas'));poll();setInterval(poll,1000);
+</script>
 </body>
 </html>

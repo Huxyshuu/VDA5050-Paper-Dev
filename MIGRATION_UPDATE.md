@@ -80,3 +80,9 @@ Safety controls include map-ID and map-file fingerprint checks, same-boot odomet
 ## Remote operator workstation update (2026-07-22)
 
 The central ROX command helper is now role-aware. The robot continues to own bringup, Nav2, localization and pose persistence, while Ubuntu operator computers can use the same commands over DDS and password-free SSH. The operator `rox nav` workflow opens the standard Neobotix Nav2 RViz locally and automatically publishes named waypoint markers. See `docs/REMOTE_OPERATOR_WORKSTATION.md` and `docs/REPOSITORY_UPDATE_NOTES_2026-07-22_REMOTE_OPERATOR.md`.
+
+<!-- FLASK_HMI_V2_BEGIN -->
+## Flask HMI v2 update (2026-07-24)
+
+The current Raspberry Pi dashboard adds a live map, immutable terminal mission states, full scenario-chain visualization, styled confirmations, and persistent experiment records. See `docs/FLASK_HMI_V2.md` and `docs/REPOSITORY_UPDATE_NOTES_2026-07-24_HMI_V2.md`.
+<!-- FLASK_HMI_V2_END -->

@@ -573,3 +573,10 @@ status, repeatable ROX-first scenarios, and an event log.
 See [`docs/FLASK_MISSION_CONTROL.md`](docs/FLASK_MISSION_CONTROL.md) for setup,
 operation, protocol mapping and the staged ROX test procedure.
 
+<!-- FLASK_HMI_V2_BEGIN -->
+## Flask HMI v2
+
+The Pi dashboard now includes an immutable VDA mission history, one full scenario command-chain tree, a live occupancy-map/robot view, consistent in-page confirmations, and optional SQLite experiment logging.
+
+See [`docs/FLASK_HMI_V2.md`](docs/FLASK_HMI_V2.md) for map installation, operation, exports, and testing.
+<!-- FLASK_HMI_V2_END -->

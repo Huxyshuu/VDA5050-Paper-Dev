@@ -32,3 +32,7 @@ log/
 # Site-specific robot runtime state and local patch backups
 runtime/
 .repo_update_backups/
+
+# Flask HMI experiment runtime data
+results/experiments/*.sqlite3
+results/experiments/*.sqlite3-*

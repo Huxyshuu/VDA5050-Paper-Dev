@@ -11,10 +11,16 @@ used for dispatch, completion, safety or scenario progression.
 from __future__ import annotations
 
 import copy
+import csv
+import io
+import json
+import math
 import os
+import sqlite3
+import struct
 import threading
 import time
-import math
+import zlib
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
@@ -22,10 +28,28 @@ from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional,
 from uuid import uuid4
 
 import yaml
-from flask import abort, jsonify, request
+from flask import Response, abort, jsonify, request
 from werkzeug.exceptions import HTTPException
 
 FINAL_ACTION_STATES = {"FINISHED", "FAILED"}
+TERMINAL_MISSION_STATES = {"FINISHED", "FAILED", "REJECTED", "CANCELLED"}
+# VDA 5050 v3 errors that represent rejection/non-acceptance of an order.
+# Execution-time errors are not classified as REJECTED merely because they
+# reference the order; they are evaluated separately as failures.
+ORDER_REJECTION_ERROR_TYPES = {
+    "VALIDATION_FAILURE",
+    "UNSUPPORTED_PARAMETER",
+    "INVALID_ORDER_ACTION",
+    "OUTDATED_ORDER_UPDATE",
+    "SAME_ORDER_UPDATE_ID",
+    "ORDER_UPDATE_FOLLOWING_CANCEL",
+    "OTHER_ORDER_ACTIVE",
+    "START_NODE_OUT_OF_RANGE",
+    "NO_ROUTE_TO_TARGET",
+    "MOBILE_ROBOT_NOT_AVAILABLE",
+    "UNKNOWN_MAP_ID",
+    "INSUFFICIENT_MEMORY",
+}
 ACTIVE_ACTION_STATES = {
     "WAITING",
     "INITIALIZING",
@@ -155,6 +179,15 @@ class DashboardController:
         self.scenario_path = self._repo_path(
             os.getenv("FLEET_UI_SCENARIO_FILE", "configs/dashboard_scenarios.yaml")
         )
+        self.map_yaml_path = self._repo_path(
+            os.getenv("FLEET_UI_MAP_YAML", "configs/maps/df_map.yaml")
+        )
+        self.experiment_db_path = self._repo_path(
+            os.getenv(
+                "FLEET_UI_EXPERIMENT_DB",
+                "results/experiments/mission_control.sqlite3",
+            )
+        )
         self.rox_enabled = _bool_env("ROX_ENABLED", True)
         self.crane_enabled = _bool_env("CRANE_ENABLED", False)
         self.require_localized = _bool_env("FLEET_UI_REQUIRE_LOCALIZED", True)
@@ -165,6 +198,10 @@ class DashboardController:
         self.order_accept_timeout_s = _float_env("FLEET_UI_ORDER_ACCEPT_TIMEOUT_S", 12.0)
         self.event_limit = max(50, _int_env("FLEET_UI_EVENT_LIMIT", 300))
         self.mission_limit = max(10, _int_env("FLEET_UI_MISSION_LIMIT", 50))
+        self.experiment_enabled = _bool_env("FLEET_UI_EXPERIMENT_DEFAULT", False)
+        self.experiment_sample_distance_m = max(
+            0.001, _float_env("FLEET_UI_EXPERIMENT_SAMPLE_DISTANCE_M", 0.01)
+        )
 
         self.lock = threading.RLock()
         self.events: deque[Dict[str, Any]] = deque(maxlen=self.event_limit)
@@ -173,6 +210,12 @@ class DashboardController:
         self.active_scenario: Optional[Dict[str, Any]] = None
         self._last_signature: Dict[str, Any] = {}
         self._stop = threading.Event()
+        self._map_cache: Optional[Dict[str, Any]] = None
+        self._map_cache_signature: Optional[Tuple[float, float]] = None
+        self.experiment_session: Optional[Dict[str, Any]] = None
+        self._init_experiment_db()
+        if self.experiment_enabled:
+            self._set_experiment_mode(True, label="Automatic startup session", notes="")
 
         self._add_event(
             "INFO",
@@ -191,6 +234,405 @@ class DashboardController:
     def _repo_path(self, value: str) -> Path:
         path = Path(value).expanduser()
         return path if path.is_absolute() else self.repo_root / path
+
+    # ------------------------------------------------------------------
+    # Map and experiment persistence
+    def _candidate_map_yaml(self, map_id: Optional[str] = None) -> Path:
+        candidates = [self.map_yaml_path]
+        resolved_id = str(map_id or self.default_map_id)
+        candidates.extend(
+            [
+                self.repo_root / "configs" / "maps" / f"{resolved_id}.yaml",
+                self.repo_root / "configs" / f"{resolved_id}.yaml",
+                Path.home() / "maps" / f"{resolved_id}.yaml",
+            ]
+        )
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate
+        return candidates[0]
+
+    @staticmethod
+    def _read_pgm(path: Path) -> Tuple[int, int, bytes]:
+        """Read P2/P5 PGM and return 8-bit grayscale pixels."""
+        data = path.read_bytes()
+        cursor = 0
+
+        def token() -> bytes:
+            nonlocal cursor
+            while cursor < len(data):
+                if data[cursor:cursor + 1] == b"#":
+                    end = data.find(b"\n", cursor)
+                    cursor = len(data) if end < 0 else end + 1
+                    continue
+                if data[cursor] in b" \t\r\n":
+                    cursor += 1
+                    continue
+                break
+            start = cursor
+            while cursor < len(data) and data[cursor] not in b" \t\r\n#":
+                cursor += 1
+            if start == cursor:
+                raise ValueError("Unexpected end of PGM header")
+            return data[start:cursor]
+
+        magic = token()
+        width = int(token())
+        height = int(token())
+        max_value = int(token())
+        if width <= 0 or height <= 0 or max_value <= 0:
+            raise ValueError("Invalid PGM dimensions or max value")
+
+        if magic == b"P2":
+            values = [int(token()) for _ in range(width * height)]
+        elif magic == b"P5":
+            # The binary raster begins after the required whitespace separator.
+            # Consume the header separator without accidentally discarding a
+            # legitimate first pixel whose byte value happens to be whitespace.
+            if cursor >= len(data) or data[cursor] not in b" \t\r\n":
+                raise ValueError("Missing PGM raster separator")
+            if data[cursor:cursor + 2] == b"\r\n":
+                cursor += 2
+            else:
+                cursor += 1
+            if max_value < 256:
+                raw = data[cursor:cursor + width * height]
+                if len(raw) != width * height:
+                    raise ValueError("Truncated PGM pixel data")
+                values = list(raw)
+            else:
+                raw = data[cursor:cursor + width * height * 2]
+                if len(raw) != width * height * 2:
+                    raise ValueError("Truncated 16-bit PGM pixel data")
+                values = [
+                    int.from_bytes(raw[index:index + 2], "big")
+                    for index in range(0, len(raw), 2)
+                ]
+        else:
+            raise ValueError(f"Unsupported PGM format {magic!r}")
+
+        if max_value != 255:
+            values = [round(max(0, min(max_value, value)) * 255 / max_value) for value in values]
+        return width, height, bytes(values)
+
+    @staticmethod
+    def _png_chunk(kind: bytes, payload: bytes) -> bytes:
+        return (
+            struct.pack(">I", len(payload))
+            + kind
+            + payload
+            + struct.pack(">I", zlib.crc32(kind + payload) & 0xFFFFFFFF)
+        )
+
+    @classmethod
+    def _grayscale_png(cls, width: int, height: int, pixels: bytes) -> bytes:
+        rows = b"".join(
+            b"\x00" + pixels[row * width:(row + 1) * width]
+            for row in range(height)
+        )
+        return (
+            b"\x89PNG\r\n\x1a\n"
+            + cls._png_chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 0, 0, 0, 0))
+            + cls._png_chunk(b"IDAT", zlib.compress(rows, 7))
+            + cls._png_chunk(b"IEND", b"")
+        )
+
+    def _load_map(self, map_id: Optional[str] = None) -> Dict[str, Any]:
+        yaml_path = self._candidate_map_yaml(map_id)
+        if not yaml_path.exists():
+            return {
+                "available": False,
+                "map_id": str(map_id or self.default_map_id),
+                "yaml_path": str(yaml_path),
+                "error": "Map YAML is not installed on the Raspberry Pi",
+            }
+        try:
+            with yaml_path.open("r", encoding="utf-8") as handle:
+                cfg = yaml.safe_load(handle) or {}
+            image_value = cfg.get("image")
+            if not image_value:
+                raise ValueError("Map YAML does not contain an image field")
+            image_path = Path(str(image_value)).expanduser()
+            if not image_path.is_absolute():
+                image_path = yaml_path.parent / image_path
+            if not image_path.exists():
+                raise FileNotFoundError(f"Map image not found: {image_path}")
+            signature = (yaml_path.stat().st_mtime, image_path.stat().st_mtime)
+            if self._map_cache and self._map_cache_signature == signature:
+                return copy.deepcopy(self._map_cache)
+            width, height, pixels = self._read_pgm(image_path)
+            origin_raw = cfg.get("origin") or [0.0, 0.0, 0.0]
+            origin = [
+                _safe_float(origin_raw[index] if index < len(origin_raw) else 0.0)
+                for index in range(3)
+            ]
+            result = {
+                "available": True,
+                "map_id": str(map_id or yaml_path.stem),
+                "yaml_path": str(yaml_path),
+                "image_path": str(image_path),
+                "image_url": "/api/map/image",
+                "revision": f"{signature[0]:.6f}-{signature[1]:.6f}",
+                "width": width,
+                "height": height,
+                "resolution": _safe_float(cfg.get("resolution"), 0.05),
+                "origin": origin,
+                "negate": _safe_int(cfg.get("negate"), 0),
+                "occupied_thresh": _safe_float(cfg.get("occupied_thresh"), 0.65),
+                "free_thresh": _safe_float(cfg.get("free_thresh"), 0.196),
+                "_png": self._grayscale_png(width, height, pixels),
+            }
+            self._map_cache = result
+            self._map_cache_signature = signature
+            return copy.deepcopy(result)
+        except Exception as exc:
+            return {
+                "available": False,
+                "map_id": str(map_id or self.default_map_id),
+                "yaml_path": str(yaml_path),
+                "error": str(exc),
+            }
+
+    def _db(self) -> sqlite3.Connection:
+        self.experiment_db_path.parent.mkdir(parents=True, exist_ok=True)
+        connection = sqlite3.connect(str(self.experiment_db_path), timeout=10.0)
+        connection.row_factory = sqlite3.Row
+        return connection
+
+    def _init_experiment_db(self) -> None:
+        with self._db() as db:
+            db.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS experiment_sessions (
+                    session_id TEXT PRIMARY KEY,
+                    label TEXT NOT NULL,
+                    notes TEXT NOT NULL DEFAULT '',
+                    started_at TEXT NOT NULL,
+                    ended_at TEXT,
+                    enabled INTEGER NOT NULL DEFAULT 1
+                );
+                CREATE TABLE IF NOT EXISTS experiment_runs (
+                    run_id TEXT PRIMARY KEY,
+                    session_id TEXT,
+                    mission_id TEXT NOT NULL,
+                    order_id TEXT NOT NULL UNIQUE,
+                    scenario_id TEXT,
+                    source TEXT NOT NULL,
+                    waypoint TEXT NOT NULL,
+                    label TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    started_at TEXT NOT NULL,
+                    accepted_at TEXT,
+                    running_at TEXT,
+                    finished_at TEXT,
+                    duration_s REAL,
+                    distance_m REAL NOT NULL DEFAULT 0,
+                    pause_count INTEGER NOT NULL DEFAULT 0,
+                    cancel_requested INTEGER NOT NULL DEFAULT 0,
+                    start_x REAL, start_y REAL, start_theta REAL,
+                    end_x REAL, end_y REAL, end_theta REAL,
+                    target_x REAL, target_y REAL, target_theta REAL,
+                    final_xy_error_m REAL,
+                    final_theta_error_rad REAL,
+                    battery_start REAL,
+                    battery_end REAL,
+                    error_count INTEGER NOT NULL DEFAULT 0,
+                    error_json TEXT NOT NULL DEFAULT '[]',
+                    raw_json TEXT NOT NULL DEFAULT '{}'
+                );
+                CREATE INDEX IF NOT EXISTS idx_experiment_runs_started
+                ON experiment_runs(started_at DESC);
+                """
+            )
+
+    def _set_experiment_mode(self, enabled: bool, label: str = "", notes: str = "") -> None:
+        now = _utc_now()
+        with self.lock:
+            if enabled:
+                if self.experiment_session and self.experiment_session.get("enabled"):
+                    self.experiment_enabled = True
+                    return
+                session = {
+                    "session_id": str(uuid4()),
+                    "label": label.strip() or f"Experiment {now[:19].replace('T', ' ')}",
+                    "notes": notes.strip(),
+                    "started_at": now,
+                    "ended_at": None,
+                    "enabled": True,
+                }
+                self.experiment_session = session
+                self.experiment_enabled = True
+                with self._db() as db:
+                    db.execute(
+                        "INSERT INTO experiment_sessions(session_id,label,notes,started_at,enabled) VALUES(?,?,?,?,1)",
+                        (session["session_id"], session["label"], session["notes"], now),
+                    )
+            else:
+                self.experiment_enabled = False
+                if self.experiment_session and self.experiment_session.get("enabled"):
+                    self.experiment_session["enabled"] = False
+                    self.experiment_session["ended_at"] = now
+                    with self._db() as db:
+                        db.execute(
+                            "UPDATE experiment_sessions SET enabled=0, ended_at=? WHERE session_id=?",
+                            (now, self.experiment_session["session_id"]),
+                        )
+        self._add_event(
+            "INFO",
+            "experiment",
+            "Experiment logging enabled" if enabled else "Experiment logging disabled",
+            code="EXPERIMENT_MODE_CHANGED",
+            details={"enabled": enabled, "label": label},
+        )
+
+    def _experiment_begin(self, mission: MutableMapping[str, Any], state: Mapping[str, Any], waypoint: Mapping[str, Any]) -> None:
+        with self.lock:
+            session = copy.deepcopy(self.experiment_session)
+            enabled = self.experiment_enabled
+        if not enabled or not session:
+            mission["experiment_logged"] = False
+            return
+        position = state.get("mobileRobotPosition") or {}
+        battery = (state.get("powerSupply") or {}).get("stateOfCharge")
+        mission.update(
+            {
+                "experiment_logged": True,
+                "experiment_session_id": session["session_id"],
+                "distance_m": 0.0,
+                "pause_count": 0,
+                "last_sample_pose": None,
+                "accepted_at": None,
+                "running_at": None,
+                "finished_at": None,
+                "battery_start": battery,
+                "target_pose": {
+                    "x": waypoint.get("x"),
+                    "y": waypoint.get("y"),
+                    "theta": waypoint.get("theta"),
+                },
+            }
+        )
+        with self._db() as db:
+            db.execute(
+                """
+                INSERT OR REPLACE INTO experiment_runs(
+                    run_id,session_id,mission_id,order_id,scenario_id,source,waypoint,label,status,started_at,
+                    start_x,start_y,start_theta,target_x,target_y,target_theta,battery_start,raw_json
+                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                """,
+                (
+                    mission["mission_id"], session["session_id"], mission["mission_id"], mission["order_id"],
+                    mission.get("scenario_id"), mission["source"], mission["waypoint"], mission["label"],
+                    mission["status"], mission["created_at"], position.get("x"), position.get("y"),
+                    position.get("theta"), waypoint.get("x"), waypoint.get("y"), waypoint.get("theta"),
+                    battery, json.dumps({"description": mission.get("description", "")}),
+                ),
+            )
+
+    @staticmethod
+    def _angular_error(a: Any, b: Any) -> Optional[float]:
+        if a is None or b is None:
+            return None
+        delta = _safe_float(a) - _safe_float(b)
+        return abs(math.atan2(math.sin(delta), math.cos(delta)))
+
+    def _experiment_update(self, mission: MutableMapping[str, Any], state: Mapping[str, Any], status: str, old_status: Optional[str]) -> None:
+        if not mission.get("experiment_logged"):
+            return
+        now = _utc_now()
+        position = state.get("mobileRobotPosition") or {}
+        x, y, theta = position.get("x"), position.get("y"), position.get("theta")
+        if x is not None and y is not None:
+            current_pose = (_safe_float(x), _safe_float(y))
+            previous = mission.get("last_sample_pose")
+            if previous:
+                step = math.hypot(current_pose[0] - previous[0], current_pose[1] - previous[1])
+                if self.experiment_sample_distance_m <= step <= 5.0:
+                    mission["distance_m"] = _safe_float(mission.get("distance_m")) + step
+            mission["last_sample_pose"] = current_pose
+        if status in {"ACCEPTED", "RUNNING", "PAUSED", "RETRIABLE"} and not mission.get("accepted_at"):
+            mission["accepted_at"] = now
+        if status == "RUNNING" and not mission.get("running_at"):
+            mission["running_at"] = now
+        if status == "PAUSED" and old_status != "PAUSED":
+            mission["pause_count"] = _safe_int(mission.get("pause_count")) + 1
+        if status in TERMINAL_MISSION_STATES and not mission.get("finished_at"):
+            mission["finished_at"] = now
+            mission["finished_epoch"] = time.time()
+        finished_epoch = mission.get("finished_epoch")
+        duration = (finished_epoch or time.time()) - mission["created_epoch"]
+        target = mission.get("target_pose") or {}
+        xy_error = None
+        if x is not None and y is not None and target.get("x") is not None and target.get("y") is not None:
+            xy_error = math.hypot(_safe_float(x) - _safe_float(target["x"]), _safe_float(y) - _safe_float(target["y"]))
+        theta_error = self._angular_error(theta, target.get("theta"))
+        errors = state.get("errors") or []
+        battery_end = (state.get("powerSupply") or {}).get("stateOfCharge")
+        with self._db() as db:
+            db.execute(
+                """
+                UPDATE experiment_runs SET status=?,accepted_at=?,running_at=?,finished_at=?,duration_s=?,distance_m=?,
+                    pause_count=?,cancel_requested=?,end_x=?,end_y=?,end_theta=?,final_xy_error_m=?,final_theta_error_rad=?,
+                    battery_end=?,error_count=?,error_json=?,raw_json=? WHERE order_id=?
+                """,
+                (
+                    status, mission.get("accepted_at"), mission.get("running_at"), mission.get("finished_at"),
+                    round(max(0.0, duration), 3), round(_safe_float(mission.get("distance_m")), 4),
+                    _safe_int(mission.get("pause_count")), 1 if mission.get("cancel_requested") else 0,
+                    x, y, theta, xy_error, theta_error, battery_end, len(errors),
+                    json.dumps(_json_safe(errors)),
+                    json.dumps(_json_safe({"last_node_id": state.get("lastNodeId"), "last_node_sequence_id": state.get("lastNodeSequenceId")})),
+                    mission["order_id"],
+                ),
+            )
+
+    def _experiment_projection(self) -> Dict[str, Any]:
+        with self._db() as db:
+            rows = [
+                dict(row)
+                for row in db.execute(
+                    "SELECT * FROM experiment_runs ORDER BY started_at DESC LIMIT 50"
+                )
+            ]
+            sessions = [
+                dict(row)
+                for row in db.execute(
+                    "SELECT * FROM experiment_sessions ORDER BY started_at DESC LIMIT 20"
+                )
+            ]
+            aggregate = dict(
+                db.execute(
+                    """
+                    SELECT
+                        COUNT(*) AS runs,
+                        SUM(CASE WHEN status='FINISHED' THEN 1 ELSE 0 END) AS finished,
+                        AVG(CASE WHEN status='FINISHED' THEN duration_s END) AS average_duration_s,
+                        COALESCE(SUM(distance_m), 0.0) AS distance_m
+                    FROM experiment_runs
+                    """
+                ).fetchone()
+            )
+        total = _safe_int(aggregate.get("runs"), 0)
+        finished = _safe_int(aggregate.get("finished"), 0)
+        average_duration = aggregate.get("average_duration_s")
+        return {
+            "enabled": self.experiment_enabled,
+            "session": copy.deepcopy(self.experiment_session),
+            "sessions": sessions,
+            "database": str(self.experiment_db_path),
+            "runs": rows[:10],
+            "statistics": {
+                "runs": total,
+                "finished": finished,
+                "success_rate": round((finished / total) * 100.0, 1) if total else None,
+                "average_duration_s": (
+                    round(_safe_float(average_duration), 2)
+                    if average_duration is not None
+                    else None
+                ),
+                "distance_m": round(_safe_float(aggregate.get("distance_m")), 2),
+            },
+        }
 
     # ------------------------------------------------------------------
     # Configuration
@@ -487,7 +929,11 @@ class DashboardController:
     def _mission_status(
         self, mission: MutableMapping[str, Any], state: Mapping[str, Any]
     ) -> str:
-        order_id = str(state.get("orderId", ""))
+        previous = str(mission.get("status", "SENT"))
+        if previous in TERMINAL_MISSION_STATES:
+            return previous
+
+        current_order_id = str(state.get("orderId", ""))
         referenced_errors = []
         for item in state.get("errors") or []:
             if not isinstance(item, Mapping):
@@ -495,29 +941,55 @@ class DashboardController:
             refs = _error_references(item)
             if refs.get("orderId") == mission["order_id"]:
                 referenced_errors.append(item)
+        rejection_errors = [
+            item
+            for item in referenced_errors
+            if str(item.get("errorType", "")) in ORDER_REJECTION_ERROR_TYPES
+        ]
+        if rejection_errors:
+            mission["rejection_errors"] = copy.deepcopy(rejection_errors)
+            first = rejection_errors[0]
+            mission["terminal_reason"] = str(
+                first.get("errorDescription")
+                or first.get("errorType")
+                or "Order rejected by the mobile robot"
+            )
+            mission["terminal_code"] = str(first.get("errorType") or "ORDER_REJECTED")
+            return "REJECTED"
 
-        if order_id != mission["order_id"]:
-            if referenced_errors:
-                return "REJECTED"
+        if current_order_id != mission["order_id"]:
+            # A later state for another order is not evidence that this mission was
+            # rejected. VDA 5050 communicates rejection through order-referenced
+            # errors. Keep the last known state and never rewrite a completed run.
             age = time.time() - mission["created_epoch"]
-            if age < self.order_accept_timeout_s:
-                return "SENT"
-            if state.get("nodeStates") or state.get("edgeStates"):
-                return "REJECTED"
-            # VDA 5050 has no separate orderStatus field. When the adapter has
-            # neither acknowledged the orderId nor reported an order-referenced
-            # error, retain SENT instead of inventing a protocol state.
-            return mission.get("status", "SENT")
+            if age >= self.order_accept_timeout_s and not mission.get("accept_timeout_reported"):
+                mission["accept_timeout_reported"] = True
+                self._add_event(
+                    "WARNING",
+                    mission["target"],
+                    f"No acknowledgement yet for {mission['label']}",
+                    code="ORDER_ACK_TIMEOUT",
+                    details={"order_id": mission["order_id"]},
+                )
+            return previous
 
+        mission["acknowledged"] = True
         node_states = state.get("nodeStates") or []
         edge_states = state.get("edgeStates") or []
         action_states = state.get("actionStates") or []
+        last_seq = _safe_int(state.get("lastNodeSequenceId"), -1)
+        final_node_seq = max((int(node["sequenceId"]) for node in mission.get("nodes") or []), default=-1)
+        if node_states or edge_states or bool(state.get("driving", False)):
+            mission["seen_execution"] = True
+
         if mission.get("cancel_requested"):
             if not node_states and not edge_states and all(
                 str(item.get("actionStatus")) in FINAL_ACTION_STATES
                 for item in action_states
                 if isinstance(item, Mapping)
             ):
+                mission["terminal_reason"] = "cancelOrder completed"
+                mission["terminal_code"] = "CANCEL_ORDER_FINISHED"
                 return "CANCELLED"
             return "CANCELLING"
         if bool(state.get("paused", False)):
@@ -528,19 +1000,45 @@ class DashboardController:
             if isinstance(item, Mapping)
         ):
             return "RETRIABLE"
-        if any(
-            str(item.get("actionStatus")) == "FAILED"
+        failed_actions = [
+            item
             for item in action_states
             if isinstance(item, Mapping)
-        ):
+            and str(item.get("actionStatus")) == "FAILED"
+        ]
+        if failed_actions:
+            first = failed_actions[0]
+            mission["terminal_reason"] = str(
+                first.get("actionResult")
+                or first.get("actionDescription")
+                or first.get("actionType")
+                or first.get("actionId")
+                or "Order action failed"
+            )
+            mission["terminal_code"] = "ACTION_FAILED"
             return "FAILED"
-        if any(
-            str(item.get("errorLevel")) in {"CRITICAL", "FATAL"}
-            for item in referenced_errors
-        ):
+        critical_errors = [
+            item
+            for item in state.get("errors") or []
+            if isinstance(item, Mapping)
+            and str(item.get("errorLevel")) in {"CRITICAL", "FATAL"}
+        ]
+        if critical_errors:
+            # The state belongs to this mission at this point. Critical/fatal
+            # execution or localization errors therefore fail the active run,
+            # but are not mislabeled as an order rejection.
+            first = critical_errors[0]
+            mission["terminal_reason"] = str(
+                first.get("errorDescription")
+                or first.get("errorType")
+                or "Critical VDA error during execution"
+            )
+            mission["terminal_code"] = str(first.get("errorType") or "CRITICAL_VDA_ERROR")
             return "FAILED"
-        if not node_states and not edge_states:
+        if last_seq >= final_node_seq >= 0:
             return "FINISHED"
+        if not node_states and not edge_states:
+            return "FINISHED" if mission.get("seen_execution") else "ACCEPTED"
         if bool(state.get("driving", False)):
             return "RUNNING"
         return "ACCEPTED"
@@ -548,48 +1046,73 @@ class DashboardController:
     def _mission_projection(
         self, mission: MutableMapping[str, Any], state: Mapping[str, Any]
     ) -> Dict[str, Any]:
+        # Flask polling and the scenario worker can project the same mission at
+        # the same time. Serialize the transition so a terminal event is emitted
+        # once and a completed mission cannot race with a later state message.
+        with self.lock:
+            return self._mission_projection_locked(mission, state)
+
+    def _mission_projection_locked(
+        self, mission: MutableMapping[str, Any], state: Mapping[str, Any]
+    ) -> Dict[str, Any]:
+        old_status = str(mission.get("status", "SENT"))
         status = self._mission_status(mission, state)
-        old_status = mission.get("status")
         mission["status"] = status
         mission["updated_at"] = _utc_now()
+        if status in TERMINAL_MISSION_STATES and not mission.get("finished_at"):
+            mission["finished_at"] = mission["updated_at"]
+            mission["finished_epoch"] = time.time()
         if old_status != status:
+            level = "ERROR" if status in {"FAILED", "REJECTED"} else "WARNING" if status == "CANCELLED" else "INFO"
+            message = (
+                f"Reached {mission['label']}"
+                if status == "FINISHED"
+                else f"Mission {mission['label']} changed from {old_status} to {status}"
+            )
             self._add_event(
-                "ERROR" if status in {"FAILED", "REJECTED"} else "INFO",
+                level,
                 mission["target"],
-                f"Mission {mission['label']} changed from {old_status} to {status}",
-                code="MISSION_STATUS",
-                details={"order_id": mission["order_id"], "status": status},
+                message,
+                code="MISSION_FINISHED" if status == "FINISHED" else "MISSION_STATUS",
+                details={
+                    "order_id": mission["order_id"],
+                    "status": status,
+                    "reason": mission.get("terminal_reason"),
+                    "code": mission.get("terminal_code"),
+                },
             )
 
         state_matches = str(state.get("orderId", "")) == mission["order_id"]
-        last_seq = _safe_int(state.get("lastNodeSequenceId"), -1) if state_matches else -1
+        if state_matches:
+            mission["last_matching_state"] = copy.deepcopy(state)
+        experiment_state = state if state_matches else mission.get("last_matching_state", {})
+        self._experiment_update(mission, experiment_state, status, old_status)
+        last_seq = _safe_int(state.get("lastNodeSequenceId"), -1) if state_matches else _safe_int(mission.get("last_node_sequence_id"), -1)
+        if state_matches:
+            mission["last_node_sequence_id"] = last_seq
         remaining_nodes = {
             _safe_int(item.get("sequenceId"), -1): item
             for item in state.get("nodeStates") or []
-            if isinstance(item, Mapping)
+            if state_matches and isinstance(item, Mapping)
         }
         remaining_edges = {
             _safe_int(item.get("sequenceId"), -1): item
             for item in state.get("edgeStates") or []
-            if isinstance(item, Mapping)
+            if state_matches and isinstance(item, Mapping)
         }
         next_node_seq = min(remaining_nodes.keys(), default=None)
         steps: List[Dict[str, Any]] = []
         for node in mission["nodes"]:
             seq = int(node["sequenceId"])
-            if state_matches and seq <= last_seq:
+            if status == "FINISHED":
+                phase = "completed"
+            elif status == "CANCELLED":
+                phase = "completed" if seq <= last_seq else "cancelled"
+            elif state_matches and seq <= last_seq:
                 phase = "completed"
             elif seq == next_node_seq and status in {"RUNNING", "PAUSED", "ACCEPTED", "RETRIABLE"}:
-                # While traversing the preceding edge, that edge is the active
-                # element and the destination node remains upcoming.
                 preceding_edge_pending = (seq - 1) in remaining_edges
-                phase = (
-                    "upcoming"
-                    if preceding_edge_pending and status in {"RUNNING", "PAUSED"}
-                    else "active"
-                )
-            elif status in {"FINISHED", "CANCELLED"}:
-                phase = "completed" if status == "FINISHED" else "cancelled"
+                phase = "upcoming" if preceding_edge_pending and status in {"RUNNING", "PAUSED"} else "active"
             else:
                 phase = "upcoming"
             steps.append(
@@ -602,15 +1125,14 @@ class DashboardController:
                 }
             )
             edge_seq = seq + 1
-            edge = next(
-                (item for item in mission["edges"] if int(item["sequenceId"]) == edge_seq),
-                None,
-            )
+            edge = next((item for item in mission["edges"] if int(item["sequenceId"]) == edge_seq), None)
             if edge:
-                if state_matches and edge_seq <= last_seq:
+                if status == "FINISHED" or (state_matches and edge_seq <= last_seq):
                     edge_phase = "completed"
                 elif edge_seq in remaining_edges and next_node_seq == edge_seq + 1:
                     edge_phase = "active" if status in {"RUNNING", "PAUSED"} else "upcoming"
+                elif status == "CANCELLED":
+                    edge_phase = "cancelled"
                 else:
                     edge_phase = "upcoming"
                 steps.append(
@@ -625,43 +1147,48 @@ class DashboardController:
 
         actions = []
         if state_matches:
-            for item in state.get("actionStates") or []:
-                if isinstance(item, Mapping):
-                    actions.append(dict(item))
+            actions = [dict(item) for item in state.get("actionStates") or [] if isinstance(item, Mapping)]
+        duration = (mission.get("finished_epoch") or time.time()) - mission["created_epoch"]
         return {
-            **{key: value for key, value in mission.items() if key not in {"nodes", "edges"}},
+            **{
+                key: value
+                for key, value in mission.items()
+                if key not in {"nodes", "edges", "last_sample_pose", "target_pose", "rejection_errors", "last_matching_state"}
+            },
             "steps": steps,
             "actions": actions,
             "last_node_sequence_id": last_seq,
+            "duration_s": round(max(0.0, duration), 1),
         }
 
     def _refresh_events(self, devices: Mapping[str, Mapping[str, Any]]) -> None:
         for target, device in devices.items():
-            signature = (
-                device.get("connection"),
-                device.get("operating_mode"),
-                device.get("driving"),
-                device.get("paused"),
-                device.get("safety", {}).get("active_emergency_stop"),
-                tuple((err.get("type"), err.get("level")) for err in device.get("errors", [])),
-            )
+            current = {
+                "connection": device.get("connection"),
+                "mode": device.get("operating_mode"),
+                "driving": bool(device.get("driving")),
+                "paused": bool(device.get("paused")),
+                "emergency": device.get("safety", {}).get("active_emergency_stop"),
+                "field": bool(device.get("safety", {}).get("field_violation")),
+                "errors": tuple((err.get("type"), err.get("level")) for err in device.get("errors", [])),
+            }
             old = self._last_signature.get(target)
-            if old is not None and old != signature:
-                self._add_event(
-                    "WARNING"
-                    if device.get("safety", {}).get("active_emergency_stop") not in {None, "NONE"}
-                    else "INFO",
-                    target,
-                    "Device state changed",
-                    code="DEVICE_STATE_CHANGED",
-                    details={
-                        "connection": device.get("connection"),
-                        "operating_mode": device.get("operating_mode"),
-                        "driving": device.get("driving"),
-                        "paused": device.get("paused"),
-                    },
-                )
-            self._last_signature[target] = signature
+            if old is not None:
+                if old.get("connection") != current["connection"]:
+                    self._add_event("INFO", target, f"Connection is {current['connection']}", code="CONNECTION_CHANGED")
+                if old.get("mode") != current["mode"]:
+                    self._add_event("INFO", target, f"Operating mode changed to {current['mode']}", code="OPERATING_MODE_CHANGED")
+                if old.get("driving") != current["driving"]:
+                    self._add_event("INFO", target, "Robot started moving" if current["driving"] else "Robot stopped moving", code="MOTION_CHANGED")
+                if old.get("paused") != current["paused"]:
+                    self._add_event("INFO", target, "Order paused" if current["paused"] else "Order resumed", code="PAUSE_CHANGED")
+                if old.get("emergency") != current["emergency"]:
+                    self._add_event("WARNING" if current["emergency"] not in {None, "NONE"} else "INFO", target, f"Emergency-stop state: {current['emergency']}", code="EMERGENCY_STATE_CHANGED")
+                if old.get("field") != current["field"]:
+                    self._add_event("WARNING" if current["field"] else "INFO", target, "Protective field is occupied" if current["field"] else "Protective field is clear", code="FIELD_VIOLATION_CHANGED")
+                if old.get("errors") != current["errors"] and current["errors"]:
+                    self._add_event("WARNING", target, f"{len(current['errors'])} VDA error(s) reported", code="ERROR_SET_CHANGED")
+            self._last_signature[target] = current
 
     # ------------------------------------------------------------------
     # VDA orders
@@ -778,6 +1305,16 @@ class DashboardController:
         self.publish_order(order, target="rox")
         with self.lock:
             self.missions.append(mission)
+        try:
+            self._experiment_begin(mission, state, waypoint)
+        except Exception as exc:
+            mission["experiment_logged"] = False
+            self._add_event(
+                "ERROR",
+                "experiment",
+                f"Could not create experiment record: {exc}",
+                code="EXPERIMENT_RECORD_ERROR",
+            )
         self._add_event(
             "INFO",
             "rox",
@@ -846,8 +1383,8 @@ class DashboardController:
             if not mission:
                 return
             state = (self._copy_target_state("rox").get("last_state") or {})
-            status = self._mission_status(mission, state)
-            mission["status"] = status
+            projected = self._mission_projection(mission, state)
+            status = projected["status"]
             if status == "FINISHED":
                 with self.lock:
                     if self.active_scenario:
@@ -897,6 +1434,9 @@ class DashboardController:
             if self.active_scenario:
                 self.active_scenario["active_order_id"] = mission["order_id"]
                 self.active_scenario["active_waypoint"] = waypoint_name
+                step_runs = self.active_scenario.setdefault("step_runs", [None for _ in steps])
+                if step_index < len(step_runs):
+                    step_runs[step_index] = mission["order_id"]
                 self.active_scenario["updated_at"] = _utc_now()
 
     # ------------------------------------------------------------------
@@ -1037,6 +1577,7 @@ class DashboardController:
                     "waypoints": list(cfg["waypoints"]),
                     "status": "RUNNING",
                     "completed_steps": 0,
+                    "step_runs": [None for _ in cfg["waypoints"]],
                     "active_order_id": None,
                     "active_waypoint": None,
                     "stop_requested": False,
@@ -1086,6 +1627,48 @@ class DashboardController:
                 self.events.clear()
             self._add_event("INFO", "server", "Event log cleared", code="EVENTS_CLEARED")
             return jsonify({"ok": True})
+
+        @app.get("/api/map/image")
+        def map_image_endpoint():
+            try:
+                map_id = self._load_waypoints().get("map_id", self.default_map_id)
+            except Exception:
+                map_id = self.default_map_id
+            map_cfg = self._load_map(map_id)
+            payload = map_cfg.get("_png")
+            if not payload:
+                abort(404, str(map_cfg.get("error") or "Map image unavailable"))
+            return Response(payload, mimetype="image/png", headers={"Cache-Control": "no-cache"})
+
+        @app.post("/api/experiment-mode")
+        def experiment_mode_endpoint():
+            payload = request.get_json(silent=True) or {}
+            enabled = bool(payload.get("enabled"))
+            self._set_experiment_mode(
+                enabled,
+                label=str(payload.get("label", "")),
+                notes=str(payload.get("notes", "")),
+            )
+            return jsonify({"ok": True, "experiment": self._experiment_projection()})
+
+        @app.get("/api/experiments")
+        def experiments_endpoint():
+            return jsonify(_json_safe(self._experiment_projection()))
+
+        @app.get("/api/experiments/export.csv")
+        def experiments_csv_endpoint():
+            with self._db() as db:
+                rows = [dict(row) for row in db.execute("SELECT * FROM experiment_runs ORDER BY started_at")]
+            output = io.StringIO()
+            if rows:
+                writer = csv.DictWriter(output, fieldnames=list(rows[0].keys()))
+                writer.writeheader()
+                writer.writerows(rows)
+            return Response(
+                output.getvalue(),
+                mimetype="text/csv",
+                headers={"Content-Disposition": "attachment; filename=vda5050_experiment_runs.csv"},
+            )
 
         @app.get("/healthz")
         def health_endpoint():
@@ -1173,26 +1756,82 @@ class DashboardController:
         with self.lock:
             events = list(reversed(self.events))
             active_scenario = copy.deepcopy(self.active_scenario)
-        if active_scenario:
+        command_chain: Dict[str, Any]
+        latest_mission = missions[-1] if missions else None
+        scenario_status = str((active_scenario or {}).get("status", ""))
+        scenario_is_active = scenario_status in {"RUNNING", "PAUSED", "CANCELLING"}
+        latest_belongs_to_scenario = bool(
+            active_scenario
+            and latest_mission
+            and latest_mission.get("source") == "scenario"
+            and latest_mission.get("scenario_id") == active_scenario.get("id")
+        )
+        show_scenario_chain = bool(
+            active_scenario
+            and (scenario_is_active or latest_belongs_to_scenario or not latest_mission)
+        )
+        if show_scenario_chain:
             count = len(active_scenario.get("waypoints") or [])
             completed = int(active_scenario.get("completed_steps", 0))
+            step_runs = active_scenario.get("step_runs") or [None for _ in range(count)]
             active_scenario["progress_percent"] = (
                 round((completed / count) * 100.0, 1) if count else 0.0
             )
-            active_scenario["steps"] = [
-                {
-                    "index": index,
-                    "waypoint": name,
-                    "phase": (
-                        "completed"
-                        if index < completed
-                        else "active"
-                        if index == completed and active_scenario.get("status") in {"RUNNING", "CANCELLING"}
-                        else "upcoming"
-                    ),
-                }
-                for index, name in enumerate(active_scenario.get("waypoints") or [])
-            ]
+            scenario_steps = []
+            for index, name in enumerate(active_scenario.get("waypoints") or []):
+                order_id = step_runs[index] if index < len(step_runs) else None
+                run = next((item for item in missions if item.get("order_id") == order_id), None)
+                if index < completed:
+                    phase, step_status = "completed", "FINISHED"
+                elif index == completed and active_scenario.get("status") in {"RUNNING", "PAUSED", "CANCELLING"}:
+                    phase, step_status = "active", (run or {}).get("status", active_scenario.get("status"))
+                elif active_scenario.get("status") == "FINISHED":
+                    phase, step_status = "completed", "FINISHED"
+                elif active_scenario.get("status") in {"FAILED", "REJECTED", "CANCELLED"} and index == completed:
+                    phase, step_status = "failed", active_scenario.get("status")
+                else:
+                    phase, step_status = "upcoming", "UPCOMING"
+                waypoint = waypoint_cfg["waypoints"].get(name, {})
+                scenario_steps.append(
+                    {
+                        "index": index,
+                        "waypoint": name,
+                        "label": waypoint.get("label", name.replace("_", " ").title()),
+                        "phase": phase,
+                        "status": step_status,
+                        "order_id": order_id,
+                        "x": waypoint.get("x"),
+                        "y": waypoint.get("y"),
+                        "theta": waypoint.get("theta"),
+                    }
+                )
+            active_scenario["steps"] = scenario_steps
+            command_chain = {
+                "kind": "scenario",
+                "title": active_scenario.get("label"),
+                "status": active_scenario.get("status"),
+                "description": active_scenario.get("description"),
+                "progress_percent": active_scenario.get("progress_percent"),
+                "steps": scenario_steps,
+            }
+        elif current or missions:
+            selected = current or missions[-1]
+            command_chain = {
+                "kind": "order",
+                "title": selected.get("label"),
+                "status": selected.get("status"),
+                "description": selected.get("description"),
+                "progress_percent": 100.0 if selected.get("status") == "FINISHED" else None,
+                "steps": selected.get("steps") or [],
+            }
+        else:
+            command_chain = {
+                "kind": "idle",
+                "title": "Waiting for a VDA order",
+                "status": "IDLE",
+                "description": "Select a mapped destination or repeatable scenario.",
+                "steps": [],
+            }
 
         rox_device = devices.get("rox", {})
         retriable_ids = list(rox_device.get("retriable_action_ids") or [])
@@ -1213,6 +1852,10 @@ class DashboardController:
             "retriable_action_ids": retriable_ids,
         }
 
+        map_projection = self._load_map(waypoint_cfg.get("map_id"))
+        map_projection.pop("_png", None)
+        experiment = self._experiment_projection()
+
         return {
             "generated_at": _utc_now(),
             "server": {
@@ -1231,7 +1874,10 @@ class DashboardController:
             "scenarios": list(scenarios.values()),
             "active_scenario": active_scenario,
             "mission": current,
+            "command_chain": command_chain,
             "missions": recent,
+            "map": map_projection,
+            "experiment": experiment,
             "controls": self._control_projection(rox_state),
             "control_availability": control_availability,
             "events": events[: self.event_limit],
@@ -1244,6 +1890,8 @@ class DashboardController:
                 "skip_retry": True,
                 "dynamic_waypoint_orders": True,
                 "scenario_queue": True,
+                "live_map": True,
+                "experiment_logging": True,
                 "crane_available": self.crane_enabled,
                 "order_updates": False,
                 "edge_actions": False,
