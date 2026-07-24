@@ -312,7 +312,11 @@ class RoxVda5050Adapter(Node):
     ) -> None:
         self._mqtt.publish(
             f"{self.topic_root}/{topic_name}",
-            json.dumps(payload, separators=(",", ":")),
+            json.dumps(
+                payload,
+                separators=(",", ":"),
+                allow_nan=False,
+            ),
             qos=qos,
             retain=retain,
         )
@@ -395,10 +399,22 @@ class RoxVda5050Adapter(Node):
         voltage = nested_value(message, ["voltage", "battery_voltage"], None)
         current = nested_value(message, ["current", "battery_current"], None)
         power: Dict[str, Any] = {"stateOfCharge": soc, "charging": charging}
-        if voltage is not None:
-            power["batteryVoltage"] = float(voltage)
-        if current is not None:
-            power["batteryCurrent"] = float(current)
+        for key, raw_value in (
+            ("batteryVoltage", voltage),
+            ("batteryCurrent", current),
+        ):
+            if raw_value is None:
+                continue
+
+            try:
+                numeric_value = float(raw_value)
+            except (TypeError, ValueError):
+                continue
+
+            # Unknown sensor values are commonly represented as NaN.
+            # Omit optional VDA fields instead of publishing invalid JSON.
+            if math.isfinite(numeric_value):
+                power[key] = numeric_value
         with self._lock:
             self._power_supply = power
 
