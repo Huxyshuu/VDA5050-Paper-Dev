@@ -70,6 +70,7 @@ class RoxVda5050Adapter(Node):
         }
         self._active_emergency_stop = "NONE"
         self._field_violation = False
+        self._triggered_cutoff_paths: List[int] = []
         self._operating_mode = "STARTUP"
         self._errors: List[Dict[str, Any]] = []
         self._information: List[Dict[str, Any]] = []
@@ -419,24 +420,33 @@ class RoxVda5050Adapter(Node):
             self._power_supply = power
 
     def _on_emergency_stop_dynamic(self, message: Any) -> None:
-        remote = bool(nested_value(message, ["remote_emergency_stop"], False))
-        local = any(
-            bool(nested_value(message, [name], False))
-            for name in (
-                "emergency_button_stop",
-                "scanner_stop",
-                "software_stop",
-            )
+        remote_stop = bool(
+            nested_value(message, ["remote_emergency_stop"], False)
         )
-        state = nested_value(message, ["emergency_state"], 0)
-        if remote:
+        emergency_button_stop = bool(
+            nested_value(message, ["emergency_button_stop"], False)
+        )
+        software_stop = bool(
+            nested_value(message, ["software_stop"], False)
+        )
+        scanner_stop = bool(
+            nested_value(message, ["scanner_stop"], False)
+        )
+
+        # VDA 5050 activeEmergencyStop represents an actual emergency stop.
+        if remote_stop:
             mapped = "REMOTE"
-        elif local or state == 1:
+        elif emergency_button_stop or software_stop:
             mapped = "MANUAL"
         else:
             mapped = "NONE"
+
         with self._lock:
             self._active_emergency_stop = mapped
+
+            # A protective scanner stop maps to VDA 5050 fieldViolation.
+            self._field_violation = scanner_stop
+
             if mapped != "NONE":
                 self._operating_mode = "INTERVENED"
             elif self._pose is not None and self._operating_mode == "INTERVENED":
@@ -444,8 +454,17 @@ class RoxVda5050Adapter(Node):
 
     def _on_safety_state_dynamic(self, message: Any) -> None:
         paths = nested_value(message, ["triggered_cutoff_paths"], []) or []
+
+        triggered_paths = [
+            index
+            for index, triggered in enumerate(paths)
+            if bool(triggered)
+        ]
+
+        # These paths are retained for diagnostics only. Their exact meanings
+        # depend on the site-specific FlexiSoft/scanner configuration.
         with self._lock:
-            self._field_violation = any(bool(item) for item in paths)
+            self._triggered_cutoff_paths = triggered_paths
 
     # ------------------------------------------------------------------
     # Order handling
