@@ -1,4 +1,4 @@
-image: df_map_candidate.pgm
+image: df_map.pgm
 mode: trinary
 resolution: 0.030
 origin: [-19.961, -27.847, 0]
