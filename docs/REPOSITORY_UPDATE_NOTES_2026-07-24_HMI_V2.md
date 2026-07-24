@@ -39,3 +39,13 @@ The following are not intended for Git:
 results/experiments/*.sqlite3
 results/experiments/*.sqlite3-*
 ```
+
+## HMI v2.1 interactive map controls
+
+- Added persistent drag-pan and wheel/pinch zoom.
+- Added map rotation with buttons, touch twist, and keyboard shortcuts.
+- Added Center robot, Robot + all, Fit all, Follow, and Reset actions.
+- The default first view centers ROX-Diff and includes every configured waypoint.
+- View transforms persist in browser local storage and are not reset by dashboard polling.
+- Clarified that repository-managed `configs/maps/df_map.yaml` and `.pgm` are used directly.
+

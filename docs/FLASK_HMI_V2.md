@@ -40,6 +40,8 @@ The browser displays:
 
 The connecting line is the logical VDA waypoint sequence, not the exact obstacle-avoiding Nav2 path. Nav2 remains responsible for the actual trajectory.
 
+The map can be dragged, zoomed, and rotated. Toolbar actions can center the robot, center the robot while keeping every waypoint visible, fit all route content, follow the robot, or reset to the full north-up map. The selected view is stored per browser and map revision, so one-second dashboard polling does not reset it. See `docs/FLASK_HMI_MAP_CONTROLS.md`.
+
 If the Pi does not yet have the map files, the UI automatically falls back to a scaled coordinate view using robot and waypoint positions.
 
 ### Styled confirmations
@@ -79,7 +81,7 @@ Exports:
 
 The distance is a sampled estimate from the reported robot pose, not wheel-integrated odometry. Dashboard statistics aggregate every stored run in the database; the on-screen recent list is intentionally limited, while CSV export contains all rows.
 
-## Install the map on the Pi
+## Map files on the Pi
 
 The dashboard expects by default:
 
@@ -88,32 +90,9 @@ configs/maps/df_map.yaml
 configs/maps/df_map.pgm
 ```
 
-### Option A: copy from the ROX directly to the Pi
+When those files are already tracked in the repository, use them directly; no `/tmp` directory or installation command is required. Verify that the YAML uses a valid relative image reference such as `image: df_map.pgm`.
 
-On the Pi:
-
-```bash
-cd ~/VDA5050-Paper-Dev
-mkdir -p /tmp/rox-map
-
-scp neobotix@192.168.50.50:/home/neobotix/maps/df_map.yaml /tmp/rox-map/
-scp neobotix@192.168.50.50:/home/neobotix/maps/df_map.pgm  /tmp/rox-map/
-
-./scripts/install_dashboard_map.sh /tmp/rox-map/df_map.yaml
-```
-
-Restart the master controller afterwards.
-
-### Option B: install in a development clone and commit the files
-
-```bash
-./scripts/install_dashboard_map.sh "$HOME/maps/df_map.yaml"
-git add configs/maps/df_map.yaml configs/maps/df_map.pgm
-git commit -m "Add df_map assets for Flask HMI"
-git push
-```
-
-Then pull on the Pi.
+Use `scripts/install_dashboard_map.sh` only to import or normalize a map stored outside the repository.
 
 ## Configuration
 
@@ -166,9 +145,10 @@ http://192.168.50.115:5000
 5. Send a second order and confirm the first history entry remains unchanged.
 6. Start the short commissioning scenario.
 7. Verify the full scenario tree advances one step at a time.
-8. Enable experiment mode and repeat one short run.
-9. Export CSV and verify the recorded row.
-10. Test pause, resume, and controlled cancellation.
+8. Drag, zoom, rotate, fit all, use Robot + all, and enable Follow; verify polling does not reset the map view.
+9. Enable experiment mode and repeat one short run.
+10. Export CSV and verify the recorded row.
+11. Test pause, resume, and controlled cancellation.
 
 ## Important safety note
 
