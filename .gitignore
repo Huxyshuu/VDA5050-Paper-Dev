@@ -8,10 +8,7 @@ __pycache__/
 # Local configuration and credentials
 # .env
 # *.env.local
-#access.txt
-#accesscode_url.txt
-#crane_edge/access.txt
-#configs/fleet_control.env.local
+# configs/fleet_control.env.local
 
 # ROS / colcon output
 build/
