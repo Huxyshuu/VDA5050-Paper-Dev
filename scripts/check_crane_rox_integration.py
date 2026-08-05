@@ -44,6 +44,11 @@ def main() -> int:
     parser.add_argument("--rox-order", type=Path, default=REPO_ROOT / "examples" / "orders" / "order_rox_diff_v3.json")
     parser.add_argument("--schema", type=Path, default=REPO_ROOT / "schemas" / "vda5050_v3" / "order.schema")
     parser.add_argument("--allow-disabled", action="store_true")
+    parser.add_argument(
+        "--allow-unconfigured",
+        action="store_true",
+        help="Check structural order consistency without requiring physical crane verification",
+    )
     args = parser.parse_args()
 
     env = load_env(args.env)
@@ -57,7 +62,7 @@ def main() -> int:
         for err in validator.iter_errors(order):
             fail(errors, f"{label} order schema: {err.message}")
 
-    if not bool(cfg.get("configured", False)):
+    if not bool(cfg.get("configured", False)) and not args.allow_unconfigured:
         fail(errors, "configs/crane_waypoints.yaml is not verified (configured: false)")
     if not args.allow_disabled and env.get("CRANE_ENABLED", "false").lower() not in {"1", "true", "yes", "on"}:
         fail(errors, "CRANE_ENABLED is not true")

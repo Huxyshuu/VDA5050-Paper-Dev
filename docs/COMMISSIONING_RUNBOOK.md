@@ -554,7 +554,7 @@ Test instant actions individually:
 curl -X POST http://127.0.0.1:5000/pause/rox
 curl -X POST http://127.0.0.1:5000/resume/rox
 curl -X POST http://127.0.0.1:5000/cancel/rox
-curl -X POST http://127.0.0.1:5000/automatic
+curl -X POST http://127.0.0.1:5000/api/rox/initialize-position
 ```
 
 Acceptance criteria:

@@ -31,7 +31,7 @@ import traceback
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import jsonschema
 import paho.mqtt.client as mqtt
@@ -40,10 +40,10 @@ from crane import Crane  # local project import – ensure PYTHONPATH is set
 
 # ───────────────────────────────────────────────────────── configuration ──
 
-BUTTON_STATUS_URL = os.getenv("BUTTON_STATUS_URL", "http://192.168.50.115:5000/status")
-# Names of buttons on the Flask UI (override via env if you ever rename them)
+BUTTON_STATUS_URL = os.getenv("BUTTON_STATUS_URL", "http://127.0.0.1:5000/status")
+# The Flask status endpoint is used only for the supervised handover release
+# buttonPress action. Crane automatic mode comes from OPC UA WatchDogFault.
 BUTTON_NAME_RELEASE = os.getenv("BUTTON_RELEASE_NAME", "release")
-BUTTON_NAME_AUTOMATIC = os.getenv("BUTTON_AUTOMATIC_NAME", "automatic")
 
 BROKER_HOST = os.getenv(
     "VDA_MQTT_HOST",
@@ -99,6 +99,7 @@ CRANE_AUTO_WAIT_TIMEOUT_S = float(
 )
 CRANE_AUTO_STABLE_S = max(0.0, float(os.getenv("CRANE_AUTO_STABLE_S", "1.0")))
 CRANE_AUTO_MODE_POLL_S = max(0.05, float(os.getenv("CRANE_AUTO_MODE_POLL_S", "0.20")))
+CRANE_MQTT_CONNECT_TIMEOUT_S = max(1.0, float(os.getenv("CRANE_MQTT_CONNECT_TIMEOUT_S", "15.0")))
 CRANE_HOME_ON_START = os.getenv("CRANE_HOME_ON_START", "false").strip().lower() in {
     "1", "true", "yes", "on"
 }
@@ -329,6 +330,8 @@ def _move_xy_to(
     bx_target: int,
     ty_target: int,
     timeout_s: float = 300.0,
+    stop_event: Optional[Any] = None,
+    abort_check: Optional[Callable[[], bool]] = None,
 ) -> bool:
     # Clear any latched motion before setting new targets
     for f in (crane.stop_bridge, crane.stop_trolley):
@@ -359,6 +362,21 @@ def _move_xy_to(
         prev_b = prev_t = None
 
     while True:
+        try:
+            abort_requested = bool(stop_event and stop_event.is_set()) or bool(
+                abort_check and abort_check()
+            )
+        except Exception as exc:
+            log.error("Homing XY abort check failed closed: %s", exc)
+            abort_requested = True
+        if abort_requested:
+            log.error("Homing XY aborted — issuing stop_all.")
+            try:
+                crane.stop_all()
+            except Exception:
+                pass
+            return False
+
         # Drive each axis until it reports done; stop that axis immediately
         if not done_b:
             if crane.move_bridge_to_target_p():
@@ -440,7 +458,12 @@ def _move_xy_to(
 
 
 def _move_hoist_to(
-    crane: Crane, log: logging.Logger, hz_target: int, timeout_s: float = 300.0
+    crane: Crane,
+    log: logging.Logger,
+    hz_target: int,
+    timeout_s: float = 300.0,
+    stop_event: Optional[Any] = None,
+    abort_check: Optional[Callable[[], bool]] = None,
 ) -> bool:
     crane.set_target_hoist(hz_target)
     log.info("Homing Z → hoist=%d mm", hz_target)
@@ -460,6 +483,21 @@ def _move_hoist_to(
     MOVE_EPS_MM = 1  # movement considered "progress"
 
     while True:
+        try:
+            abort_requested = bool(stop_event and stop_event.is_set()) or bool(
+                abort_check and abort_check()
+            )
+        except Exception as exc:
+            log.error("Homing Z abort check failed closed: %s", exc)
+            abort_requested = True
+        if abort_requested:
+            log.error("Homing Z aborted — issuing stop_all.")
+            try:
+                crane.stop_all()
+            except Exception:
+                pass
+            return False
+
         now = time.time()
 
         if crane.move_hoist_to_target(fast=True):
@@ -579,6 +617,17 @@ class _MultiEvent:
         return any(e.is_set() for e in self._events)
 
 
+def _mqtt_reason_is_failure(reason_code: Any) -> bool:
+    """Handle Paho v1 integer codes and v2 ReasonCode objects."""
+    is_failure = getattr(reason_code, "is_failure", None)
+    if isinstance(is_failure, bool):
+        return is_failure
+    try:
+        return reason_code != 0
+    except Exception:
+        return True
+
+
 def _internal_action_type(action_type: Optional[str]) -> str:
     """Map VDA 5050 v3 action names and legacy aliases to internal handlers."""
     aliases = {
@@ -657,6 +706,7 @@ class VDA5050Adapter:
             self.schemas[name] = load_schema(name, self.log)
 
         self._order_active = False
+        self._instant_motion_active = False
 
         # paho mqtt client
         try:
@@ -689,33 +739,62 @@ class VDA5050Adapter:
 
         # thread bookkeeping for nicer shutdown logs
         self._threads: List[threading.Thread] = []
+        # MQTT startup synchronization. The adapter must not claim to be
+        # running until the broker accepted the connection and ONLINE was sent.
+        self._mqtt_ready = threading.Event()
+        self._mqtt_connected = False
+        self._mqtt_connect_error: Optional[str] = None
+
 
     # ─────────────────────────────── MQTT callbacks ──────────────────────────
 
     def _on_connect(self, client, userdata, flags, rc, properties=None):  # noqa: N802
-        if int(rc) != 0:
-            self.log.error("MQTT connect failed rc=%s", rc)
+        if _mqtt_reason_is_failure(rc):
+            self._mqtt_connected = False
+            self._mqtt_connect_error = f"MQTT connection rejected: {rc}"
+            self.log.error(self._mqtt_connect_error)
+            self._mqtt_ready.set()
             return
-        self.log.info("MQTT connected to %s:%s (rc=%s)", BROKER_HOST, BROKER_PORT, rc)
-        client.subscribe(
-            [
-                (f"{TOPIC_ROOT}/order", VDA_MQTT_QOS),
-                (f"{TOPIC_ROOT}/instantActions", VDA_MQTT_QOS),
-            ]
-        )
-        self.log.info("Subscribed to %s/{order,instantActions}", TOPIC_ROOT)
-        # announce ONLINE
-        online = self._connection_msg("ONLINE")
-        if not self._validate("connection", online):
-            self.log.warning("ONLINE connection msg failed validation (continuing).")
-        client.publish(
-            f"{TOPIC_ROOT}/connection", json.dumps(online), qos=1, retain=True
-        )
-        self.log.info("Published ONLINE connection state (retained).")
         try:
-            self._publish_factsheet()
+            self.log.info("MQTT connected to %s:%s (rc=%s)", BROKER_HOST, BROKER_PORT, rc)
+            result, _mid = client.subscribe(
+                [
+                    (f"{TOPIC_ROOT}/order", VDA_MQTT_QOS),
+                    (f"{TOPIC_ROOT}/instantActions", VDA_MQTT_QOS),
+                ]
+            )
+            if result != mqtt.MQTT_ERR_SUCCESS:
+                raise RuntimeError(f"MQTT subscribe failed rc={result}")
+            self.log.info("Subscribed to %s/{order,instantActions}", TOPIC_ROOT)
+            online = self._connection_msg("ONLINE")
+            if not self._validate("connection", online):
+                raise RuntimeError("ONLINE connection message failed schema validation")
+            publish_info = client.publish(
+                f"{TOPIC_ROOT}/connection", json.dumps(online), qos=1, retain=True
+            )
+            if publish_info.rc != mqtt.MQTT_ERR_SUCCESS:
+                raise RuntimeError(f"ONLINE publish failed rc={publish_info.rc}")
+            self.log.info("Published ONLINE connection state (retained).")
+            try:
+                self._publish_factsheet()
+            except Exception as exc:
+                self.log.warning("Factsheet not published at connect: %s", exc)
+            self._mqtt_connected = True
+            self._mqtt_connect_error = None
         except Exception as exc:
-            self.log.warning("Factsheet not published at connect: %s", exc)
+            self._mqtt_connected = False
+            self._mqtt_connect_error = str(exc)
+            self.log.exception("MQTT post-connect setup failed")
+        finally:
+            self._mqtt_ready.set()
+
+    def _on_disconnect(self, client, userdata, *args):  # noqa: N802
+        # Paho v1: (rc); Paho v2: (disconnect_flags, reason_code, properties).
+        reason_code = args[1] if len(args) >= 2 else (args[0] if args else 0)
+        was_connected = self._mqtt_connected
+        self._mqtt_connected = False
+        if not self._stop.is_set() and (was_connected or _mqtt_reason_is_failure(reason_code)):
+            self.log.warning("MQTT disconnected unexpectedly (reason=%s)", reason_code)
 
     def _header_matches_identity(self, payload: Dict[str, Any]) -> bool:
         return (
@@ -724,7 +803,67 @@ class VDA5050Adapter:
             and str(payload.get("serialNumber", "")) == SERIAL_NUMBER
         )
 
+    def _refresh_automatic_mode(self) -> bool:
+        """Read the PLC signal synchronously before accepting motion."""
+        try:
+            fault = bool(self.crane.get_watchdog_fault())
+        except Exception as exc:
+            self.log.warning("Cannot read WatchDogFault before motion: %s", exc)
+            fault = True
+        self.watchdog_fault = fault
+        self.operating_mode = "MANUAL" if fault else "AUTOMATIC"
+        return not fault
+
+    def _set_order_error(self, payload: Dict[str, Any], error_type: str, reason: str) -> None:
+        order_id = str(payload.get("orderId", ""))
+        refs = []
+        if order_id:
+            refs.append({"referenceKey": "orderId", "referenceValue": order_id})
+        refs.append(
+            {
+                "referenceKey": "orderUpdateId",
+                "referenceValue": str(payload.get("orderUpdateId", 0)),
+            }
+        )
+        self.errors = [
+            item
+            for item in self.errors
+            if not (
+                item.get("errorType") == error_type
+                and any(
+                    ref.get("referenceKey") == "orderId"
+                    and ref.get("referenceValue") == order_id
+                    for ref in item.get("errorReferences") or []
+                )
+            )
+        ]
+        self.errors.append(
+            {
+                "errorType": error_type,
+                "errorLevel": "WARNING",
+                "errorDescription": reason,
+                "errorReferences": refs,
+            }
+        )
+        self._publish_state()
+
+    def _clear_order_errors(self, order_id: str) -> None:
+        self.errors = [
+            item
+            for item in self.errors
+            if not any(
+                ref.get("referenceKey") == "orderId"
+                and ref.get("referenceValue") == order_id
+                for ref in item.get("errorReferences") or []
+            )
+        ]
+
     def _validate_order_semantics(self, payload: Dict[str, Any]) -> Optional[str]:
+        if not self._refresh_automatic_mode():
+            return (
+                "Crane motion is unavailable because "
+                "DX_Custom_V.Status.WatchDogFault is true or unreadable"
+            )
         if int(payload.get("orderUpdateId", -1)) != 0:
             return "Only new orders with orderUpdateId=0 are supported by this adapter"
         nodes = payload.get("nodes") or []
@@ -770,8 +909,15 @@ class VDA5050Adapter:
             if self._validate("order", payload):
                 reason = self._validate_order_semantics(payload)
                 if reason:
+                    error_type = (
+                        "MOBILE_ROBOT_NOT_AVAILABLE"
+                        if "WatchDogFault" in reason
+                        else "VALIDATION_FAILURE"
+                    )
                     self.log.error("Order rejected: %s", reason)
+                    self._set_order_error(payload, error_type, reason)
                     return
+                self._clear_order_errors(str(payload.get("orderId", "")))
                 self._order_queue.put(payload)
                 self.log.info(
                     "Order enqueued: orderId=%s, updateId=%s, nodes=%d",
@@ -781,22 +927,51 @@ class VDA5050Adapter:
                 )
         elif topic.endswith("/instantActions"):
             if self._validate("instantActions", payload):
-                n = len(payload.get("actions", []))
+                actions = payload.get("actions", []) or []
+                n = len(actions)
+                # cancelOrder is a safety interrupt. Latch cancellation and STOP
+                # immediately even when the executor is inside a long reset/home
+                # instant action; lifecycle processing still occurs from the queue.
+                if any(
+                    _internal_action_type(str(action.get("actionType", ""))) == "cancelOrder"
+                    for action in actions
+                    if isinstance(action, dict)
+                ):
+                    self._cancel.set()
+                    try:
+                        self.crane.stop_all()
+                    except Exception:
+                        pass
+                    self.log.warning("cancelOrder received; STOP latched immediately")
                 self._ia_queue.put(payload)
                 self.log.info("InstantActions enqueued: actions=%d", n)
 
     # ─────────────────────────────── public API ───────────────────────────────
 
     def start(self):
-        # connect MQTT
+        # Keep the PLC-mode guard active while MQTT is being established.
+        self._start_thread(self._automatic_mode_guard_task, name="auto_mode_guard")
+
         self.mqtt.on_connect = self._on_connect
+        self.mqtt.on_disconnect = self._on_disconnect
         self.mqtt.on_message = self._on_message
+        self._mqtt_ready.clear()
+        self._mqtt_connect_error = None
         self.log.info("Connecting MQTT to %s:%s ...", BROKER_HOST, BROKER_PORT)
         self.mqtt.connect_async(BROKER_HOST, BROKER_PORT, keepalive=20)
         self.mqtt.loop_start()
+        if not self._mqtt_ready.wait(CRANE_MQTT_CONNECT_TIMEOUT_S):
+            self._stop.set()
+            self.mqtt.loop_stop()
+            raise RuntimeError(
+                f"MQTT did not connect within {CRANE_MQTT_CONNECT_TIMEOUT_S:.1f}s"
+            )
+        if not self._mqtt_connected:
+            self._stop.set()
+            self.mqtt.loop_stop()
+            raise RuntimeError(self._mqtt_connect_error or "MQTT connection failed")
 
-        # start background threads
-        self._start_thread(self._automatic_mode_guard_task, name="auto_mode_guard")
+        # Start publishers/executor only after subscriptions and ONLINE are ready.
         self._start_thread(self._publish_state_task, name="state_pub")
         self._start_thread(self._publish_visualization_task, name="visu_pub")
         self._start_thread(self._order_executor_task, name="executor")
@@ -805,6 +980,8 @@ class VDA5050Adapter:
         self.log.info("Stop requested. Signaling threads ...")
         self._stop.set()
         try:
+            if not self._mqtt_connected:
+                raise RuntimeError("MQTT is not connected")
             offline = self._connection_msg("OFFLINE")
             if not self._validate("connection", offline):
                 self.log.warning(
@@ -899,7 +1076,7 @@ class VDA5050Adapter:
                 except Exception:
                     pass
                 fault_stop_latched = True
-            if fault and (self._order_active or self._driving) and not self._cancel.is_set():
+            if fault and (self._order_active or self._driving or self._instant_motion_active) and not self._cancel.is_set():
                 self._cancel.set()
                 self._force_hold_pose()
                 self.log.error(
@@ -1633,6 +1810,28 @@ class VDA5050Adapter:
             self.log.info("[action alias] %s -> %s", raw_atype, atype)
         self.log.info("[action start] %s", raw_atype)
 
+        motion_actions = {
+            "lowerHoist",
+            "raiseHoist",
+            "resetHoist",
+            "resetBridgeTrolley",
+            "resetAllHome",
+            "resume",
+        }
+        if atype in motion_actions and not self._refresh_automatic_mode():
+            aid = self._action_begin(
+                action,
+                default_type=str(raw_atype or atype),
+                description="Motion blocked because crane automatic mode is unavailable",
+            )
+            self._action_finish(
+                aid,
+                ok=False,
+                result="WatchDogFault=true or unreadable; motion refused",
+            )
+            self.log.error("Refused %s because WatchDogFault is true/unreadable", atype)
+            return
+
         try:
             if atype == "lowerHoist":
                 zd_m = self._get_action_param(action, "zd", None)
@@ -2168,38 +2367,54 @@ class VDA5050Adapter:
                 return
 
             elif atype == "resetHoist":
-                if not self._cancel.is_set():
-                    self.log.info("%s: canceling current order before reset.", atype)
-                    self._cancel.set()
-                    try:
-                        self.crane.stop_all()
-                    except Exception:
-                        pass
-                    self._force_hold_pose()
-
+                if self._order_active or self._driving:
+                    aid = str(action.get("actionId"))
+                    self._action_finish(
+                        aid,
+                        ok=False,
+                        result="An order is active; cancel it and wait for idle before homing",
+                    )
+                    return
+                self._cancel.clear()
                 was_paused = self._paused
                 changed = self._temporarily_enable_motion_for_reset()
                 self._active_targets["hoist"] = HOME_HOIST_MM
                 self.log.info("resetHoist: homing hoist to %d mm ...", HOME_HOIST_MM)
-                _move_hoist_to(self.crane, self.log, HOME_HOIST_MM, timeout_s=300.0)
+                self._instant_motion_active = True
                 try:
-                    self.crane.stop_hoist()
-                except Exception:
-                    pass
-                self._restore_motion_after_reset_if_needed(changed, was_paused)
-                self.log.info("resetHoist: done.")
+                    ok = _move_hoist_to(
+                        self.crane,
+                        self.log,
+                        HOME_HOIST_MM,
+                        timeout_s=300.0,
+                        stop_event=self._stop_or_cancel,
+                        abort_check=lambda: not self._refresh_automatic_mode(),
+                    )
+                finally:
+                    self._instant_motion_active = False
+                    try:
+                        self.crane.stop_hoist()
+                    except Exception:
+                        pass
+                    self._restore_motion_after_reset_if_needed(changed, was_paused)
+                self._action_finish(
+                    str(action.get("actionId")),
+                    ok=ok,
+                    result=("Hoist home reached" if ok else "Hoist homing aborted, failed, or timed out"),
+                )
+                self.log.info("resetHoist: %s.", "done" if ok else "failed")
                 return
 
             elif atype == "resetBridgeTrolley":
-                if not self._cancel.is_set():
-                    self.log.info("%s: canceling current order before reset.", atype)
-                    self._cancel.set()
-                    try:
-                        self.crane.stop_all()
-                    except Exception:
-                        pass
-                    self._force_hold_pose()
-
+                if self._order_active or self._driving:
+                    aid = str(action.get("actionId"))
+                    self._action_finish(
+                        aid,
+                        ok=False,
+                        result="An order is active; cancel it and wait for idle before homing",
+                    )
+                    return
+                self._cancel.clear()
                 was_paused = self._paused
                 changed = self._temporarily_enable_motion_for_reset()
                 self._active_targets["bridge"] = HOME_BRIDGE_MM
@@ -2209,35 +2424,46 @@ class VDA5050Adapter:
                     HOME_BRIDGE_MM,
                     HOME_TROLLEY_MM,
                 )
-                _move_xy_to(
-                    self.crane,
-                    self.log,
-                    HOME_BRIDGE_MM,
-                    HOME_TROLLEY_MM,
-                    timeout_s=300.0,
+                self._instant_motion_active = True
+                try:
+                    ok = _move_xy_to(
+                        self.crane,
+                        self.log,
+                        HOME_BRIDGE_MM,
+                        HOME_TROLLEY_MM,
+                        timeout_s=300.0,
+                        stop_event=self._stop_or_cancel,
+                        abort_check=lambda: not self._refresh_automatic_mode(),
+                    )
+                finally:
+                    self._instant_motion_active = False
+                    try:
+                        self.crane.stop_bridge()
+                    except Exception:
+                        pass
+                    try:
+                        self.crane.stop_trolley()
+                    except Exception:
+                        pass
+                    self._restore_motion_after_reset_if_needed(changed, was_paused)
+                self._action_finish(
+                    str(action.get("actionId")),
+                    ok=ok,
+                    result=("Bridge/trolley home reached" if ok else "XY homing aborted, failed, or timed out"),
                 )
-                try:
-                    self.crane.stop_bridge()
-                except Exception:
-                    pass
-                try:
-                    self.crane.stop_trolley()
-                except Exception:
-                    pass
-                self._restore_motion_after_reset_if_needed(changed, was_paused)
-                self.log.info("resetBridgeTrolley: done.")
+                self.log.info("resetBridgeTrolley: %s.", "done" if ok else "failed")
                 return
 
             elif atype == "resetAllHome":
-                if not self._cancel.is_set():
-                    self.log.info("%s: canceling current order before reset.", atype)
-                    self._cancel.set()
-                    try:
-                        self.crane.stop_all()
-                    except Exception:
-                        pass
-                    self._force_hold_pose()
-
+                if self._order_active or self._driving:
+                    aid = str(action.get("actionId"))
+                    self._action_finish(
+                        aid,
+                        ok=False,
+                        result="An order is active; cancel it and wait for idle before homing",
+                    )
+                    return
+                self._cancel.clear()
                 was_paused = self._paused
                 changed = self._temporarily_enable_motion_for_reset()
                 self._active_targets.update(
@@ -2248,32 +2474,52 @@ class VDA5050Adapter:
                     }
                 )
                 self.log.info("resetAllHome: homing Z then XY ...")
-                _move_hoist_to(self.crane, self.log, HOME_HOIST_MM, timeout_s=300.0)
+                self._instant_motion_active = True
                 try:
-                    self.crane.stop_hoist()
-                except Exception:
-                    pass
-                _move_xy_to(
-                    self.crane,
-                    self.log,
-                    HOME_BRIDGE_MM,
-                    HOME_TROLLEY_MM,
-                    timeout_s=300.0,
+                    ok_z = _move_hoist_to(
+                        self.crane,
+                        self.log,
+                        HOME_HOIST_MM,
+                        timeout_s=300.0,
+                        stop_event=self._stop_or_cancel,
+                        abort_check=lambda: not self._refresh_automatic_mode(),
+                    )
+                    if ok_z:
+                        ok_xy = _move_xy_to(
+                            self.crane,
+                            self.log,
+                            HOME_BRIDGE_MM,
+                            HOME_TROLLEY_MM,
+                            timeout_s=300.0,
+                            stop_event=self._stop_or_cancel,
+                            abort_check=lambda: not self._refresh_automatic_mode(),
+                        )
+                    else:
+                        ok_xy = False
+                        self.log.error(
+                            "resetAllHome: skipping XY because hoist homing failed or was aborted"
+                        )
+                finally:
+                    self._instant_motion_active = False
+                    try:
+                        self.crane.stop_all()
+                    except Exception:
+                        pass
+                    self._restore_motion_after_reset_if_needed(changed, was_paused)
+                ok = ok_z and ok_xy
+                self._action_finish(
+                    str(action.get("actionId")),
+                    ok=ok,
+                    result=("All home positions reached" if ok else "Home-all aborted, failed, or timed out"),
                 )
-                try:
-                    self.crane.stop_bridge()
-                except Exception:
-                    pass
-                try:
-                    self.crane.stop_trolley()
-                except Exception:
-                    pass
-                self._restore_motion_after_reset_if_needed(changed, was_paused)
-                self.log.info("resetAllHome: done.")
+                self.log.info("resetAllHome: %s.", "done" if ok else "failed")
                 return
 
-        except Exception:
+        except Exception as exc:
             self.log.error("Exception in action %s:\n%s", atype, traceback.format_exc())
+            action_id = str(action.get("actionId") or "")
+            if action_id:
+                self._action_finish(action_id, ok=False, result=str(exc))
         finally:
             self.log.info("[action end] %s (%.2fs)", atype, time.time() - t0)
 
@@ -2511,7 +2757,7 @@ def main():
     log = configure_logging()
     log.info("Starting VDA5050 adapter for crane.")
     log.info(
-        "Config: broker=%s:%s, protocol=%s, manufacturer=%s, serial=%s, topic_root=%s, button_url=%s",
+        "Config: broker=%s:%s, protocol=%s, manufacturer=%s, serial=%s, topic_root=%s, release_button_url=%s",
         BROKER_HOST,
         BROKER_PORT,
         PROTOCOL_VERSION,
@@ -2623,10 +2869,23 @@ def main():
             "CRANE_HOME_ON_START=true: automatic mode confirmed; beginning configured "
             "startup homing (Z then XY)."
         )
-        ok_z = _move_hoist_to(crane, log, HOME_HOIST_MM, timeout_s=300.0)
+        ok_z = _move_hoist_to(
+            crane,
+            log,
+            HOME_HOIST_MM,
+            timeout_s=300.0,
+            stop_event=shutdown_evt,
+            abort_check=lambda: bool(crane.get_watchdog_fault()),
+        )
         if ok_z:
             ok_xy = _move_xy_to(
-                crane, log, HOME_BRIDGE_MM, HOME_TROLLEY_MM, timeout_s=300.0
+                crane,
+                log,
+                HOME_BRIDGE_MM,
+                HOME_TROLLEY_MM,
+                timeout_s=300.0,
+                stop_event=shutdown_evt,
+                abort_check=lambda: bool(crane.get_watchdog_fault()),
             )
         else:
             ok_xy = False
@@ -2653,7 +2912,19 @@ def main():
     # --- Start adapter threads/MQTT after successful or explicitly overridden preflight ---
     adapter = VDA5050Adapter(crane, log)
     adapter_ref["obj"] = adapter
-    adapter.start()
+    try:
+        adapter.start()
+    except Exception as exc:
+        log.error("Crane adapter startup failed: %s", exc)
+        try:
+            crane.stop_all()
+        except Exception:
+            pass
+        watchdog_stop.set()
+        try:
+            crane.disconnect()
+        finally:
+            raise SystemExit(str(exc))
 
     log.info(
         "---------------- | VDA5050 adapter running – Press Ctrl-C to stop | ---------------"

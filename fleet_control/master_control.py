@@ -309,6 +309,89 @@ def _clear_manual_release() -> None:
     )
 
 
+def _handover_release_snapshot() -> Dict[str, Any]:
+    """Return readiness for the current crane buttonPress action.
+
+    Any running crane buttonPress can be released for supervised crane-only
+    commissioning. Only the configured manual handover action arms the later
+    ROX releaseHold chain.
+    """
+    with STATE_LOCK:
+        crane_action = STATE["crane"].get("buttonpress_running_aid")
+        crane_node = STATE["crane"].get("buttonpress_node")
+        rox_action = STATE["rox"].get("holdpose_running_aid")
+        rox_node = STATE["rox"].get("holdpose_node")
+    tag = _match_rendezvous(crane_node, rox_node)
+    armed = ORCH["manual_release"].get("ts", 0.0) > 0.0
+    button_ready = bool(crane_action) and not armed
+    handover_ready = (
+        crane_action == CRANE_MANUAL_RELEASE_ACTION_ID
+        and rox_action == ROX_HOLD_ACTION_ID
+        and tag is not None
+        and not armed
+    )
+    reasons = []
+    if not crane_action:
+        reasons.append("No crane buttonPress action is RUNNING")
+    if armed:
+        reasons.append("Manual handover release is already armed; waiting for safe lift")
+    if crane_action == CRANE_MANUAL_RELEASE_ACTION_ID and not handover_ready and not armed:
+        if rox_action != ROX_HOLD_ACTION_ID:
+            reasons.append(f"ROX hold {ROX_HOLD_ACTION_ID} is not RUNNING")
+        if tag is None:
+            reasons.append("Crane and ROX are not at the configured rendezvous")
+    return {
+        "ready": button_ready,
+        "handover_ready": handover_ready,
+        "mode": "handover" if handover_ready else "generic",
+        "armed": armed,
+        "tag": tag,
+        "crane_action_id": crane_action,
+        "crane_node_id": crane_node,
+        "rox_action_id": rox_action,
+        "rox_node_id": rox_node,
+        "reasons": reasons,
+    }
+
+
+def _release_crane_handover() -> Dict[str, Any]:
+    """Release the current crane buttonPress and arm ROX only when appropriate."""
+    snapshot = _handover_release_snapshot()
+    if not snapshot["ready"]:
+        return {"ok": False, "rox_release_armed": False, "handover": snapshot}
+
+    _record_press("release")
+    action_id = _publish_instant_action("release", target="crane")
+    can_arm = bool(snapshot.get("handover_ready"))
+    if can_arm:
+        ORCH["manual_release"].update(
+            {
+                "ts": time.time(),
+                "bp_aid": snapshot["crane_action_id"],
+                "tag": snapshot["tag"],
+                "rox_hold_aid": snapshot["rox_action_id"],
+                "rox_node": snapshot["rox_node_id"],
+            }
+        )
+        _log(
+            f"[ORCH] Manual release armed at {snapshot['tag']}; waiting for crane "
+            f"action {CRANE_SAFE_LIFT_ACTION_ID} to FINISH before releasing ROX hold"
+        )
+        _evaluate_orchestration()
+    else:
+        _clear_manual_release()
+        _log(
+            f"[ORCH] Released crane buttonPress {snapshot['crane_action_id']} "
+            "without arming a ROX release."
+        )
+    return {
+        "ok": True,
+        "rox_release_armed": can_arm,
+        "actionId": action_id,
+        "handover": _handover_release_snapshot(),
+    }
+
+
 def _evaluate_orchestration():
     """Coordinate the two-stage handover from exact action-state milestones.
 
@@ -790,11 +873,9 @@ def index():
     return render_template("index.html")
 
 
-# POST: basic buttons
-@app.route("/automatic", methods=["POST"])
-def press_automatic():
-    # VDA 5050 v3 predefined action: initializePosition
-    _publish_instant_action(
+# POST: legacy ROX initializePosition route plus a descriptive API alias.
+def _initialize_rox_position() -> Dict[str, Any]:
+    action_id = _publish_instant_action(
         "initializePosition",
         target="rox",
         params=_kv_params(
@@ -804,54 +885,33 @@ def press_automatic():
                 "theta": _required_float_env("ROX_INIT_THETA"),
                 "mapId": os.getenv("ROX_INIT_MAP_ID", DEFAULT_MAP_ID),
                 "lastNodeId": os.getenv("ROX_INIT_LAST_NODE_ID", ""),
-                "lastNodeSequenceId": int(os.getenv("ROX_INIT_LAST_NODE_SEQUENCE_ID", "0")),
+                "lastNodeSequenceId": int(
+                    os.getenv("ROX_INIT_LAST_NODE_SEQUENCE_ID", "0")
+                ),
             }
         ),
     )
-    return jsonify({"ok": True})
+    return {"ok": True, "target": "rox", "actionId": action_id}
+
+
+@app.route("/automatic", methods=["POST"])
+def press_automatic():
+    """Deprecated compatibility alias; this route is ROX-only."""
+    return jsonify(_initialize_rox_position())
+
+
+@app.route("/api/rox/initialize-position", methods=["POST"])
+def initialize_rox_position_api():
+    return jsonify(_initialize_rox_position())
 
 
 @app.route("/release", methods=["POST"])
+@app.route("/api/handover/release", methods=["POST"])
 def press_release():
-    _record_press("release")
-    _publish_instant_action("release", target="crane")
-
-    with STATE_LOCK:
-        cur_bp_aid = STATE["crane"]["buttonpress_running_aid"]
-        cur_bp_node = STATE["crane"]["buttonpress_node"]
-        cur_hold_aid = STATE["rox"]["holdpose_running_aid"]
-        cur_hold_node = STATE["rox"]["holdpose_node"]
-
-    tag = _match_rendezvous(cur_bp_node, cur_hold_node)
-    can_arm = (
-        cur_bp_aid == CRANE_MANUAL_RELEASE_ACTION_ID
-        and cur_hold_aid == ROX_HOLD_ACTION_ID
-        and tag is not None
-    )
-    if can_arm:
-        ORCH["manual_release"].update(
-            {
-                "ts": time.time(),
-                "bp_aid": cur_bp_aid,
-                "tag": tag,
-                "rox_hold_aid": cur_hold_aid,
-                "rox_node": cur_hold_node,
-            }
-        )
-        _log(
-            f"[ORCH] Manual release armed at {tag}; waiting for crane action "
-            f"{CRANE_SAFE_LIFT_ACTION_ID} to FINISH before releasing ROX hold"
-        )
-        _evaluate_orchestration()
-    else:
-        _clear_manual_release()
-        _log(
-            "[ORCH] Crane release sent, but ROX release was not armed: "
-            f"expected crane action {CRANE_MANUAL_RELEASE_ACTION_ID} and "
-            f"ROX hold {ROX_HOLD_ACTION_ID}."
-        )
-
-    return jsonify({"ok": True, "rox_release_armed": bool(can_arm)})
+    result = _release_crane_handover()
+    if not result["ok"]:
+        return jsonify(result), 409
+    return jsonify(result)
 
 
 @app.route("/pause", methods=["POST"])

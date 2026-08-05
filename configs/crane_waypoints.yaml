@@ -3,7 +3,7 @@
 # Keep configured: false until each position has been read from the live crane,
 # checked physically, and tested independently without a payload.
 map_id: map
-configured: true
+configured: false
 coordinate_system: ilmatar_bridge_trolley_absolute_m
 
 waypoints:

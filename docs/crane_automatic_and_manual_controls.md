@@ -1,4 +1,6 @@
-# Crane automatic-mode and manual-control update
+# Crane automatic mode and manual controls
+
+> Reconciled runtime reference: `docs/CRANE_ROX_RECONCILIATION_2026-08-05.md`.
 
 ## What changed
 
@@ -18,6 +20,11 @@ The adapter requires `false` continuously for `CRANE_AUTO_STABLE_S` before it
 connects to MQTT and announces itself online. A background guard continues to
 read the value. If it becomes `true` during movement, the adapter sends STOP,
 cancels the current VDA order, and publishes `operatingMode: MANUAL`.
+
+MQTT startup is also fail-closed: Paho v1 integer return codes and Paho v2
+`ReasonCode` objects are handled without `int()` coercion, and the process does
+not start state/executor threads unless subscription and retained `ONLINE` setup
+complete within `CRANE_MQTT_CONNECT_TIMEOUT_S`.
 
 Startup movement is disabled by default:
 
@@ -39,6 +46,7 @@ A new **Ilmatar waypoints and hook heights** section provides:
 - Source station, ROX handover and home XY destinations;
 - Safe travel, source pickup, source clear, handover lower, handover clear and
   home-hook heights;
+- A context-aware release button for the currently running crane `buttonPress`;
 - Home all, home XY, home hook, pause, resume and cancel controls.
 
 Every movement is published as a VDA 5050 order or instant action. Flask does
@@ -48,28 +56,14 @@ For XY destination orders, the controller raises the hook to at least
 `travel_safe_m` when the current hook position is below that value. It does not
 lower an already-higher hook merely to match the minimum travel height.
 
-## Install
+## Installation state
 
-From the extracted package directory:
-
-```bash
-python3 apply_crane_controls_update.py \
-  ~/VDA5050-Paper-Dev \
-  --dry-run
-```
-
-Review the output, then apply:
-
-```bash
-python3 apply_crane_controls_update.py \
-  ~/VDA5050-Paper-Dev
-```
-
-The installer is resumable, creates backups under `.repo_update_backups/`, and
-does not replace your calibrated `configs/crane_waypoints.yaml` values. It only
-adds `travel_safe_m` when it is missing, initially copying the existing
-`source_safe_lift_m` value as a conservative starting point that still requires
-physical verification.
+This file describes the installed runtime behavior. Use the consolidated
+`apply_reconciled_crane_rox_update.py` package supplied with the reconciliation
+audit rather than either earlier `apply_repo_update.py` or
+`apply_crane_controls_update.py` installer. The consolidated installer performs
+preflight checks, backups, rollback, credential untracking and post-install
+validation as one transaction.
 
 ## Validate after installation
 

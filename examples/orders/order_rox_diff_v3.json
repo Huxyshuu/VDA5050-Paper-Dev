@@ -1,56 +1,116 @@
 {
   "headerId": 0,
-  "timestamp": "2026-07-21T12:58:06.835Z",
+  "timestamp": "2026-08-05T00:00:00.000Z",
   "version": "3.0.0",
   "manufacturer": "neobotix",
   "serialNumber": "rox_diff_1",
-  "orderId": "template-21ba3b0d-3929-4dec-9089-76c5e6bfc23b",
+  "orderId": "template-rox-crane-case-study",
   "orderUpdateId": 0,
-  "orderDescription": "ROX-Diff low-speed two-node commissioning route",
+  "orderDescription": "ROX-Diff warehouse route with crane handover",
   "nodes": [
     {
-      "nodeId": "test_node1",
+      "nodeId": "node1",
       "sequenceId": 0,
-      "nodeDescriptor": "Commissioning start",
+      "nodeDescriptor": "Home / order start",
       "released": true,
       "nodePosition": {
-        "x": 1.7607,
-        "y": -1.5857,
-        "theta": 1.679,
+        "x": 0.1729,
+        "y": 0.015,
+        "theta": -0.0073,
         "mapId": "df_map",
-        "allowedDeviationXY": {"a": 0.2, "b": 0.2, "theta": 0.0},
+        "allowedDeviationXY": {
+          "a": 0.18,
+          "b": 0.18,
+          "theta": 0.0
+        },
         "allowedDeviationTheta": 0.2
       },
       "actions": []
     },
     {
-      "nodeId": "test_node2",
+      "nodeId": "node2",
       "sequenceId": 2,
-      "nodeDescriptor": "Short low-speed test target",
+      "nodeDescriptor": "Crane handover rendezvous",
       "released": true,
       "nodePosition": {
-        "x": 3.5935,
-        "y": -1.1262,
-        "theta": 0.0811,
+        "x": 3.1939,
+        "y": -2.5503,
+        "theta": 3.1275,
         "mapId": "df_map",
-        "allowedDeviationXY": {"a": 0.2, "b": 0.2, "theta": 0.0},
-        "allowedDeviationTheta": 0.2
+        "allowedDeviationXY": {
+          "a": 0.12,
+          "b": 0.12,
+          "theta": 0.0
+        },
+        "allowedDeviationTheta": 0.15
       },
       "actions": [
         {
           "actionType": "holdPose",
-          "actionId": "rox_short_test_hold",
+          "actionId": "rox_hold_at_crane",
           "blockingType": "HARD",
           "retriable": false
         }
       ]
+    },
+    {
+      "nodeId": "node3",
+      "sequenceId": 4,
+      "nodeDescriptor": "Warehouse drop-off",
+      "released": true,
+      "nodePosition": {
+        "x": 2.2782,
+        "y": 0.8154,
+        "theta": 1.554,
+        "mapId": "df_map",
+        "allowedDeviationXY": {
+          "a": 0.18,
+          "b": 0.18,
+          "theta": 0.0
+        },
+        "allowedDeviationTheta": 0.2
+      },
+      "actions": []
+    },
+    {
+      "nodeId": "node4",
+      "sequenceId": 6,
+      "nodeDescriptor": "Return home",
+      "released": true,
+      "nodePosition": {
+        "x": 0.1729,
+        "y": 0.015,
+        "theta": -0.0073,
+        "mapId": "df_map",
+        "allowedDeviationXY": {
+          "a": 0.18,
+          "b": 0.18,
+          "theta": 0.0
+        },
+        "allowedDeviationTheta": 0.2
+      },
+      "actions": []
     }
   ],
   "edges": [
     {
-      "edgeId": "test_edge1",
+      "edgeId": "edge1",
       "sequenceId": 1,
-      "edgeDescriptor": "Short commissioning movement",
+      "edgeDescriptor": "Home to crane handover",
+      "released": true,
+      "actions": []
+    },
+    {
+      "edgeId": "edge2",
+      "sequenceId": 3,
+      "edgeDescriptor": "Crane handover to drop-off",
+      "released": true,
+      "actions": []
+    },
+    {
+      "edgeId": "edge3",
+      "sequenceId": 5,
+      "edgeDescriptor": "Drop-off to home",
       "released": true,
       "actions": []
     }

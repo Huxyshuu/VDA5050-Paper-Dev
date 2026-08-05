@@ -100,6 +100,25 @@ def _extract_hoist_m(state: Mapping[str, Any]) -> Optional[float]:
     return None
 
 
+def _extract_watchdog_fault(state: Mapping[str, Any]) -> Optional[bool]:
+    for item in state.get("information") or []:
+        if not isinstance(item, Mapping) or str(item.get("infoType")) != "WATCHDOG_FAULT":
+            continue
+        for ref in item.get("infoReferences") or []:
+            if not isinstance(ref, Mapping):
+                continue
+            if str(ref.get("referenceKey")) == "value":
+                value = str(ref.get("referenceValue", "")).strip().lower()
+                if value in {"true", "1", "yes", "on"}:
+                    return True
+                if value in {"false", "0", "no", "off"}:
+                    return False
+    mode = str(state.get("operatingMode", ""))
+    if mode:
+        return mode != "AUTOMATIC"
+    return None
+
+
 def _active_order(state: Mapping[str, Any]) -> bool:
     if state.get("nodeStates") or state.get("edgeStates"):
         return True
@@ -283,6 +302,7 @@ def _build_hoist_order(
 def _projection(ctx: MutableMapping[str, Any], cfg: Mapping[str, Any]) -> Dict[str, Any]:
     reasons, live = _readiness(ctx, cfg)
     state = live["state"]
+    handover = ctx["_handover_release_snapshot"]()
     position = state.get("mobileRobotPosition") or {}
     hoist_m = _extract_hoist_m(state)
     waypoints = [
@@ -337,7 +357,8 @@ def _projection(ctx: MutableMapping[str, Any], cfg: Mapping[str, Any]) -> Dict[s
             "trolley_m": position.get("y"),
             "hoist_m": hoist_m,
         },
-        "watchdog_fault": str(state.get("operatingMode", "")) != "AUTOMATIC",
+        "watchdog_fault": _extract_watchdog_fault(state),
+        "handover": handover,
         "waypoints": waypoints,
         "hoist_positions": heights,
         "controls": {
@@ -348,6 +369,7 @@ def _projection(ctx: MutableMapping[str, Any], cfg: Mapping[str, Any]) -> Dict[s
             "resume": bool(state) and bool(state.get("paused")),
             "cancel": bool(state) and _active_order(state),
             "factsheet": str(live["connection"].get("connectionState", "")) == "ONLINE",
+            "release_handover": bool(handover.get("ready")),
         },
     }
 
@@ -365,6 +387,7 @@ def register_crane_manual_controls(app: Any, ctx: MutableMapping[str, Any]) -> N
 
     publish_order = ctx["_publish_order"]
     publish_instant = ctx["_publish_instant_action"]
+    release_handover = ctx["_release_crane_handover"]
     kv_params = ctx["_kv_params"]
 
     @app.get("/api/crane/manual")
@@ -432,6 +455,12 @@ def register_crane_manual_controls(app: Any, ctx: MutableMapping[str, Any]) -> N
             "cancel": "cancelOrder",
             "factsheet": "factsheetRequest",
         }
+        if control_name == "release-handover":
+            result = release_handover()
+            if not result.get("ok"):
+                abort(409, "; ".join(result.get("handover", {}).get("reasons") or ["Handover release is not ready"]))
+            return jsonify(result)
+
         action_type = mapping.get(control_name)
         if action_type is None:
             abort(404, f"Unknown crane control {control_name!r}")
