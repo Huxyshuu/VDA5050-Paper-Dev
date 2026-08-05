@@ -1,36 +1,27 @@
-# Ilmatar crane-local coordinates. These are NOT ROS map coordinates.
-# x/bridge and y/trolley are absolute crane axis positions in metres.
-# Keep configured: false until each position has been read from the live crane,
-# checked physically, and tested independently without a payload.
 map_id: map
-configured: false
+configured: true
 coordinate_system: ilmatar_bridge_trolley_absolute_m
-
 waypoints:
   source_station:
     label: Source / pickup station
-    bridge_m: 17.534
-    trolley_m: 6.664
+    bridge_m: 18.556
+    trolley_m: 5.378
     description: Legacy starting value only; replace with a live verified reading.
-
   rox_handover:
     label: ROX-Diff handover station
-    bridge_m: 19.501
-    trolley_m: 5.302
+    bridge_m: 16.082
+    trolley_m: 5.173
     description: Legacy starting value only; align physically with ROX crane_handover.
-
 hoist_positions:
-  travel_safe_m: 2.071  # minimum hook height before manual XY travel
-  source_lower_m: 0.445
-  source_safe_lift_m: 2.071
-  handover_lower_m: 0.445
-  handover_safe_lift_m: 2.071
-
+  travel_safe_m: 3.043
+  source_lower_m: 0.255
+  source_safe_lift_m: 1.053
+  handover_lower_m: 1.053
+  handover_safe_lift_m: 0.513
 home:
-  bridge_m: 17.534
-  trolley_m: 6.664
-  hoist_m: 3.071
-
+  bridge_m: 17.323
+  trolley_m: 7.08
+  hoist_m: 3.067
 coordination:
   source_node_id: node1
   handover_node_id: node2

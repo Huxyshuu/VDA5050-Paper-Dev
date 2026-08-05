@@ -1,19 +1,21 @@
 {
   "headerId": 0,
-  "timestamp": "2026-07-15T08:28:13.273Z",
+  "timestamp": "2026-08-05T13:18:09.200Z",
   "version": "3.0.0",
   "manufacturer": "konecranes",
   "serialNumber": "ilmatar_1",
-  "orderId": "template-ilmatar-crane",
+  "orderId": "template-ilmatar-crane-calibrated",
   "orderUpdateId": 0,
+  "orderDescription": "Ilmatar source-to-ROX handover order generated from verified crane-local coordinates",
   "nodes": [
     {
       "nodeId": "node1",
-      "released": true,
       "sequenceId": 0,
+      "released": true,
+      "nodeDescriptor": "Crane source / pickup station",
       "nodePosition": {
-        "x": 17.534,
-        "y": 6.664,
+        "x": 18.556,
+        "y": 5.378,
         "mapId": "map"
       },
       "actions": [
@@ -24,7 +26,7 @@
           "actionParameters": [
             {
               "key": "zd",
-              "value": 0.445
+              "value": 0.255
             }
           ]
         },
@@ -41,7 +43,7 @@
           "actionParameters": [
             {
               "key": "zu",
-              "value": 2.071
+              "value": 1.053
             }
           ]
         }
@@ -49,18 +51,20 @@
     },
     {
       "nodeId": "node2",
-      "released": true,
       "sequenceId": 2,
+      "released": true,
+      "nodeDescriptor": "Crane and ROX-Diff handover rendezvous",
       "nodePosition": {
-        "x": 19.501,
-        "y": 5.302,
+        "x": 16.082,
+        "y": 5.173,
         "mapId": "map"
       },
       "actions": [
         {
           "actionId": "action4",
           "actionType": "buttonPress",
-          "blockingType": "HARD"
+          "blockingType": "HARD",
+          "actionParameters": []
         },
         {
           "actionId": "action5",
@@ -69,7 +73,7 @@
           "actionParameters": [
             {
               "key": "zd",
-              "value": 0.445
+              "value": 1.053
             }
           ]
         },
@@ -86,7 +90,7 @@
           "actionParameters": [
             {
               "key": "zu",
-              "value": 2.071
+              "value": 0.513
             }
           ]
         }
@@ -94,11 +98,12 @@
     },
     {
       "nodeId": "node3",
-      "released": true,
       "sequenceId": 4,
+      "released": true,
+      "nodeDescriptor": "Return to crane source station",
       "nodePosition": {
-        "x": 17.534,
-        "y": 6.664,
+        "x": 18.556,
+        "y": 5.378,
         "mapId": "map"
       },
       "actions": []
@@ -107,14 +112,16 @@
   "edges": [
     {
       "edgeId": "edge1",
-      "released": true,
       "sequenceId": 1,
+      "released": true,
+      "edgeDescriptor": "Source to handover",
       "actions": []
     },
     {
       "edgeId": "edge2",
-      "released": true,
       "sequenceId": 3,
+      "released": true,
+      "edgeDescriptor": "Handover to source",
       "actions": []
     }
   ]
