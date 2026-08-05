@@ -1852,9 +1852,6 @@ class DashboardController:
         def crane_waypoints_endpoint():
             return jsonify(self._load_crane_waypoints())
 
-        @app.get("/api/crane-waypoints")
-        def crane_waypoints_endpoint():
-            return jsonify(self._load_crane_waypoints())
 
         @app.post("/api/waypoints/<waypoint_name>/dispatch")
         def waypoint_dispatch_endpoint(waypoint_name: str):
