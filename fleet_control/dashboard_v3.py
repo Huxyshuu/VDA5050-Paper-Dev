@@ -189,7 +189,7 @@ class DashboardController:
             )
         )
         self.rox_enabled = _bool_env("ROX_ENABLED", True)
-        self.crane_enabled = _bool_env("CRANE_ENABLED", False)
+        self.crane_enabled = _bool_env("CRANE_ENABLED", True)
         self.require_localized = _bool_env("FLEET_UI_REQUIRE_LOCALIZED", True)
         self.require_configured = _bool_env("FLEET_UI_REQUIRE_CONFIGURED_WAYPOINTS", True)
         self.start_tolerance_m = _float_env("FLEET_UI_START_TOLERANCE_M", 0.35)
