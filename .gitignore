@@ -36,3 +36,8 @@ runtime/
 # Flask HMI experiment runtime data
 results/experiments/*.sqlite3
 results/experiments/*.sqlite3-*
+
+# Local crane credentials (never commit)
+crane_edge/access.txt
+access.txt
+accesscode_url.txt

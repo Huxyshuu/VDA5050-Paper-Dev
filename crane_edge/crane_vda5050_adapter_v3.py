@@ -40,14 +40,14 @@ from crane import Crane  # local project import – ensure PYTHONPATH is set
 
 # ───────────────────────────────────────────────────────── configuration ──
 
-BUTTON_STATUS_URL = os.getenv("BUTTON_STATUS_URL", "http://192.168.1.115:5000/status")
+BUTTON_STATUS_URL = os.getenv("BUTTON_STATUS_URL", "http://192.168.50.115:5000/status")
 # Names of buttons on the Flask UI (override via env if you ever rename them)
 BUTTON_NAME_RELEASE = os.getenv("BUTTON_RELEASE_NAME", "release")
 BUTTON_NAME_AUTOMATIC = os.getenv("BUTTON_AUTOMATIC_NAME", "automatic")
 
 BROKER_HOST = os.getenv(
     "VDA_MQTT_HOST",
-    "192.168.1.115",  # Raspberry pi ip (Jul 10 2026)
+    "192.168.50.115",  # Current Raspberry Pi MQTT address on DTLabOpen
 )
 BROKER_PORT = int(os.getenv("VDA_MQTT_PORT", "1883"))
 
@@ -71,7 +71,7 @@ TOPIC_ROOT = os.getenv(
     ),
 )
 VDA_MQTT_QOS = int(os.getenv("VDA_MQTT_QOS", "0"))
-DEFAULT_MAP_ID = os.getenv("VDA_DEFAULT_MAP_ID", "map")
+DEFAULT_MAP_ID = os.getenv("CRANE_MAP_ID", "map")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 
 # Resolve files from the repository rather than the process working directory.
@@ -95,9 +95,16 @@ WATCHDOG_INTERVAL_S = 0.049  # mirror watchdog.py behaviour # 0.1
 STATE_INTERVAL_S = 3.0  # periodic /state publish
 VISU_INTERVAL_S = 3.0  # periodic /visualization publish
 
-HOME_BRIDGE_MM = 17534  # 17.534 m
-HOME_TROLLEY_MM = 6664  # 6.664 m
-HOME_HOIST_MM = 3071  # 3.071 m
+def _metres_env_to_mm(name: str, default_m: float) -> int:
+    try:
+        return int(round(float(os.getenv(name, str(default_m))) * 1000.0))
+    except (TypeError, ValueError):
+        raise ValueError(f"{name} must be a finite numeric value in metres")
+
+
+HOME_BRIDGE_MM = _metres_env_to_mm("CRANE_HOME_BRIDGE_M", 17.534)
+HOME_TROLLEY_MM = _metres_env_to_mm("CRANE_HOME_TROLLEY_M", 6.664)
+HOME_HOIST_MM = _metres_env_to_mm("CRANE_HOME_HOIST_M", 3.071)
 
 
 # ───────────────────────────────────────────────────────── utilities ──

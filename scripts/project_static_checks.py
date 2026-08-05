@@ -37,6 +37,7 @@ def validate(schema_name: str, message_path: Path) -> None:
 def main() -> int:
     python_files = [
         ROOT / "fleet_control" / "master_control.py",
+        ROOT / "fleet_control" / "dashboard_v3.py",
         ROOT / "crane_edge" / "crane_vda5050_adapter_v3.py",
         *sorted((ROOT / "scripts").glob("*.py")),
         *sorted((ROOT / "ros2_ws/src/rox_vda5050_adapter/launch").glob("*.py")),
@@ -85,8 +86,26 @@ def main() -> int:
         check(rc == 0 and output.exists(), "generate ROX v3 test order")
         validate("order.schema", output)
 
+        crane_output = Path(tmp) / "order_ilmatar_v3.json"
+        from generate_crane_order import main as generate_crane_main
+        old_argv = sys.argv[:]
+        sys.argv = [
+            "generate_crane_order.py",
+            "--waypoints", str(ROOT / "tests/fixtures/crane_waypoints_configured.yaml"),
+            "--schema", str(SCHEMA_DIR / "order.schema"),
+            "--output", str(crane_output),
+        ]
+        try:
+            crane_rc = generate_crane_main()
+        finally:
+            sys.argv = old_argv
+        check(crane_rc == 0 and crane_output.exists(), "generate crane v3 test order")
+        validate("order.schema", crane_output)
+
     unconfigured = yaml.safe_load((ROOT / "configs/rox_waypoints.yaml.example").read_text())
-    check(unconfigured.get("configured") is False, "example waypoints remain fail-closed")
+    check(unconfigured.get("configured") is False, "ROX example waypoints remain fail-closed")
+    crane_unconfigured = yaml.safe_load((ROOT / "configs/crane_waypoints.yaml.example").read_text())
+    check(crane_unconfigured.get("configured") is False, "crane example waypoints remain fail-closed")
 
     ### VERY IMPORANT FOR PRODUCTION to not release secrets but these are fine
     secret_names = {"access.txt", "accesscode_url.txt"}

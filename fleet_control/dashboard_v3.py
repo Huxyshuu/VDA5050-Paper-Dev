@@ -165,6 +165,7 @@ class DashboardController:
         self.order_book = ctx["ORDER_BOOK"]
         self.publish_order = ctx["_publish_order"]
         self.publish_instant = ctx["_publish_instant_action"]
+        self.send_configured_orders = ctx["_send_configured_orders"]
         self.kv_params = ctx["_kv_params"]
         self.mqtt_client = ctx["mqtt_client"]
         self.protocol_version = str(ctx.get("VDA_PROTOCOL_VERSION", "3.0.0"))
@@ -175,6 +176,9 @@ class DashboardController:
 
         self.waypoint_path = self._repo_path(
             os.getenv("ROX_WAYPOINT_FILE", "configs/rox_waypoints.yaml")
+        )
+        self.crane_waypoint_path = self._repo_path(
+            os.getenv("CRANE_WAYPOINT_FILE", "configs/crane_waypoints.yaml")
         )
         self.scenario_path = self._repo_path(
             os.getenv("FLEET_UI_SCENARIO_FILE", "configs/dashboard_scenarios.yaml")
@@ -678,6 +682,164 @@ class DashboardController:
             }
         return result
 
+    def _load_crane_waypoints(self) -> Dict[str, Any]:
+        if not self.crane_waypoint_path.exists():
+            raise FileNotFoundError(
+                f"Crane waypoint file not found: {self.crane_waypoint_path}"
+            )
+        with self.crane_waypoint_path.open("r", encoding="utf-8") as handle:
+            data = yaml.safe_load(handle) or {}
+        if not isinstance(data, Mapping):
+            raise ValueError("Crane waypoint YAML root must be an object")
+        required = {"source_station", "rox_handover"}
+        waypoints = data.get("waypoints")
+        if not isinstance(waypoints, Mapping):
+            raise ValueError("Crane waypoint YAML must contain a 'waypoints' mapping")
+        missing = sorted(required - set(str(key) for key in waypoints))
+        if missing:
+            raise ValueError(f"Missing crane waypoint(s): {', '.join(missing)}")
+        return {
+            "map_id": str(data.get("map_id") or "map"),
+            "configured": bool(data.get("configured", False)),
+            "coordinate_system": str(data.get("coordinate_system") or "crane-local"),
+            "waypoints": copy.deepcopy(dict(waypoints)),
+            "hoist_positions": copy.deepcopy(dict(data.get("hoist_positions") or {})),
+            "home": copy.deepcopy(dict(data.get("home") or {})),
+        }
+
+    def _coordinated_order_reasons(self, crane_cfg: Mapping[str, Any]) -> List[str]:
+        reasons: List[str] = []
+        orders: Dict[str, Dict[str, Any]] = {}
+        for target in ("crane", "rox"):
+            try:
+                path = Path(str(self.targets[target]["order_tpl"]))
+                with path.open("r", encoding="utf-8") as handle:
+                    orders[target] = json.load(handle)
+            except Exception as exc:
+                reasons.append(f"Cannot load {target} order template: {exc}")
+        if reasons:
+            return reasons
+
+        crane = orders["crane"]
+        rox = orders["rox"]
+        crane_node = str(self.ctx.get("CRANE_HANDOVER_NODE_ID", "node2"))
+        rox_node = str(self.ctx.get("ROX_HANDOVER_NODE_ID", "node2"))
+        required_crane = {
+            str(self.ctx.get("CRANE_AUTO_RELEASE_ACTION_ID", "action4")): "buttonPress",
+            str(self.ctx.get("CRANE_MANUAL_RELEASE_ACTION_ID", "action6")): "buttonPress",
+            str(self.ctx.get("CRANE_SAFE_LIFT_ACTION_ID", "action7")): "raiseHoist",
+        }
+        crane_actions = {
+            str(action.get("actionId")): (str(node.get("nodeId")), str(action.get("actionType")))
+            for node in crane.get("nodes") or []
+            for action in node.get("actions") or []
+            if isinstance(node, Mapping) and isinstance(action, Mapping)
+        }
+        for action_id, action_type in required_crane.items():
+            if crane_actions.get(action_id) != (crane_node, action_type):
+                reasons.append(
+                    f"Crane order must contain {action_type} {action_id!r} on {crane_node!r}"
+                )
+        hold_id = str(self.ctx.get("ROX_HOLD_ACTION_ID", "rox_hold_at_crane"))
+        rox_actions = {
+            str(action.get("actionId")): (str(node.get("nodeId")), str(action.get("actionType")))
+            for node in rox.get("nodes") or []
+            for action in node.get("actions") or []
+            if isinstance(node, Mapping) and isinstance(action, Mapping)
+        }
+        if rox_actions.get(hold_id) != (rox_node, "holdPose"):
+            reasons.append(f"ROX order must contain holdPose {hold_id!r} on {rox_node!r}")
+        rox_nodes = rox.get("nodes") or []
+        if len(rox_nodes) < 4 or str(rox_nodes[-1].get("nodeId", "")) != "node4":
+            reasons.append("ROX order is still the short test order; regenerate rox_crane_case_study.yaml")
+        crane_map = str(crane_cfg.get("map_id") or "map")
+        for node in crane.get("nodes") or []:
+            if str((node.get("nodePosition") or {}).get("mapId", "")) != crane_map:
+                reasons.append(f"Crane node {node.get('nodeId')} does not use map {crane_map!r}")
+        for node in rox_nodes:
+            if str((node.get("nodePosition") or {}).get("mapId", "")) != self.default_map_id:
+                reasons.append(f"ROX node {node.get('nodeId')} does not use map {self.default_map_id!r}")
+        return reasons
+
+    def _load_crane_waypoints(self) -> Dict[str, Any]:
+        if not self.crane_waypoint_path.exists():
+            raise FileNotFoundError(
+                f"Crane waypoint file not found: {self.crane_waypoint_path}"
+            )
+        with self.crane_waypoint_path.open("r", encoding="utf-8") as handle:
+            data = yaml.safe_load(handle) or {}
+        if not isinstance(data, Mapping):
+            raise ValueError("Crane waypoint YAML root must be an object")
+        required = {"source_station", "rox_handover"}
+        waypoints = data.get("waypoints")
+        if not isinstance(waypoints, Mapping):
+            raise ValueError("Crane waypoint YAML must contain a 'waypoints' mapping")
+        missing = sorted(required - set(str(key) for key in waypoints))
+        if missing:
+            raise ValueError(f"Missing crane waypoint(s): {', '.join(missing)}")
+        return {
+            "map_id": str(data.get("map_id") or "map"),
+            "configured": bool(data.get("configured", False)),
+            "coordinate_system": str(data.get("coordinate_system") or "crane-local"),
+            "waypoints": copy.deepcopy(dict(waypoints)),
+            "hoist_positions": copy.deepcopy(dict(data.get("hoist_positions") or {})),
+            "home": copy.deepcopy(dict(data.get("home") or {})),
+        }
+
+    def _coordinated_order_reasons(self, crane_cfg: Mapping[str, Any]) -> List[str]:
+        reasons: List[str] = []
+        orders: Dict[str, Dict[str, Any]] = {}
+        for target in ("crane", "rox"):
+            try:
+                path = Path(str(self.targets[target]["order_tpl"]))
+                with path.open("r", encoding="utf-8") as handle:
+                    orders[target] = json.load(handle)
+            except Exception as exc:
+                reasons.append(f"Cannot load {target} order template: {exc}")
+        if reasons:
+            return reasons
+
+        crane = orders["crane"]
+        rox = orders["rox"]
+        crane_node = str(self.ctx.get("CRANE_HANDOVER_NODE_ID", "node2"))
+        rox_node = str(self.ctx.get("ROX_HANDOVER_NODE_ID", "node2"))
+        required_crane = {
+            str(self.ctx.get("CRANE_AUTO_RELEASE_ACTION_ID", "action4")): "buttonPress",
+            str(self.ctx.get("CRANE_MANUAL_RELEASE_ACTION_ID", "action6")): "buttonPress",
+            str(self.ctx.get("CRANE_SAFE_LIFT_ACTION_ID", "action7")): "raiseHoist",
+        }
+        crane_actions = {
+            str(action.get("actionId")): (str(node.get("nodeId")), str(action.get("actionType")))
+            for node in crane.get("nodes") or []
+            for action in node.get("actions") or []
+            if isinstance(node, Mapping) and isinstance(action, Mapping)
+        }
+        for action_id, action_type in required_crane.items():
+            if crane_actions.get(action_id) != (crane_node, action_type):
+                reasons.append(
+                    f"Crane order must contain {action_type} {action_id!r} on {crane_node!r}"
+                )
+        hold_id = str(self.ctx.get("ROX_HOLD_ACTION_ID", "rox_hold_at_crane"))
+        rox_actions = {
+            str(action.get("actionId")): (str(node.get("nodeId")), str(action.get("actionType")))
+            for node in rox.get("nodes") or []
+            for action in node.get("actions") or []
+            if isinstance(node, Mapping) and isinstance(action, Mapping)
+        }
+        if rox_actions.get(hold_id) != (rox_node, "holdPose"):
+            reasons.append(f"ROX order must contain holdPose {hold_id!r} on {rox_node!r}")
+        rox_nodes = rox.get("nodes") or []
+        if len(rox_nodes) < 4 or str(rox_nodes[-1].get("nodeId", "")) != "node4":
+            reasons.append("ROX order is still the short test order; regenerate rox_crane_case_study.yaml")
+        crane_map = str(crane_cfg.get("map_id") or "map")
+        for node in crane.get("nodes") or []:
+            if str((node.get("nodePosition") or {}).get("mapId", "")) != crane_map:
+                reasons.append(f"Crane node {node.get('nodeId')} does not use map {crane_map!r}")
+        for node in rox_nodes:
+            if str((node.get("nodePosition") or {}).get("mapId", "")) != self.default_map_id:
+                reasons.append(f"ROX node {node.get('nodeId')} does not use map {self.default_map_id!r}")
+        return reasons
+
     def _default_scenarios(self, available: Iterable[str]) -> Dict[str, Any]:
         names = set(available)
         candidates = {
@@ -717,13 +879,12 @@ class DashboardController:
                 "risk": "supervised",
             },
             "coordinated_handover": {
-                "label": "Coordinated crane handover",
-                "description": "Reserved for the future commissioned crane + ROX sequence.",
+                "label": "Coordinated crane + ROX-Diff handover",
+                "description": "Send both verified full orders and coordinate the rendezvous through exact VDA action states.",
                 "target": "coordinated",
                 "waypoints": ["crane_handover"],
-                "enabled": False,
-                "disabled_reason": "Crane is currently marked unavailable and cannot be tested.",
-                "risk": "locked",
+                "enabled": True,
+                "risk": "supervised-no-load-first",
             },
         }
         return candidates
@@ -752,9 +913,24 @@ class DashboardController:
             if missing:
                 cfg["enabled"] = False
                 cfg["disabled_reason"] = f"Missing waypoint(s): {', '.join(missing)}"
-            if cfg.get("target") == "coordinated" and not self.crane_enabled:
-                cfg["enabled"] = False
-                cfg["disabled_reason"] = "Crane is unavailable in the current configuration."
+            if cfg.get("target") == "coordinated":
+                if not self.crane_enabled:
+                    cfg["enabled"] = False
+                    cfg["disabled_reason"] = "Crane is unavailable in the current configuration."
+                else:
+                    try:
+                        crane_cfg = self._load_crane_waypoints()
+                        if not crane_cfg.get("configured", False):
+                            cfg["enabled"] = False
+                            cfg["disabled_reason"] = "Crane waypoints have not been physically verified."
+                        else:
+                            integration_reasons = self._coordinated_order_reasons(crane_cfg)
+                            if integration_reasons:
+                                cfg["enabled"] = False
+                                cfg["disabled_reason"] = "; ".join(integration_reasons)
+                    except Exception as exc:
+                        cfg["enabled"] = False
+                        cfg["disabled_reason"] = str(exc)
         return scenarios
 
     # ------------------------------------------------------------------
@@ -840,6 +1016,10 @@ class DashboardController:
         mode = str(state.get("operatingMode", ""))
         if target == "rox" and mode not in {"AUTOMATIC", "SEMIAUTOMATIC"}:
             reasons.append(f"Operating mode {mode or 'UNKNOWN'} does not permit normal dispatch")
+        if target == "crane" and mode != "AUTOMATIC":
+            reasons.append(f"Crane operating mode {mode or 'UNKNOWN'} is not AUTOMATIC")
+        if target == "crane" and mode != "AUTOMATIC":
+            reasons.append(f"Crane operating mode {mode or 'UNKNOWN'} is not AUTOMATIC")
         safety = state.get("safetyState") or {}
         if str(safety.get("activeEmergencyStop", "NONE")) != "NONE":
             reasons.append("Emergency stop is active")
@@ -1365,10 +1545,225 @@ class DashboardController:
                         self.active_scenario["status"] = "FAILED"
                         self.active_scenario["error"] = str(exc)
 
+    def _cancel_target_order(self, target: str, order_id: str) -> Optional[str]:
+        state = self._copy_target_state(target).get("last_state") or {}
+        if not order_id and not self._active_order(state):
+            return None
+        self._mark_current_cancel_requested(target)
+        params = self.kv_params({"orderId": order_id}) if order_id else None
+        return self.publish_instant("cancelOrder", target=target, params=params)
+
+    def _coordinated_target_status(
+        self, target: str, order_id: str, final_node_sequence_id: int
+    ) -> str:
+        state = self._copy_target_state(target).get("last_state") or {}
+        for error in state.get("errors") or []:
+            if not isinstance(error, Mapping):
+                continue
+            refs = _error_references(error)
+            if refs.get("orderId") != order_id:
+                continue
+            error_type = str(error.get("errorType", ""))
+            return "REJECTED" if error_type in ORDER_REJECTION_ERROR_TYPES else "FAILED"
+        if str(state.get("orderId", "")) != order_id:
+            return "SENT"
+        statuses = [
+            str(item.get("actionStatus", ""))
+            for item in state.get("actionStates") or []
+            if isinstance(item, Mapping)
+        ]
+        if "FAILED" in statuses:
+            return "FAILED"
+        if (
+            _safe_int(state.get("lastNodeSequenceId"), -1) >= final_node_sequence_id
+            and not state.get("nodeStates")
+            and not state.get("edgeStates")
+            and not any(status in ACTIVE_ACTION_STATES for status in statuses)
+            and all(status == "FINISHED" for status in statuses)
+        ):
+            return "FINISHED"
+        return "RUNNING" if self._active_order(state) else "ACCEPTED"
+
+    def _advance_coordinated_scenario(self, scenario: Mapping[str, Any]) -> None:
+        order_ids = dict(scenario.get("order_ids") or {})
+        final_sequences = dict(scenario.get("final_node_sequence_ids") or {})
+        statuses = {
+            target: self._coordinated_target_status(
+                target,
+                str(order_ids.get(target, "")),
+                _safe_int(final_sequences.get(target), 0),
+            )
+            for target in ("crane", "rox")
+        }
+        terminal = {"FINISHED", "FAILED", "REJECTED", "CANCELLED"}
+        failed = next(
+            (status for status in statuses.values() if status in {"FAILED", "REJECTED"}),
+            None,
+        )
+        cancel_sent = dict(scenario.get("peer_cancel_sent") or {})
+        if scenario.get("stop_requested"):
+            active_now = {
+                target: self._active_order(
+                    self._copy_target_state(target).get("last_state") or {}
+                )
+                for target in ("crane", "rox")
+            }
+            if not any(active_now.values()):
+                with self.lock:
+                    if self.active_scenario:
+                        self.active_scenario["target_status"] = statuses
+                        self.active_scenario["status"] = "CANCELLED"
+                        self.active_scenario["finished_at"] = _utc_now()
+                        self.active_scenario["updated_at"] = _utc_now()
+                return
+        if failed or scenario.get("stop_requested"):
+            for target in ("crane", "rox"):
+                if statuses[target] not in terminal and not cancel_sent.get(target):
+                    try:
+                        self._cancel_target_order(target, str(order_ids.get(target, "")))
+                        cancel_sent[target] = True
+                    except Exception as exc:
+                        self._add_event(
+                            "ERROR", target, f"Peer cancellation failed: {exc}",
+                            code="COORDINATED_CANCEL_FAILED",
+                        )
+            with self.lock:
+                if self.active_scenario:
+                    self.active_scenario["target_status"] = statuses
+                    self.active_scenario["peer_cancel_sent"] = cancel_sent
+                    self.active_scenario["status"] = failed or "CANCELLING"
+                    self.active_scenario["updated_at"] = _utc_now()
+            return
+        if all(status == "FINISHED" for status in statuses.values()):
+            with self.lock:
+                if self.active_scenario:
+                    self.active_scenario["target_status"] = statuses
+                    self.active_scenario["status"] = "FINISHED"
+                    self.active_scenario["finished_at"] = _utc_now()
+                    self.active_scenario["updated_at"] = _utc_now()
+            self._add_event(
+                "INFO", "scenario", f"Scenario {scenario['label']} finished",
+                code="SCENARIO_FINISHED",
+            )
+            return
+        with self.lock:
+            if self.active_scenario:
+                self.active_scenario["target_status"] = statuses
+                self.active_scenario["updated_at"] = _utc_now()
+
+    def _cancel_target_order(self, target: str, order_id: str) -> Optional[str]:
+        state = self._copy_target_state(target).get("last_state") or {}
+        if not order_id and not self._active_order(state):
+            return None
+        self._mark_current_cancel_requested(target)
+        params = self.kv_params({"orderId": order_id}) if order_id else None
+        return self.publish_instant("cancelOrder", target=target, params=params)
+
+    def _coordinated_target_status(
+        self, target: str, order_id: str, final_node_sequence_id: int
+    ) -> str:
+        state = self._copy_target_state(target).get("last_state") or {}
+        for error in state.get("errors") or []:
+            if not isinstance(error, Mapping):
+                continue
+            refs = _error_references(error)
+            if refs.get("orderId") != order_id:
+                continue
+            error_type = str(error.get("errorType", ""))
+            return "REJECTED" if error_type in ORDER_REJECTION_ERROR_TYPES else "FAILED"
+        if str(state.get("orderId", "")) != order_id:
+            return "SENT"
+        statuses = [
+            str(item.get("actionStatus", ""))
+            for item in state.get("actionStates") or []
+            if isinstance(item, Mapping)
+        ]
+        if "FAILED" in statuses:
+            return "FAILED"
+        if (
+            _safe_int(state.get("lastNodeSequenceId"), -1) >= final_node_sequence_id
+            and not state.get("nodeStates")
+            and not state.get("edgeStates")
+            and not any(status in ACTIVE_ACTION_STATES for status in statuses)
+            and all(status == "FINISHED" for status in statuses)
+        ):
+            return "FINISHED"
+        return "RUNNING" if self._active_order(state) else "ACCEPTED"
+
+    def _advance_coordinated_scenario(self, scenario: Mapping[str, Any]) -> None:
+        order_ids = dict(scenario.get("order_ids") or {})
+        final_sequences = dict(scenario.get("final_node_sequence_ids") or {})
+        statuses = {
+            target: self._coordinated_target_status(
+                target,
+                str(order_ids.get(target, "")),
+                _safe_int(final_sequences.get(target), 0),
+            )
+            for target in ("crane", "rox")
+        }
+        terminal = {"FINISHED", "FAILED", "REJECTED", "CANCELLED"}
+        failed = next(
+            (status for status in statuses.values() if status in {"FAILED", "REJECTED"}),
+            None,
+        )
+        cancel_sent = dict(scenario.get("peer_cancel_sent") or {})
+        if scenario.get("stop_requested"):
+            active_now = {
+                target: self._active_order(
+                    self._copy_target_state(target).get("last_state") or {}
+                )
+                for target in ("crane", "rox")
+            }
+            if not any(active_now.values()):
+                with self.lock:
+                    if self.active_scenario:
+                        self.active_scenario["target_status"] = statuses
+                        self.active_scenario["status"] = "CANCELLED"
+                        self.active_scenario["finished_at"] = _utc_now()
+                        self.active_scenario["updated_at"] = _utc_now()
+                return
+        if failed or scenario.get("stop_requested"):
+            for target in ("crane", "rox"):
+                if statuses[target] not in terminal and not cancel_sent.get(target):
+                    try:
+                        self._cancel_target_order(target, str(order_ids.get(target, "")))
+                        cancel_sent[target] = True
+                    except Exception as exc:
+                        self._add_event(
+                            "ERROR", target, f"Peer cancellation failed: {exc}",
+                            code="COORDINATED_CANCEL_FAILED",
+                        )
+            with self.lock:
+                if self.active_scenario:
+                    self.active_scenario["target_status"] = statuses
+                    self.active_scenario["peer_cancel_sent"] = cancel_sent
+                    self.active_scenario["status"] = failed or "CANCELLING"
+                    self.active_scenario["updated_at"] = _utc_now()
+            return
+        if all(status == "FINISHED" for status in statuses.values()):
+            with self.lock:
+                if self.active_scenario:
+                    self.active_scenario["target_status"] = statuses
+                    self.active_scenario["status"] = "FINISHED"
+                    self.active_scenario["finished_at"] = _utc_now()
+                    self.active_scenario["updated_at"] = _utc_now()
+            self._add_event(
+                "INFO", "scenario", f"Scenario {scenario['label']} finished",
+                code="SCENARIO_FINISHED",
+            )
+            return
+        with self.lock:
+            if self.active_scenario:
+                self.active_scenario["target_status"] = statuses
+                self.active_scenario["updated_at"] = _utc_now()
+
     def _advance_scenario(self) -> None:
         with self.lock:
             scenario = copy.deepcopy(self.active_scenario)
         if not scenario or scenario.get("status") not in {"RUNNING", "CANCELLING"}:
+            return
+        if scenario.get("target") == "coordinated":
+            self._advance_coordinated_scenario(scenario)
             return
         if scenario.get("stop_requested"):
             if not scenario.get("active_order_id"):
@@ -1452,6 +1847,14 @@ class DashboardController:
         def waypoints_endpoint():
             cfg = self._load_waypoints()
             return jsonify(cfg)
+
+        @app.get("/api/crane-waypoints")
+        def crane_waypoints_endpoint():
+            return jsonify(self._load_crane_waypoints())
+
+        @app.get("/api/crane-waypoints")
+        def crane_waypoints_endpoint():
+            return jsonify(self._load_crane_waypoints())
 
         @app.post("/api/waypoints/<waypoint_name>/dispatch")
         def waypoint_dispatch_endpoint(waypoint_name: str):
@@ -1556,34 +1959,80 @@ class DashboardController:
                 abort(404, f"Unknown scenario {scenario_id!r}")
             if not bool(cfg.get("enabled", False)):
                 abort(409, str(cfg.get("disabled_reason") or "Scenario is disabled"))
-            if cfg.get("target") != "rox":
-                abort(409, "Only ROX-only scenarios are enabled while the crane is unavailable")
-            target_cache = self._copy_target_state("rox")
-            reasons = self._dispatch_reasons("rox", target_cache, waypoint_cfg)
-            if reasons:
-                abort(409, "; ".join(reasons))
+            target_type = str(cfg.get("target", "rox"))
             with self.lock:
                 if self.active_scenario and self.active_scenario.get("status") in {
-                    "RUNNING",
-                    "PAUSED",
-                    "CANCELLING",
+                    "RUNNING", "PAUSED", "CANCELLING",
                 }:
                     abort(409, "Another scenario is already active")
-                self.active_scenario = {
-                    "id": scenario_id,
-                    "run_id": str(uuid4()),
-                    "label": cfg["label"],
-                    "description": cfg["description"],
-                    "waypoints": list(cfg["waypoints"]),
-                    "status": "RUNNING",
-                    "completed_steps": 0,
-                    "step_runs": [None for _ in cfg["waypoints"]],
-                    "active_order_id": None,
-                    "active_waypoint": None,
-                    "stop_requested": False,
-                    "started_at": _utc_now(),
-                    "updated_at": _utc_now(),
-                }
+
+            if target_type == "coordinated":
+                crane_cfg = self._load_crane_waypoints()
+                if not crane_cfg.get("configured", False):
+                    abort(409, "Crane waypoints have not been physically verified")
+                integration_reasons = self._coordinated_order_reasons(crane_cfg)
+                if integration_reasons:
+                    abort(409, "; ".join(integration_reasons))
+                reasons = []
+                for target in ("crane", "rox"):
+                    cfg_for_target = waypoint_cfg if target == "rox" else None
+                    reasons.extend(
+                        f"{target}: {reason}"
+                        for reason in self._dispatch_reasons(
+                            target, self._copy_target_state(target), cfg_for_target
+                        )
+                    )
+                if reasons:
+                    abort(409, "; ".join(reasons))
+                result = self.send_configured_orders(["crane", "rox"])
+                if not result.get("ok", False):
+                    abort(409, f"Coordinated order preflight/send failed: {result.get('errors', {})}")
+                details = dict(result.get("order_details") or {})
+                with self.lock:
+                    self.active_scenario = {
+                        "id": scenario_id,
+                        "run_id": str(uuid4()),
+                        "label": cfg["label"],
+                        "description": cfg["description"],
+                        "target": "coordinated",
+                        "waypoints": list(cfg["waypoints"]),
+                        "status": "RUNNING",
+                        "order_ids": dict(result.get("orders") or {}),
+                        "final_node_sequence_ids": {
+                            target: _safe_int((details.get(target) or {}).get("final_node_sequence_id"), 0)
+                            for target in ("crane", "rox")
+                        },
+                        "target_status": {"crane": "SENT", "rox": "SENT"},
+                        "peer_cancel_sent": {},
+                        "stop_requested": False,
+                        "started_at": _utc_now(),
+                        "updated_at": _utc_now(),
+                    }
+            elif target_type == "rox":
+                reasons = self._dispatch_reasons(
+                    "rox", self._copy_target_state("rox"), waypoint_cfg
+                )
+                if reasons:
+                    abort(409, "; ".join(reasons))
+                with self.lock:
+                    self.active_scenario = {
+                        "id": scenario_id,
+                        "run_id": str(uuid4()),
+                        "label": cfg["label"],
+                        "description": cfg["description"],
+                        "target": "rox",
+                        "waypoints": list(cfg["waypoints"]),
+                        "status": "RUNNING",
+                        "completed_steps": 0,
+                        "step_runs": [None for _ in cfg["waypoints"]],
+                        "active_order_id": None,
+                        "active_waypoint": None,
+                        "stop_requested": False,
+                        "started_at": _utc_now(),
+                        "updated_at": _utc_now(),
+                    }
+            else:
+                abort(409, f"Unsupported scenario target {target_type!r}")
             self._add_event(
                 "INFO",
                 "scenario",
@@ -1603,13 +2052,18 @@ class DashboardController:
                     abort(409, "No active scenario")
                 self.active_scenario["stop_requested"] = True
                 self.active_scenario["status"] = "CANCELLING"
-            state = self._copy_target_state("rox").get("last_state") or {}
-            if self._active_order(state):
-                self._mark_current_cancel_requested("rox")
-                order_id = str(state.get("orderId", ""))
-                params = self.kv_params({"orderId": order_id}) if order_id else None
-                self.publish_instant("cancelOrder", target="rox", params=params)
-            else:
+            with self.lock:
+                current = copy.deepcopy(self.active_scenario) or {}
+            targets = ("crane", "rox") if current.get("target") == "coordinated" else ("rox",)
+            sent = False
+            order_ids = dict(current.get("order_ids") or {})
+            for target in targets:
+                state = self._copy_target_state(target).get("last_state") or {}
+                order_id = str(order_ids.get(target) or state.get("orderId", ""))
+                if self._active_order(state) or order_id:
+                    self._cancel_target_order(target, order_id)
+                    sent = True
+            if not sent:
                 with self.lock:
                     if self.active_scenario:
                         self.active_scenario["status"] = "CANCELLED"

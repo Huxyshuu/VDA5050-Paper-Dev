@@ -1,5 +1,4 @@
-# Dashboard mission sequences. Each ROX step is sent as a separate VDA 5050
-# v3.0 new order only after the previous order has finished.
+# Dashboard mission sequences.
 scenarios:
   short_commissioning:
     label: Short commissioning loop
@@ -26,10 +25,9 @@ scenarios:
     risk: supervised
 
   coordinated_handover:
-    label: Coordinated crane handover
-    description: Reserved for the commissioned ROX + crane sequence.
+    label: Coordinated crane + ROX-Diff handover
+    description: Sends the verified full crane and ROX orders together and uses exact VDA action states for rendezvous release.
     target: coordinated
     waypoints: [crane_handover]
-    enabled: false
-    disabled_reason: Crane is currently unavailable and has not been commissioned for this test phase.
-    risk: locked
+    enabled: true
+    risk: supervised-no-load-first

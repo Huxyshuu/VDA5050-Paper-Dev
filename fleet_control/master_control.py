@@ -898,14 +898,66 @@ def press_reset_xy():
 
 
 def _send_configured_orders(targets: List[str]) -> Dict[str, Any]:
-    result: Dict[str, Any] = {"ok": True, "orders": {}}
+    """Preflight every requested order before publishing any of them.
+
+    This prevents a local template/schema/configuration error in one participant
+    from starting the other participant alone. MQTT/network failures after the
+    preflight remain subject to the normal fail-safe cancellation procedure.
+    """
+    result: Dict[str, Any] = {"ok": True, "orders": {}, "order_details": {}}
+    prepared: Dict[str, Dict[str, Any]] = {}
+
+    for target in targets:
+        if target not in TARGETS:
+            result.setdefault("errors", {})[target] = "Unknown target"
+            result["ok"] = False
+            continue
+        enabled_var = "CRANE_ENABLED" if target == "crane" else "ROX_ENABLED"
+        if not _as_bool(os.getenv(enabled_var, "false" if target == "crane" else "true")):
+            result.setdefault("errors", {})[target] = f"{enabled_var} is not true"
+            result["ok"] = False
+            continue
+        try:
+            template = _load_order_template(TARGETS[target]["order_tpl"])
+            order = _prepare_order_from_template(template, target=target)
+            cfg = TARGETS[target]
+            preview = OrderedDict(
+                headerId=0,
+                timestamp=_utc_ts(),
+                version=cfg["version"],
+                manufacturer=cfg["manufacturer"],
+                serialNumber=cfg["serial"],
+                orderId=order["orderId"],
+                orderUpdateId=order.get("orderUpdateId", 0),
+                nodes=order.get("nodes", []),
+                edges=order.get("edges", []),
+            )
+            for key, value in order.items():
+                if key not in preview and key not in ("headerId", "timestamp"):
+                    preview[key] = value
+            _validate_local(ORDER_SCHEMA, preview, f"{target} order preflight")
+            prepared[target] = order
+            nodes = order.get("nodes", [])
+            result["order_details"][target] = {
+                "order_id": order["orderId"],
+                "final_node_id": str(nodes[-1].get("nodeId", "")) if nodes else "",
+                "final_node_sequence_id": int(nodes[-1].get("sequenceId", 0)) if nodes else 0,
+            }
+        except Exception as exc:
+            _log(f"[{target}] ERROR during order preflight: {exc}")
+            result.setdefault("errors", {})[target] = str(exc)
+            result["ok"] = False
+
+    if not result["ok"]:
+        return result
+
     ORCH["crane_release_sent_for_action"].clear()
     ORCH["rox_releasehold_sent_for_action"].clear()
     ORCH["manual_release"].update(
         {
             "ts": 0.0,
             "bp_aid": None,
-            "ttl_s": 60.0,
+            "ttl_s": MANUAL_RELEASE_TTL_S,
             "tag": None,
             "rox_hold_aid": None,
             "rox_node": None,
@@ -913,12 +965,11 @@ def _send_configured_orders(targets: List[str]) -> Dict[str, Any]:
     )
     for target in targets:
         try:
-            template = _load_order_template(TARGETS[target]["order_tpl"])
-            order = _prepare_order_from_template(template, target=target)
+            order = prepared[target]
             _publish_order(order, target=target)
             result["orders"][target] = order["orderId"]
         except Exception as exc:
-            _log(f"[{target}] ERROR preparing/sending order: {exc}")
+            _log(f"[{target}] ERROR sending preflighted order: {exc}")
             result.setdefault("errors", {})[target] = str(exc)
             result["ok"] = False
     return result
@@ -953,7 +1004,7 @@ def press_cancel():
         {
             "ts": 0.0,
             "bp_aid": None,
-            "ttl_s": 60.0,
+            "ttl_s": MANUAL_RELEASE_TTL_S,
             "tag": None,
             "rox_hold_aid": None,
             "rox_node": None,
