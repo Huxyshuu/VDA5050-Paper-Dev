@@ -94,6 +94,14 @@ ALLOW_UNHOMED_START = os.getenv("ALLOW_UNHOMED_START", "false").strip().lower() 
 WATCHDOG_INTERVAL_S = 0.049  # mirror watchdog.py behaviour # 0.1
 STATE_INTERVAL_S = 3.0  # periodic /state publish
 VISU_INTERVAL_S = 3.0  # periodic /visualization publish
+CRANE_AUTO_WAIT_TIMEOUT_S = float(
+    os.getenv("CRANE_AUTO_WAIT_TIMEOUT_S", os.getenv("AUTO_WAIT_TIMEOUT_S", "60"))
+)
+CRANE_AUTO_STABLE_S = max(0.0, float(os.getenv("CRANE_AUTO_STABLE_S", "1.0")))
+CRANE_AUTO_MODE_POLL_S = max(0.05, float(os.getenv("CRANE_AUTO_MODE_POLL_S", "0.20")))
+CRANE_HOME_ON_START = os.getenv("CRANE_HOME_ON_START", "false").strip().lower() in {
+    "1", "true", "yes", "on"
+}
 
 def _metres_env_to_mm(name: str, default_m: float) -> int:
     try:
@@ -225,6 +233,75 @@ def wait_for_panel_button(
         time.sleep(0.2)
 
     log.info("Panel wait for '%s' aborted by stop signal.", btn)
+    return False
+
+
+def wait_for_crane_automatic_mode(
+    crane: Crane,
+    log: logging.Logger,
+    stop_event: Optional[threading.Event] = None,
+    timeout: Optional[float] = None,
+    stable_s: float = 1.0,
+) -> bool:
+    """Wait until WatchDogFault is continuously false for ``stable_s``.
+
+    DX_Custom_V.Status.WatchDogFault is the authoritative PLC signal for this
+    installation: False means automatic/remote mode is active; True means it is
+    not. Read failures fail closed and reset the stability timer.
+    """
+    log.info(
+        "Waiting for OPC UA automatic mode: "
+        "DX_Custom_V.Status.WatchDogFault must remain false for %.2fs "
+        "(timeout=%s) ...",
+        stable_s,
+        timeout,
+    )
+    started = time.monotonic()
+    automatic_since: Optional[float] = None
+    last_fault: Optional[bool] = None
+    last_heartbeat = 0.0
+    while not (stop_event and stop_event.is_set()):
+        now = time.monotonic()
+        try:
+            fault = bool(crane.get_watchdog_fault())
+            if fault != last_fault:
+                log.info(
+                    "OPC UA WatchDogFault=%s -> operating mode %s",
+                    fault,
+                    "NOT AUTOMATIC" if fault else "AUTOMATIC candidate",
+                )
+                last_fault = fault
+            if not fault:
+                automatic_since = automatic_since or now
+                if now - automatic_since >= stable_s:
+                    log.info(
+                        "Automatic mode confirmed from OPC UA "
+                        "(WatchDogFault=false for %.2fs).",
+                        now - automatic_since,
+                    )
+                    return True
+            else:
+                automatic_since = None
+        except Exception as exc:
+            automatic_since = None
+            if now - last_heartbeat >= 2.0:
+                log.warning("Cannot read WatchDogFault yet: %s", exc)
+                last_heartbeat = now
+        if timeout is not None and now - started >= timeout:
+            log.error(
+                "Automatic-mode wait timed out after %.1fs; "
+                "WatchDogFault never remained false long enough.",
+                now - started,
+            )
+            return False
+        if now - last_heartbeat >= 2.0:
+            log.info(
+                "...still waiting for WatchDogFault=false (%.1fs elapsed)",
+                now - started,
+            )
+            last_heartbeat = now
+        time.sleep(CRANE_AUTO_MODE_POLL_S)
+    log.info("Automatic-mode wait aborted by stop signal.")
     return False
 
 
@@ -539,7 +616,11 @@ class VDA5050Adapter:
         self.action_states: List[
             Dict[str, Any]
         ] = []  # lifecycle of current/unfinished actions
-        self.operating_mode: str = "AUTOMATIC"  # map your UI/OPC modes as needed
+        try:
+            self.watchdog_fault: bool = bool(self.crane.get_watchdog_fault())
+        except Exception:
+            self.watchdog_fault = True
+        self.operating_mode: str = "MANUAL" if self.watchdog_fault else "AUTOMATIC"
         self.errors: List[Dict[str, Any]] = []  # keep active errors here
         # VDA 5050 v3 renamed batteryState -> powerSupply and eStop -> activeEmergencyStop.
         self.power_supply: Dict[str, Any] = {"stateOfCharge": 100.0, "charging": False}
@@ -715,6 +796,7 @@ class VDA5050Adapter:
         self.mqtt.loop_start()
 
         # start background threads
+        self._start_thread(self._automatic_mode_guard_task, name="auto_mode_guard")
         self._start_thread(self._publish_state_task, name="state_pub")
         self._start_thread(self._publish_visualization_task, name="visu_pub")
         self._start_thread(self._order_executor_task, name="executor")
@@ -774,6 +856,57 @@ class VDA5050Adapter:
         while not self._stop.is_set():
             self._publish_state()
             time.sleep(STATE_INTERVAL_S)
+
+    def _automatic_mode_guard_task(self):
+        """Continuously enforce the PLC automatic-mode signal.
+
+        Losing automatic mode immediately stops all axes and cancels any active
+        VDA order. Dispatch remains blocked until WatchDogFault becomes false
+        again and the next state publication reports AUTOMATIC.
+        """
+        self.log.info(
+            "Automatic-mode guard running at %.2fs using "
+            "DX_Custom_V.Status.WatchDogFault",
+            CRANE_AUTO_MODE_POLL_S,
+        )
+        last_fault: Optional[bool] = None
+        fault_stop_latched = False
+        while not self._stop.is_set():
+            try:
+                fault = bool(self.crane.get_watchdog_fault())
+            except Exception as exc:
+                fault = True
+                self.log.debug("Automatic-mode guard read failed: %s", exc)
+            self.watchdog_fault = fault
+            self.operating_mode = "MANUAL" if fault else "AUTOMATIC"
+            changed = fault != last_fault
+            if changed:
+                self.log.warning(
+                    "WatchDogFault changed to %s; VDA operatingMode=%s",
+                    fault,
+                    self.operating_mode,
+                ) if fault else self.log.info(
+                    "WatchDogFault cleared; VDA operatingMode=AUTOMATIC"
+                )
+                last_fault = fault
+            if not fault:
+                fault_stop_latched = False
+            elif not fault_stop_latched:
+                # One fail-closed STOP per fault episode avoids repeatedly
+                # writing the same OPC UA command while the crane is idle.
+                try:
+                    self.crane.stop_all()
+                except Exception:
+                    pass
+                fault_stop_latched = True
+            if fault and (self._order_active or self._driving) and not self._cancel.is_set():
+                self._cancel.set()
+                self._force_hold_pose()
+                self.log.error(
+                    "Automatic mode was lost during motion/order execution; "
+                    "motion stopped and the current order was canceled."
+                )
+            time.sleep(CRANE_AUTO_MODE_POLL_S)
 
     def _publish_visualization_task(self):
         self.log.info("Visualization publisher running at %.2fs", VISU_INTERVAL_S)
@@ -2212,6 +2345,36 @@ class VDA5050Adapter:
                 pass
             # ---------------------------------------------------------------------------
 
+            watchdog_item = {
+                "infoType": "WATCHDOG_FAULT",
+                "infoLevel": "WARNING" if self.watchdog_fault else "INFO",
+                "infoDescriptor": (
+                    "WatchDogFault=true; crane is not in automatic mode"
+                    if self.watchdog_fault
+                    else "WatchDogFault=false; crane automatic mode active"
+                ),
+                "infoDescription": (
+                    "WatchDogFault=true; crane is not in automatic mode"
+                    if self.watchdog_fault
+                    else "WatchDogFault=false; crane automatic mode active"
+                ),
+                "infoReferences": [
+                    {
+                        "referenceKey": "opcUaNode",
+                        "referenceValue": "DX_Custom_V.Status.WatchDogFault",
+                    },
+                    {
+                        "referenceKey": "value",
+                        "referenceValue": str(self.watchdog_fault).lower(),
+                    },
+                ],
+            }
+            self.information_messages = [
+                item
+                for item in self.information_messages
+                if item.get("infoType") != "WATCHDOG_FAULT"
+            ]
+            self.information_messages.append(watchdog_item)
             state_header_id = self.header.next("state")
             self._last_state_header_id = state_header_id
 
@@ -2430,33 +2593,36 @@ def main():
     except Exception as e:
         log.warning("Preflight STOP failed (continuing): %s", e)
 
-    # wait for panel key AUTOMATIC (skips after timeout)
-    AUTO_WAIT_S = float(os.getenv("AUTO_WAIT_TIMEOUT_S", "40"))
-    ok_auto = wait_for_panel_button(
-        BUTTON_NAME_AUTOMATIC,
+    # Wait for the real PLC automatic-mode indication. No Flask button is
+    # required: WatchDogFault=false is the authoritative readiness signal.
+    ok_auto = wait_for_crane_automatic_mode(
+        crane,
         log,
-        stop_event=shutdown_evt,  # allow Ctrl-C to break the wait
-        timeout=AUTO_WAIT_S,
+        stop_event=shutdown_evt,
+        timeout=CRANE_AUTO_WAIT_TIMEOUT_S,
+        stable_s=CRANE_AUTO_STABLE_S,
     )
-
     if not ok_auto:
-        log.error("AUTOMATIC was not confirmed within %.1fs.", AUTO_WAIT_S)
         if not ALLOW_UNHOMED_START:
-            crane.stop_all()
-            watchdog_stop.set()
-            crane.disconnect()
+            try:
+                crane.stop_all()
+            finally:
+                watchdog_stop.set()
+                crane.disconnect()
             raise SystemExit(
-                "Refusing to accept crane orders without AUTOMATIC/homing. "
-                "Set ALLOW_UNHOMED_START=true only for a supervised telemetry-only test."
+                "Refusing to accept crane orders because "
+                "DX_Custom_V.Status.WatchDogFault did not become false. "
+                "Check access code, watchdog loop, PLC mode, and OPC UA status."
             )
         log.warning(
             "ALLOW_UNHOMED_START=true: adapter will start for supervised telemetry; "
-            "do not publish motion orders."
+            "manual motion remains blocked while operatingMode is not AUTOMATIC."
         )
-    else:
-        log.info("Key confirmed in AUTOMATIC via panel.")
-
-        # --- Home Z (hoist) FIRST, then XY ---
+    elif CRANE_HOME_ON_START:
+        log.warning(
+            "CRANE_HOME_ON_START=true: automatic mode confirmed; beginning configured "
+            "startup homing (Z then XY)."
+        )
         ok_z = _move_hoist_to(crane, log, HOME_HOIST_MM, timeout_s=300.0)
         if ok_z:
             ok_xy = _move_xy_to(
@@ -2465,27 +2631,25 @@ def main():
         else:
             ok_xy = False
             log.error("Skipping XY homing because hoist homing failed.")
-
         try:
             crane.stop_all()
         except Exception:
             pass
-
-        if ok_z and ok_xy:
-            log.info("Homing complete (Z then XY). Crane is READY to receive orders.")
-        else:
-            log.error("Homing failed or timed out; crane remains stopped.")
+        if not (ok_z and ok_xy):
+            log.error("Startup homing failed or timed out; crane remains stopped.")
             if not ALLOW_UNHOMED_START:
                 watchdog_stop.set()
                 crane.disconnect()
                 raise SystemExit(
-                    "Refusing to accept crane orders after failed homing. "
-                    "Investigate the crane before restarting."
+                    "Refusing to accept crane orders after failed startup homing."
                 )
-            log.warning(
-                "ALLOW_UNHOMED_START=true: continuing only for supervised telemetry."
-            )
-
+        else:
+            log.info("Startup homing complete (Z then XY).")
+    else:
+        log.info(
+            "Automatic mode confirmed. CRANE_HOME_ON_START=false, so no movement "
+            "is performed at adapter startup; use the dashboard Home controls when ready."
+        )
     # --- Start adapter threads/MQTT after successful or explicitly overridden preflight ---
     adapter = VDA5050Adapter(crane, log)
     adapter_ref["obj"] = adapter

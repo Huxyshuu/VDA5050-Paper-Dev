@@ -793,7 +793,6 @@ def index():
 # POST: basic buttons
 @app.route("/automatic", methods=["POST"])
 def press_automatic():
-    _record_press("automatic")
     # VDA 5050 v3 predefined action: initializePosition
     _publish_instant_action(
         "initializePosition",
@@ -1159,6 +1158,14 @@ except ImportError:  # Allows importing fleet_control.master_control as a module
     from fleet_control.dashboard_v3 import register_dashboard as _register_dashboard_v3
 
 _register_dashboard_v3(app, globals())
+# VDA5050_CRANE_MANUAL_CONTROLS_BEGIN
+try:
+    from crane_manual_controls import register_crane_manual_controls as _register_crane_manual_controls
+except ImportError:  # Allows importing fleet_control.master_control as a module.
+    from fleet_control.crane_manual_controls import register_crane_manual_controls as _register_crane_manual_controls
+
+_register_crane_manual_controls(app, globals())
+# VDA5050_CRANE_MANUAL_CONTROLS_END
 # VDA5050_DASHBOARD_V3_END
 
 # ---------------- Main ----------------

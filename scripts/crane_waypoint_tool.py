@@ -91,7 +91,7 @@ def main() -> int:
     parser.add_argument("--update", choices=["source_station", "rox_handover", "home"])
     parser.add_argument(
         "--update-hoist",
-        choices=["source_lower_m", "source_safe_lift_m", "handover_lower_m", "handover_safe_lift_m"],
+        choices=["travel_safe_m", "source_lower_m", "source_safe_lift_m", "handover_lower_m", "handover_safe_lift_m"],
     )
     parser.add_argument(
         "--waypoints",

@@ -20,6 +20,7 @@ waypoints:
     description: Legacy starting value only; align physically with ROX crane_handover.
 
 hoist_positions:
+  travel_safe_m: 2.071  # minimum hook height before manual XY travel
   source_lower_m: 0.445
   source_safe_lift_m: 2.071
   handover_lower_m: 0.445

@@ -761,31 +761,6 @@ class DashboardController:
                 reasons.append(f"ROX node {node.get('nodeId')} does not use map {self.default_map_id!r}")
         return reasons
 
-    def _load_crane_waypoints(self) -> Dict[str, Any]:
-        if not self.crane_waypoint_path.exists():
-            raise FileNotFoundError(
-                f"Crane waypoint file not found: {self.crane_waypoint_path}"
-            )
-        with self.crane_waypoint_path.open("r", encoding="utf-8") as handle:
-            data = yaml.safe_load(handle) or {}
-        if not isinstance(data, Mapping):
-            raise ValueError("Crane waypoint YAML root must be an object")
-        required = {"source_station", "rox_handover"}
-        waypoints = data.get("waypoints")
-        if not isinstance(waypoints, Mapping):
-            raise ValueError("Crane waypoint YAML must contain a 'waypoints' mapping")
-        missing = sorted(required - set(str(key) for key in waypoints))
-        if missing:
-            raise ValueError(f"Missing crane waypoint(s): {', '.join(missing)}")
-        return {
-            "map_id": str(data.get("map_id") or "map"),
-            "configured": bool(data.get("configured", False)),
-            "coordinate_system": str(data.get("coordinate_system") or "crane-local"),
-            "waypoints": copy.deepcopy(dict(waypoints)),
-            "hoist_positions": copy.deepcopy(dict(data.get("hoist_positions") or {})),
-            "home": copy.deepcopy(dict(data.get("home") or {})),
-        }
-
     def _coordinated_order_reasons(self, crane_cfg: Mapping[str, Any]) -> List[str]:
         reasons: List[str] = []
         orders: Dict[str, Dict[str, Any]] = {}
@@ -1016,8 +991,6 @@ class DashboardController:
         mode = str(state.get("operatingMode", ""))
         if target == "rox" and mode not in {"AUTOMATIC", "SEMIAUTOMATIC"}:
             reasons.append(f"Operating mode {mode or 'UNKNOWN'} does not permit normal dispatch")
-        if target == "crane" and mode != "AUTOMATIC":
-            reasons.append(f"Crane operating mode {mode or 'UNKNOWN'} is not AUTOMATIC")
         if target == "crane" and mode != "AUTOMATIC":
             reasons.append(f"Crane operating mode {mode or 'UNKNOWN'} is not AUTOMATIC")
         safety = state.get("safetyState") or {}

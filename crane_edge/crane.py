@@ -22,6 +22,12 @@ class Crane(object):
         self._node_watchdog = self.client.get_node(
             NS + ";s=DX_Custom_V.Controls.Watchdog")
         
+
+        # Authoritative automatic/remote-mode indicator. The PLC exposes
+        # WatchDogFault=False while the external watchdog is healthy and
+        # the crane is in automatic mode; True means automatic is lost.
+        self._node_watchdog_fault = self.client.get_node(
+            NS + ";s=DX_Custom_V.Status.WatchDogFault")
         # Accescode
         self._node_access_code = self.client.get_node(
             NS + ";s=DX_Custom_V.Controls.AccessCode")
@@ -162,6 +168,19 @@ class Crane(object):
     def get_watchdog(self):
         """Get Watchdog value."""
         return self._node_watchdog.read_value()
+
+    def get_watchdog_fault(self):
+        """Return PLC watchdog-fault status.
+
+        For this crane interface, False means the external watchdog is healthy
+        and automatic/remote mode is active. True means automatic mode is not
+        available and motion commands must not be accepted.
+        """
+        return bool(self._node_watchdog_fault.read_value())
+
+    def is_automatic_mode(self):
+        """Return True only when DX_Custom_V.Status.WatchDogFault is false."""
+        return not self.get_watchdog_fault()
 
 
     # Setting works but goes back to original value next iteration
