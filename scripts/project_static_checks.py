@@ -155,7 +155,16 @@ def main() -> int:
     )
     check(
         sum(str(step.get("command")) == "operator_confirm" for step in sequential_steps) == 3,
-        "sequential pickup/delivery scenario has three explicit human confirmations",
+        "sequential pickup/delivery scenario has three explicit confirmation gates",
+    )
+    confirmation = sequential.get("operator_confirmation") or {}
+    check(
+        confirmation.get("default_mode") == "manual",
+        "sequential confirmation mode defaults to manual",
+    )
+    check(
+        float(confirmation.get("timeout_s", 0)) == 5.0,
+        "sequential timed confirmation delay is five seconds",
     )
 
     subprocess.run(
@@ -163,6 +172,22 @@ def main() -> int:
         check=True,
     )
     print("PASS sequential pickup/delivery scenario audit")
+
+    subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            str(ROOT / "tests"),
+            "-p",
+            "test_*.py",
+        ],
+        cwd=ROOT,
+        check=True,
+    )
+    print("PASS behavioral unit tests")
 
     for path in sorted((ROOT / "scripts").glob("*.sh")):
         subprocess.run(["bash", "-n", str(path)], check=True)

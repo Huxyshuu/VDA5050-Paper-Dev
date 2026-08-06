@@ -107,14 +107,21 @@ Scenario definitions are loaded from:
 configs/dashboard_scenarios.yaml
 ```
 
-A scenario is not sent as an undocumented custom message. Instead, the scenario engine dispatches one normal VDA 5050 new order at a time. The next waypoint is sent only after the previous order has reached its terminal state.
+A scenario is not sent as an undocumented custom message. Instead, the scenario engine dispatches one normal VDA 5050 new order at a time. The next motion is sent only after the previous VDA command has reached its terminal state.
 
 Current defaults:
 
 1. **Short commissioning loop**: `home -> short_test -> home`
 2. **ROX case-study route**: `home -> short_test -> crane_handover -> warehouse_dropoff -> home`
 3. **ROX crane approach**: `crane_handover` without sending a crane command
-4. **Coordinated crane handover**: retained but disabled
+4. **Coordinated crane handover**: sends the two verified stored orders together
+5. **Sequential pickup and warehouse delivery**: runs 15 crane, ROX-Diff and confirmation steps one at a time
+
+When starting the sequential pickup/delivery scenario, the modal offers two
+per-run policies for its three physical transfer gates. Manual confirmation is
+the default. The optional timed policy completes each gate after five seconds;
+it is server-side, remains auditable as a timeout rather than a human action,
+and does not claim that a payload sensor verified the transfer.
 
 ### Cell status
 
@@ -337,7 +344,8 @@ Do not enable the coordinated crane scenario until:
 | POST | `/api/controls/rox/retry` | Retry a RETRIABLE action |
 | POST | `/api/controls/rox/skip-retry` | Skip a RETRIABLE action |
 | POST | `/api/controls/rox/factsheet` | Request factsheet |
-| POST | `/api/scenarios/<id>/start` | Start a sequential scenario |
+| POST | `/api/scenarios/<id>/start` | Start a scenario; sequential runs accept `{"confirmation_mode":"manual"}` or `{"confirmation_mode":"timeout"}` |
+| POST | `/api/scenarios/active/confirm` | Manually complete the displayed sequential gate; requires its `{"run_id":"...","step_id":"..."}` binding |
 | POST | `/api/scenarios/active/stop` | Cancel the current scenario/order |
 | POST | `/api/events/clear` | Clear in-memory UI events |
 | GET | `/healthz` | Server and MQTT health |

@@ -62,7 +62,7 @@ Each step now has a timeout. Defaults are:
 | Crane XY waypoint | 180 s |
 | Crane hoist movement | 120 s |
 | ROX waypoint | 300 s |
-| Operator confirmation | 900 s |
+| Operator confirmation | Manual: wait until confirmed; timed mode: continue after 5 s |
 
 A step records:
 
@@ -72,8 +72,10 @@ A step records:
 - failure reason;
 - operator wait and confirmation transitions.
 
-If a step exceeds its timeout, the controller sends `cancelOrder`, marks the scenario
-failed, and records the failure in the dashboard timeline.
+If a crane or ROX command exceeds its timeout, the controller sends `cancelOrder`,
+marks the scenario failed, and records the failure in the dashboard timeline.
+Operator gates use the per-run confirmation policy instead: manual mode waits
+indefinitely, while timed mode records an automatic confirmation after five seconds.
 
 ## Recommended test procedure
 

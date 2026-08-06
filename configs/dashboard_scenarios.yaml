@@ -42,11 +42,14 @@ scenarios:
   sequential_pickup_delivery:
     label: Sequential pickup and warehouse delivery
     description: Homes both participants, transfers one item from the source to ROX-Diff,
-      waits for human confirmations, delivers it to the warehouse, and returns both
-      participants home.
+      uses the selected manual or five-second timed confirmation policy, delivers
+      it to the warehouse, and returns both participants home.
     target: sequential_cell
     enabled: true
     risk: supervised-no-load-first
+    operator_confirmation:
+      default_mode: manual
+      timeout_s: 5
     steps:
     - id: crane_home_start
       target: crane

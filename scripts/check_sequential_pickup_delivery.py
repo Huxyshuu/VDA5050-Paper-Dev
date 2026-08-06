@@ -65,17 +65,37 @@ def main() -> int:
 
     require(
         sum(str(step.get("command")) == "operator_confirm" for step in steps) == 3,
-        "three operator confirmations protect unsensed load-transfer steps",
+        "three operator confirmation gates protect unsensed load-transfer steps",
+    )
+    confirmation = scenario.get("operator_confirmation") or {}
+    require(
+        confirmation.get("default_mode") == "manual",
+        "manual confirmation remains the fail-safe default",
+    )
+    require(
+        float(confirmation.get("timeout_s", 0)) == 5.0,
+        "optional timed confirmation uses a five-second delay",
     )
     require(
         (ROOT / "fleet_control/sequential_cell_scenario.py").exists(),
         "sequential scenario engine is installed",
     )
     dashboard = (ROOT / "fleet_control/dashboard_v3.py").read_text(encoding="utf-8")
+    engine = (ROOT / "fleet_control/sequential_cell_scenario.py").read_text(encoding="utf-8")
     template = (ROOT / "fleet_control/templates/index.html").read_text(encoding="utf-8")
     require('target_type == "sequential_cell"' in dashboard, "dashboard starts sequential cell scenarios")
+    require('payload.get("confirmation_mode")' in dashboard, "scenario start API accepts confirmation mode")
     require('/api/scenarios/active/confirm' in dashboard, "operator confirmation API is registered")
     require('id="confirmScenarioStepBtn"' in template, "dashboard confirmation button is present")
+    require('name="scenarioConfirmationMode"' in template, "dashboard start modal offers confirmation modes")
+    require(
+        "expected_run_id" in dashboard
+        and "requires a non-empty run_id" in dashboard
+        and "requires a non-empty step_id" in dashboard
+        and "run_id:runId,step_id:stepId" in template,
+        "manual confirmation is bound to the displayed run and step",
+    )
+    require('SEQUENTIAL_OPERATOR_AUTO_CONFIRMED' in engine, "timed confirmations are explicitly audited")
     print("Sequential pickup/delivery scenario audit passed.")
     return 0
 

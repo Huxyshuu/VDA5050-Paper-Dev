@@ -3,7 +3,9 @@
 The engine dispatches one VDA command at a time and advances only after the
 previous command reaches a terminal success state. Operator confirmations are
 explicit scenario steps because the current cell has no authoritative payload
-attached/released/removed sensor.
+attached/released/removed sensor. Manual confirmation remains the fail-safe
+default; an explicitly selected timed mode can complete each gate after a
+short, configuration-defined delay.
 """
 from __future__ import annotations
 
@@ -54,6 +56,13 @@ DEFAULT_TIMEOUTS_S = {
     "rox_waypoint": 300.0,
     "operator_confirm": 900.0,
 }
+CONFIRMATION_MODE_MANUAL = "manual"
+CONFIRMATION_MODE_TIMEOUT = "timeout"
+SUPPORTED_CONFIRMATION_MODES = (
+    CONFIRMATION_MODE_MANUAL,
+    CONFIRMATION_MODE_TIMEOUT,
+)
+DEFAULT_AUTO_CONFIRM_TIMEOUT_S = 5.0
 
 
 class SequentialCellScenarioEngine:
@@ -61,6 +70,53 @@ class SequentialCellScenarioEngine:
 
     def __init__(self, controller: Any) -> None:
         self.controller = controller
+
+    @staticmethod
+    def confirmation_settings(cfg: Mapping[str, Any]) -> Dict[str, Any]:
+        """Normalize the per-run operator-confirmation choices for the UI/API."""
+        raw = cfg.get("operator_confirmation") or {}
+        if not isinstance(raw, Mapping):
+            raise ValueError("operator_confirmation must be an object")
+        default_mode = str(
+            raw.get("default_mode", CONFIRMATION_MODE_MANUAL)
+        ).strip().lower()
+        if default_mode not in SUPPORTED_CONFIRMATION_MODES:
+            raise ValueError(
+                "operator_confirmation.default_mode must be one of: "
+                + ", ".join(SUPPORTED_CONFIRMATION_MODES)
+            )
+        try:
+            timeout_s = float(raw.get("timeout_s", DEFAULT_AUTO_CONFIRM_TIMEOUT_S))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("operator_confirmation.timeout_s must be numeric") from exc
+        if not 0.1 <= timeout_s <= 3600.0:
+            raise ValueError(
+                "operator_confirmation.timeout_s must be between 0.1 and 3600 seconds"
+            )
+        return {
+            "default_mode": default_mode,
+            "timeout_s": timeout_s,
+            "modes": list(SUPPORTED_CONFIRMATION_MODES),
+        }
+
+    @classmethod
+    def resolve_confirmation_mode(
+        cls,
+        cfg: Mapping[str, Any],
+        requested_mode: Optional[str],
+    ) -> tuple[str, Dict[str, Any]]:
+        settings = cls.confirmation_settings(cfg)
+        selected_mode = str(
+            requested_mode
+            if requested_mode is not None
+            else settings["default_mode"]
+        ).strip().lower()
+        if selected_mode not in SUPPORTED_CONFIRMATION_MODES:
+            raise ValueError(
+                "confirmation_mode must be one of: "
+                + ", ".join(SUPPORTED_CONFIRMATION_MODES)
+            )
+        return selected_mode, settings
 
     def normalize_steps(self, cfg: Mapping[str, Any]) -> List[Dict[str, Any]]:
         raw_steps = cfg.get("steps") or []
@@ -143,7 +199,13 @@ class SequentialCellScenarioEngine:
         scenario_id: str,
         cfg: Mapping[str, Any],
         rox_waypoints: Mapping[str, Any],
+        *,
+        confirmation_mode: Optional[str] = None,
     ) -> Dict[str, Any]:
+        selected_confirmation_mode, confirmation = self.resolve_confirmation_mode(
+            cfg,
+            confirmation_mode,
+        )
         reasons = self.configuration_reasons(cfg, rox_waypoints)
         if reasons:
             raise RuntimeError("; ".join(reasons))
@@ -166,6 +228,7 @@ class SequentialCellScenarioEngine:
             "steps": steps,
             "waypoints": [step["id"] for step in steps],
             "status": "RUNNING",
+            "state_revision": 0,
             "completed_steps": 0,
             "step_runs": [None for _ in steps],
             "active_step_id": None,
@@ -175,10 +238,13 @@ class SequentialCellScenarioEngine:
             "active_action_id": None,
             "active_final_node_sequence_id": 0,
             "operator_prompt": None,
+            "operator_confirmation_mode": selected_confirmation_mode,
+            "operator_confirmation_timeout_s": float(confirmation["timeout_s"]),
             "confirmations": [],
             "step_history": [],
             "active_step_started_at": None,
             "active_step_started_epoch": None,
+            "active_step_started_monotonic": None,
             "active_timeout_s": None,
             "last_transition": "Scenario created",
             "stop_requested": False,
@@ -211,6 +277,7 @@ class SequentialCellScenarioEngine:
                 "operator_prompt": None,
                 "active_step_started_at": None,
                 "active_step_started_epoch": None,
+                "active_step_started_monotonic": None,
                 "active_timeout_s": None,
             }
         )
@@ -219,8 +286,12 @@ class SequentialCellScenarioEngine:
         index = int(active.get("completed_steps", 0))
         steps = active.get("steps") or []
         step = steps[index] if index < len(steps) else {}
-        started_epoch = active.get("active_step_started_epoch")
-        duration = max(0.0, time.time() - float(started_epoch)) if started_epoch else 0.0
+        started_monotonic = active.get("active_step_started_monotonic")
+        duration = (
+            max(0.0, time.monotonic() - float(started_monotonic))
+            if started_monotonic is not None
+            else 0.0
+        )
         step_runs = active.setdefault("step_runs", [None for _ in steps])
         if index < len(step_runs):
             step_runs[index] = result_id
@@ -236,7 +307,9 @@ class SequentialCellScenarioEngine:
             "result_id": result_id,
         })
         active["completed_steps"] = index + 1
-        active["next_dispatch_not_before_epoch"] = time.time() + SEQUENTIAL_ACTION_DELAY_S
+        active["next_dispatch_not_before_monotonic"] = (
+            time.monotonic() + SEQUENTIAL_ACTION_DELAY_S
+        )
         active["inter_step_delay_s"] = SEQUENTIAL_ACTION_DELAY_S
         active["updated_at"] = _utc_now()
         active["last_transition"] = f"Finished: {step.get('label', step.get('id', 'step'))}"
@@ -258,8 +331,12 @@ class SequentialCellScenarioEngine:
         index = int(active.get("completed_steps", 0))
         steps = active.get("steps") or []
         step = steps[index] if index < len(steps) else {}
-        started_epoch = active.get("active_step_started_epoch")
-        duration = max(0.0, time.time() - float(started_epoch)) if started_epoch else 0.0
+        started_monotonic = active.get("active_step_started_monotonic")
+        duration = (
+            max(0.0, time.monotonic() - float(started_monotonic))
+            if started_monotonic is not None
+            else 0.0
+        )
         active.setdefault("step_history", []).append({
             "step_id": step.get("id"),
             "label": step.get("label"),
@@ -295,11 +372,21 @@ class SequentialCellScenarioEngine:
         active["active_target"] = str(step["target"])
         active["active_step_started_at"] = _utc_now()
         active["active_step_started_epoch"] = time.time()
+        active["active_step_started_monotonic"] = time.monotonic()
         active["active_timeout_s"] = float(step.get("timeout_s", DEFAULT_TIMEOUTS_S[command]))
         active["last_transition"] = f"Started: {step['label']}"
         active["updated_at"] = _utc_now()
 
         if command == "operator_confirm":
+            confirmation_mode = str(
+                active.get("operator_confirmation_mode", CONFIRMATION_MODE_MANUAL)
+            )
+            auto_confirm_after_s = float(
+                active.get(
+                    "operator_confirmation_timeout_s",
+                    DEFAULT_AUTO_CONFIRM_TIMEOUT_S,
+                )
+            )
             active["active_kind"] = "operator"
             active["status"] = "WAITING_OPERATOR"
             active["operator_prompt"] = {
@@ -307,11 +394,40 @@ class SequentialCellScenarioEngine:
                 "label": step["label"],
                 "prompt": str(step.get("prompt") or step.get("description") or "Confirm the manual step is complete."),
                 "confirm_label": str(step.get("confirm_label") or "Continue scenario"),
+                "mode": confirmation_mode,
             }
+            if confirmation_mode == CONFIRMATION_MODE_TIMEOUT:
+                active["operator_prompt"].update(
+                    {
+                        "auto_confirm_after_s": auto_confirm_after_s,
+                        "auto_confirm_deadline_epoch": (
+                            float(active["active_step_started_epoch"]) + auto_confirm_after_s
+                        ),
+                        "auto_confirm_deadline_monotonic": (
+                            float(active["active_step_started_monotonic"])
+                            + auto_confirm_after_s
+                        ),
+                    }
+                )
             self.controller._add_event(
-                "WARNING", "operator", f"Scenario waiting for operator: {step['label']}",
+                "WARNING",
+                "operator",
+                (
+                    f"Scenario will auto-confirm in {auto_confirm_after_s:g}s: {step['label']}"
+                    if confirmation_mode == CONFIRMATION_MODE_TIMEOUT
+                    else f"Scenario waiting for operator: {step['label']}"
+                ),
                 code="SEQUENTIAL_OPERATOR_WAIT",
-                details={"scenario_id": active.get("id"), "step_id": step.get("id")},
+                details={
+                    "scenario_id": active.get("id"),
+                    "step_id": step.get("id"),
+                    "confirmation_mode": confirmation_mode,
+                    "auto_confirm_after_s": (
+                        auto_confirm_after_s
+                        if confirmation_mode == CONFIRMATION_MODE_TIMEOUT
+                        else None
+                    ),
+                },
             )
             return
 
@@ -370,19 +486,36 @@ class SequentialCellScenarioEngine:
         )
 
     def advance(self, snapshot: Mapping[str, Any]) -> None:
-        active = copy.deepcopy(snapshot)
+        # Serialize state transitions and their publish side effects with Stop and
+        # manual confirmation. A stale worker snapshot must never dispatch work.
+        with self.controller.lock:
+            current = self.controller.active_scenario
+            if not current or current.get("run_id") != snapshot.get("run_id"):
+                return
+            self._advance_locked(copy.deepcopy(current))
+
+    def _advance_locked(self, active: MutableMapping[str, Any]) -> None:
         if active.get("status") == "WAITING_OPERATOR":
+            if active.get("operator_confirmation_mode") == CONFIRMATION_MODE_TIMEOUT:
+                prompt = active.get("operator_prompt") or {}
+                deadline = prompt.get("auto_confirm_deadline_monotonic")
+                if deadline is not None and time.monotonic() >= float(deadline):
+                    self._complete_operator_confirmation(
+                        active,
+                        method=CONFIRMATION_MODE_TIMEOUT,
+                        strict=False,
+                    )
             return
         if active.get("status") not in {"RUNNING", "CANCELLING"}:
             return
 
-        started_epoch = active.get("active_step_started_epoch")
+        started_monotonic = active.get("active_step_started_monotonic")
         timeout_s = active.get("active_timeout_s")
         if (
             active.get("active_kind")
-            and started_epoch
+            and started_monotonic is not None
             and timeout_s
-            and time.time() - float(started_epoch) > float(timeout_s)
+            and time.monotonic() - float(started_monotonic) > float(timeout_s)
         ):
             target = str(active.get("active_target") or "")
             kind = active.get("active_kind")
@@ -451,16 +584,17 @@ class SequentialCellScenarioEngine:
             self._commit(active)
             return
 
-        not_before = active.get("next_dispatch_not_before_epoch")
-        if not_before and time.time() < float(not_before):
+        not_before = active.get("next_dispatch_not_before_monotonic")
+        if not_before and time.monotonic() < float(not_before):
             active["last_transition"] = (
-                f"Settling before next step ({max(0.0, float(not_before) - time.time()):.1f}s)"
+                "Settling before next step "
+                f"({max(0.0, float(not_before) - time.monotonic()):.1f}s)"
             )
             active["updated_at"] = _utc_now()
             self._commit(active)
             return
         if not_before:
-            active["next_dispatch_not_before_epoch"] = None
+            active["next_dispatch_not_before_monotonic"] = None
 
         index = int(active.get("completed_steps", 0))
         steps = active.get("steps") or []
@@ -492,44 +626,130 @@ class SequentialCellScenarioEngine:
             )
         self._commit(active)
 
-    def confirm(self, snapshot: Mapping[str, Any]) -> Dict[str, Any]:
-        active = copy.deepcopy(snapshot)
-        if active.get("target") != "sequential_cell" or active.get("status") != "WAITING_OPERATOR":
-            raise RuntimeError("The active scenario is not waiting for operator confirmation")
-        step_id = str(active.get("active_step_id") or "")
-        active.setdefault("confirmations", []).append(
-            {"step_id": step_id, "confirmed_at": _utc_now()}
+    def _complete_operator_confirmation(
+        self,
+        snapshot: Mapping[str, Any],
+        *,
+        method: str,
+        strict: bool,
+    ) -> Optional[Dict[str, Any]]:
+        """Atomically finish one operator gate, preventing click/timeout races."""
+        with self.controller.lock:
+            current = self.controller.active_scenario
+            valid = bool(
+                current
+                and current.get("run_id") == snapshot.get("run_id")
+                and current.get("target") == "sequential_cell"
+                and current.get("status") == "WAITING_OPERATOR"
+                and current.get("active_step_id") == snapshot.get("active_step_id")
+            )
+            if not valid:
+                if strict:
+                    raise RuntimeError(
+                        "The active scenario is not waiting for operator confirmation"
+                    )
+                return None
+
+            active = copy.deepcopy(current)
+            if method == CONFIRMATION_MODE_TIMEOUT:
+                prompt = active.get("operator_prompt") or {}
+                deadline = prompt.get("auto_confirm_deadline_monotonic")
+                if (
+                    active.get("operator_confirmation_mode") != CONFIRMATION_MODE_TIMEOUT
+                    or deadline is None
+                    or time.monotonic() < float(deadline)
+                ):
+                    return None
+
+            step_id = str(active.get("active_step_id") or "")
+            confirmed_at = _utc_now()
+            active.setdefault("confirmations", []).append(
+                {
+                    "step_id": step_id,
+                    "confirmed_at": confirmed_at,
+                    "method": method,
+                }
+            )
+            is_timeout = method == CONFIRMATION_MODE_TIMEOUT
+            self.controller._add_event(
+                "WARNING" if is_timeout else "INFO",
+                "scenario" if is_timeout else "operator",
+                (
+                    f"Scenario step {step_id} auto-confirmed after "
+                    f"{float(active.get('operator_confirmation_timeout_s', DEFAULT_AUTO_CONFIRM_TIMEOUT_S)):g}s"
+                    if is_timeout
+                    else f"Operator confirmed scenario step {step_id}"
+                ),
+                code=(
+                    "SEQUENTIAL_OPERATOR_AUTO_CONFIRMED"
+                    if is_timeout
+                    else "SEQUENTIAL_OPERATOR_CONFIRMED"
+                ),
+                details={
+                    "scenario_id": active.get("id"),
+                    "step_id": step_id,
+                    "confirmation_method": method,
+                },
+            )
+            self._finish_step(
+                active,
+                f"timeout:{step_id}" if is_timeout else f"operator:{step_id}",
+            )
+            active["status"] = "RUNNING"
+            active["state_revision"] = int(current.get("state_revision", 0)) + 1
+            self.controller.active_scenario = dict(active)
+            return active
+
+    def confirm(
+        self,
+        snapshot: Mapping[str, Any],
+        *,
+        expected_run_id: str,
+        expected_step_id: str,
+    ) -> Dict[str, Any]:
+        if (
+            str(snapshot.get("run_id") or "") != expected_run_id
+        ) or (
+            str(snapshot.get("active_step_id") or "") != expected_step_id
+        ):
+            raise RuntimeError(
+                "The displayed confirmation gate is no longer active; refresh and try again"
+            )
+        active = self._complete_operator_confirmation(
+            snapshot,
+            method=CONFIRMATION_MODE_MANUAL,
+            strict=True,
         )
-        self.controller._add_event(
-            "INFO", "operator", f"Operator confirmed scenario step {step_id}",
-            code="SEQUENTIAL_OPERATOR_CONFIRMED",
-            details={"scenario_id": active.get("id"), "step_id": step_id},
-        )
-        self._finish_step(active, f"operator:{step_id}")
-        active["status"] = "RUNNING"
-        self._commit(active)
+        assert active is not None  # strict=True either returns an active run or raises
         return active
 
     def request_stop(self, snapshot: Mapping[str, Any]) -> bool:
-        active = copy.deepcopy(snapshot)
-        active["stop_requested"] = True
-        active["status"] = "CANCELLING"
-        active["updated_at"] = _utc_now()
-        sent = False
-        target = str(active.get("active_target") or "")
-        kind = active.get("active_kind")
-        if kind == "order" and target:
-            self.controller._cancel_target_order(target, str(active.get("active_order_id") or ""))
-            sent = True
-        elif kind == "instant" and target:
-            self.controller.publish_instant("cancelOrder", target=target)
-            sent = True
-        else:
-            active["status"] = "CANCELLED"
-            active["finished_at"] = _utc_now()
-        active["cancel_sent"] = sent
-        self._commit(active)
-        return sent
+        with self.controller.lock:
+            current = self.controller.active_scenario
+            if not current or current.get("run_id") != snapshot.get("run_id"):
+                return False
+            active = copy.deepcopy(current)
+            active["stop_requested"] = True
+            active["status"] = "CANCELLING"
+            active["updated_at"] = _utc_now()
+            sent = False
+            target = str(active.get("active_target") or "")
+            kind = active.get("active_kind")
+            if kind == "order" and target:
+                self.controller._cancel_target_order(
+                    target,
+                    str(active.get("active_order_id") or ""),
+                )
+                sent = True
+            elif kind == "instant" and target:
+                self.controller.publish_instant("cancelOrder", target=target)
+                sent = True
+            else:
+                active["status"] = "CANCELLED"
+                active["finished_at"] = _utc_now()
+            active["cancel_sent"] = sent
+            self._commit(active)
+            return sent
 
     def project_steps(self, active: Mapping[str, Any]) -> List[Dict[str, Any]]:
         completed = int(active.get("completed_steps", 0))
@@ -559,18 +779,45 @@ class SequentialCellScenarioEngine:
                     "status": step_status,
                     "run_id": step_runs[index] if index < len(step_runs) else None,
                     "timeout_s": float(step.get("timeout_s", DEFAULT_TIMEOUTS_S[step["command"]])),
+                    "confirmation_mode": (
+                        active.get("operator_confirmation_mode")
+                        if step["command"] == "operator_confirm"
+                        else None
+                    ),
+                    "auto_confirm_after_s": (
+                        active.get("operator_confirmation_timeout_s")
+                        if step["command"] == "operator_confirm"
+                        and active.get("operator_confirmation_mode")
+                        == CONFIRMATION_MODE_TIMEOUT
+                        else None
+                    ),
                     "history": next((item for item in reversed(active.get("step_history") or []) if item.get("step_id") == step["id"]), None),
                     "elapsed_s": (
-                        round(max(0.0, time.time() - float(active.get("active_step_started_epoch"))), 1)
-                        if index == completed and active.get("active_step_started_epoch")
+                        round(
+                            max(
+                                0.0,
+                                time.monotonic()
+                                - float(active.get("active_step_started_monotonic")),
+                            ),
+                            1,
+                        )
+                        if index == completed
+                        and active.get("active_step_started_monotonic") is not None
                         else None
                     ),
                 }
             )
         return result
 
-    def _commit(self, active: Mapping[str, Any]) -> None:
+    def _commit(self, active: Mapping[str, Any]) -> bool:
         with self.controller.lock:
             current = self.controller.active_scenario
-            if current and current.get("run_id") == active.get("run_id"):
-                self.controller.active_scenario = dict(active)
+            if not current or current.get("run_id") != active.get("run_id"):
+                return False
+            current_revision = int(current.get("state_revision", 0))
+            if int(active.get("state_revision", 0)) != current_revision:
+                return False
+            committed = dict(active)
+            committed["state_revision"] = current_revision + 1
+            self.controller.active_scenario = committed
+            return True

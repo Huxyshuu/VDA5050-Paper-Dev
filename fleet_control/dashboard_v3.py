@@ -213,6 +213,10 @@ class DashboardController:
         )
 
         self.lock = threading.RLock()
+        # Start/stop requests can perform preflight and publish work between
+        # inspecting and replacing active_scenario. Serialize those lifecycle
+        # transitions so two HTTP requests cannot both launch a run.
+        self.scenario_lifecycle_lock = threading.Lock()
         self.events: deque[Dict[str, Any]] = deque(maxlen=self.event_limit)
         self.missions: deque[Dict[str, Any]] = deque(maxlen=self.mission_limit)
         self.controls: deque[Dict[str, Any]] = deque(maxlen=100)
@@ -849,6 +853,9 @@ class DashboardController:
                 try:
                     normalized = self.sequential_engine.normalize_steps(cfg)
                     cfg["steps"] = normalized
+                    cfg["operator_confirmation"] = (
+                        self.sequential_engine.confirmation_settings(cfg)
+                    )
                     cfg["display_steps"] = [step["label"] for step in normalized]
                     reasons = self.sequential_engine.configuration_reasons(cfg, waypoint_cfg)
                     if reasons:
@@ -1663,7 +1670,11 @@ class DashboardController:
     def _advance_scenario(self) -> None:
         with self.lock:
             scenario = copy.deepcopy(self.active_scenario)
-        if not scenario or scenario.get("status") not in {"RUNNING", "CANCELLING"}:
+        if not scenario or scenario.get("status") not in {
+            "RUNNING",
+            "WAITING_OPERATOR",
+            "CANCELLING",
+        }:
             return
         if scenario.get("target") == "coordinated":
             self._advance_coordinated_scenario(scenario)
@@ -1853,8 +1864,12 @@ class DashboardController:
             )
             return jsonify({"ok": True, "control": control}), 202
 
-        @app.post("/api/scenarios/<scenario_id>/start")
-        def scenario_start_endpoint(scenario_id: str):
+        def scenario_start_locked(scenario_id: str):
+            payload = request.get_json(silent=True)
+            if payload is None:
+                payload = {}
+            if not isinstance(payload, Mapping):
+                abort(400, "Scenario start payload must be a JSON object")
             waypoint_cfg = self._load_waypoints()
             scenarios = self._load_scenarios(waypoint_cfg)
             cfg = scenarios.get(scenario_id)
@@ -1863,6 +1878,9 @@ class DashboardController:
             if not bool(cfg.get("enabled", False)):
                 abort(409, str(cfg.get("disabled_reason") or "Scenario is disabled"))
             target_type = str(cfg.get("target", "rox"))
+            requested_confirmation_mode = payload.get("confirmation_mode")
+            if requested_confirmation_mode is not None and target_type != "sequential_cell":
+                abort(400, "confirmation_mode is only supported by sequential cell scenarios")
             with self.lock:
                 if self.active_scenario and self.active_scenario.get("status") in {
                     "RUNNING", "PAUSED", "WAITING_OPERATOR", "CANCELLING",
@@ -1913,7 +1931,18 @@ class DashboardController:
                     }
             elif target_type == "sequential_cell":
                 try:
-                    active = self.sequential_engine.start(scenario_id, cfg, waypoint_cfg)
+                    active = self.sequential_engine.start(
+                        scenario_id,
+                        cfg,
+                        waypoint_cfg,
+                        confirmation_mode=(
+                            str(requested_confirmation_mode)
+                            if requested_confirmation_mode is not None
+                            else None
+                        ),
+                    )
+                except ValueError as exc:
+                    abort(400, str(exc))
                 except RuntimeError as exc:
                     abort(409, str(exc))
                 active["started_at"] = _utc_now()
@@ -1950,27 +1979,52 @@ class DashboardController:
                 "scenario",
                 f"Started scenario {cfg['label']}",
                 code="SCENARIO_STARTED",
+                details=(
+                    {
+                        "confirmation_mode": self.active_scenario.get(
+                            "operator_confirmation_mode"
+                        ),
+                        "confirmation_timeout_s": self.active_scenario.get(
+                            "operator_confirmation_timeout_s"
+                        ),
+                    }
+                    if target_type == "sequential_cell" and self.active_scenario
+                    else None
+                ),
             )
             return jsonify({"ok": True, "scenario": self.active_scenario}), 202
 
+        @app.post("/api/scenarios/<scenario_id>/start")
+        def scenario_start_endpoint(scenario_id: str):
+            with self.scenario_lifecycle_lock:
+                return scenario_start_locked(scenario_id)
+
         @app.post("/api/scenarios/active/confirm")
         def scenario_confirm_endpoint():
+            payload = request.get_json(silent=True)
+            if payload is None:
+                payload = {}
+            if not isinstance(payload, Mapping):
+                abort(400, "Scenario confirmation payload must be a JSON object")
+            expected_run_id = payload.get("run_id")
+            expected_step_id = payload.get("step_id")
+            if not isinstance(expected_run_id, str) or not expected_run_id.strip():
+                abort(400, "Scenario confirmation requires a non-empty run_id")
+            if not isinstance(expected_step_id, str) or not expected_step_id.strip():
+                abort(400, "Scenario confirmation requires a non-empty step_id")
             with self.lock:
                 current = copy.deepcopy(self.active_scenario) or {}
             try:
-                confirmed = self.sequential_engine.confirm(current)
+                confirmed = self.sequential_engine.confirm(
+                    current,
+                    expected_run_id=expected_run_id,
+                    expected_step_id=expected_step_id,
+                )
             except RuntimeError as exc:
                 abort(409, str(exc))
-            self._add_event(
-                "INFO",
-                "operator",
-                f"Operator confirmed scenario step {current.get('active_step_id')}",
-                code="SEQUENTIAL_OPERATOR_CONFIRMED",
-            )
             return jsonify({"ok": True, "scenario": confirmed})
 
-        @app.post("/api/scenarios/active/stop")
-        def scenario_stop_endpoint():
+        def scenario_stop_locked():
             with self.lock:
                 if not self.active_scenario or self.active_scenario.get("status") not in {
                     "RUNNING",
@@ -1981,6 +2035,9 @@ class DashboardController:
                     abort(409, "No active scenario")
                 self.active_scenario["stop_requested"] = True
                 self.active_scenario["status"] = "CANCELLING"
+                self.active_scenario["state_revision"] = (
+                    int(self.active_scenario.get("state_revision", 0)) + 1
+                )
             with self.lock:
                 current = copy.deepcopy(self.active_scenario) or {}
             if current.get("target") == "sequential_cell":
@@ -2006,6 +2063,11 @@ class DashboardController:
                 code="SCENARIO_STOP_REQUESTED",
             )
             return jsonify({"ok": True}), 202
+
+        @app.post("/api/scenarios/active/stop")
+        def scenario_stop_endpoint():
+            with self.scenario_lifecycle_lock:
+                return scenario_stop_locked()
 
         @app.post("/api/events/clear")
         def clear_events_endpoint():
@@ -2207,6 +2269,12 @@ class DashboardController:
                 "description": active_scenario.get("description"),
                 "progress_percent": active_scenario.get("progress_percent"),
                 "operator_prompt": active_scenario.get("operator_prompt"),
+                "operator_confirmation_mode": active_scenario.get(
+                    "operator_confirmation_mode"
+                ),
+                "operator_confirmation_timeout_s": active_scenario.get(
+                    "operator_confirmation_timeout_s"
+                ),
                 "active_step_started_at": active_scenario.get("active_step_started_at"),
                 "active_timeout_s": active_scenario.get("active_timeout_s"),
                 "last_transition": active_scenario.get("last_transition"),

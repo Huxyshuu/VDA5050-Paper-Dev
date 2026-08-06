@@ -29,9 +29,21 @@ sequence mentioned only the hook heights. `source_lower_m` and
 trolley. The scenario therefore moves to `source_station` before source lowering
 and to `rox_handover` before handover lowering.
 
-The three operator confirmations are intentional. The current project has no
-authoritative payload-attached, payload-released, or human-unloading sensor. The
-scenario must not infer those physical events from elapsed time.
+The three confirmation gates are intentional. The current project has no
+authoritative payload-attached, payload-released, or human-unloading sensor.
+Each run therefore starts with an explicit policy choice:
+
+- **Require human confirmation** is the fail-safe default and waits without
+  advancing until the operator presses the displayed confirmation button.
+- **Continue after 5 seconds** starts a fresh server-side timer at each of the
+  three gates. When it expires, the gate is recorded as a timeout confirmation
+  and the scenario proceeds through the same step-completion path as a manual
+  confirmation.
+
+Timed mode does not infer or verify that the physical action happened. It is a
+deliberate bypass for already staged tests. The timer runs in the master process,
+so closing or refreshing the browser does not stop it. The operator can still
+confirm early or stop the scenario during the countdown.
 
 ## Preconditions
 
@@ -78,7 +90,7 @@ The uploaded project currently contains these starting values:
 
 ```yaml
 home:              x=0.1729, y=0.0150, theta=-0.0073
-crane_handover:    x=3.1939, y=-2.5503, theta=3.1275
+crane_handover:    x=3.0607, y=-1.3256, theta=3.1241
 warehouse_dropoff: x=2.2782, y=0.8154, theta=1.5540
 ```
 
@@ -201,10 +213,13 @@ as a warning, that warning does not affect scenario execution.
 3. Start Nav2 and the ROX-Diff VDA adapter and confirm ROX-Diff is `ONLINE` and
    localized.
 4. Open the dashboard and choose **Sequential pickup and warehouse delivery**.
-5. Review all 15 steps in the confirmation modal.
-6. Start with no payload.
-7. Use the green confirmation button only after completing the displayed manual
-   task and clearing the next motion envelope.
+5. Review all 15 steps and choose **Require human confirmation** or
+   **Continue after 5 seconds**. Manual mode is selected by default.
+6. Start with no payload. Use timed mode only when the three physical tasks are
+   already staged and every following motion envelope is clear.
+7. In manual mode, use the green confirmation button only after completing the
+   displayed task. In timed mode, the same button can complete the gate before
+   the visible countdown expires.
 
 The **Stop active scenario** button cancels the currently active crane or ROX
 VDA command. During an operator wait, stopping ends the scenario without sending
