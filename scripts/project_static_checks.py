@@ -43,6 +43,7 @@ def main() -> int:
         ROOT / "fleet_control" / "master_control.py",
         ROOT / "fleet_control" / "dashboard_v3.py",
         ROOT / "fleet_control" / "crane_manual_controls.py",
+        ROOT / "fleet_control" / "sequential_cell_scenario.py",
         ROOT / "crane_edge" / "crane.py",
         ROOT / "crane_edge" / "crane_vda5050_adapter_v3.py",
         *sorted((ROOT / "scripts").glob("*.py")),
@@ -121,6 +122,47 @@ def main() -> int:
         "_instant_motion_active" in adapter_text and "cancelOrder received; STOP latched immediately" in adapter_text,
         "crane reset/home motion is interruptible by cancel and automatic-mode loss",
     )
+
+    scenario_cfg = yaml.safe_load(
+        (ROOT / "configs/dashboard_scenarios.yaml").read_text(encoding="utf-8")
+    ) or {}
+    sequential = (scenario_cfg.get("scenarios") or {}).get("sequential_pickup_delivery") or {}
+    sequential_steps = sequential.get("steps") or []
+    expected_step_ids = [
+        "crane_home_start",
+        "rox_home_start",
+        "rox_to_handover",
+        "crane_to_source",
+        "crane_lower_source",
+        "confirm_source_pickup",
+        "crane_raise_source",
+        "crane_to_handover",
+        "crane_lower_handover",
+        "confirm_handover_release",
+        "crane_raise_handover",
+        "rox_to_warehouse",
+        "confirm_human_unload",
+        "rox_home_finish",
+        "crane_home_finish",
+    ]
+    check(
+        sequential.get("target") == "sequential_cell",
+        "sequential pickup/delivery scenario uses the cross-device engine",
+    )
+    check(
+        [str(step.get("id")) for step in sequential_steps] == expected_step_ids,
+        "sequential pickup/delivery scenario preserves the audited step order",
+    )
+    check(
+        sum(str(step.get("command")) == "operator_confirm" for step in sequential_steps) == 3,
+        "sequential pickup/delivery scenario has three explicit human confirmations",
+    )
+
+    subprocess.run(
+        [sys.executable, str(ROOT / "scripts/check_sequential_pickup_delivery.py")],
+        check=True,
+    )
+    print("PASS sequential pickup/delivery scenario audit")
 
     for path in sorted((ROOT / "scripts").glob("*.sh")):
         subprocess.run(["bash", "-n", str(path)], check=True)

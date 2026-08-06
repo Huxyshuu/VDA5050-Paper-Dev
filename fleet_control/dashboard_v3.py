@@ -31,6 +31,11 @@ import yaml
 from flask import Response, abort, jsonify, request
 from werkzeug.exceptions import HTTPException
 
+try:
+    from sequential_cell_scenario import SequentialCellScenarioEngine
+except ImportError:  # package import during tests/tools
+    from fleet_control.sequential_cell_scenario import SequentialCellScenarioEngine
+
 FINAL_ACTION_STATES = {"FINISHED", "FAILED"}
 TERMINAL_MISSION_STATES = {"FINISHED", "FAILED", "REJECTED", "CANCELLED"}
 # VDA 5050 v3 errors that represent rejection/non-acceptance of an order.
@@ -212,6 +217,7 @@ class DashboardController:
         self.missions: deque[Dict[str, Any]] = deque(maxlen=self.mission_limit)
         self.controls: deque[Dict[str, Any]] = deque(maxlen=100)
         self.active_scenario: Optional[Dict[str, Any]] = None
+        self.sequential_engine = SequentialCellScenarioEngine(self)
         self._last_signature: Dict[str, Any] = {}
         self._stop = threading.Event()
         self._map_cache: Optional[Dict[str, Any]] = None
@@ -810,7 +816,8 @@ class DashboardController:
         }
         return candidates
 
-    def _load_scenarios(self, waypoints: Mapping[str, Any]) -> Dict[str, Any]:
+    def _load_scenarios(self, waypoint_cfg: Mapping[str, Any]) -> Dict[str, Any]:
+        waypoints = waypoint_cfg.get("waypoints") or {}
         scenarios = self._default_scenarios(waypoints.keys())
         if self.scenario_path.exists():
             with self.scenario_path.open("r", encoding="utf-8") as handle:
@@ -827,14 +834,33 @@ class DashboardController:
             cfg["id"] = scenario_id
             cfg.setdefault("target", "rox")
             cfg.setdefault("waypoints", [])
+            cfg.setdefault("steps", [])
             cfg.setdefault("label", scenario_id.replace("_", " ").title())
             cfg.setdefault("description", "Configured mission sequence")
             cfg.setdefault("risk", "supervised")
-            missing = [name for name in cfg["waypoints"] if name not in waypoints]
-            if missing:
-                cfg["enabled"] = False
-                cfg["disabled_reason"] = f"Missing waypoint(s): {', '.join(missing)}"
-            if cfg.get("target") == "coordinated":
+            target_type = str(cfg.get("target", "rox"))
+            if target_type in {"rox", "coordinated"}:
+                missing = [name for name in cfg["waypoints"] if name not in waypoints]
+                if missing:
+                    cfg["enabled"] = False
+                    cfg["disabled_reason"] = f"Missing waypoint(s): {', '.join(missing)}"
+                cfg["display_steps"] = list(cfg.get("waypoints") or [])
+            elif target_type == "sequential_cell":
+                try:
+                    normalized = self.sequential_engine.normalize_steps(cfg)
+                    cfg["steps"] = normalized
+                    cfg["display_steps"] = [step["label"] for step in normalized]
+                    reasons = self.sequential_engine.configuration_reasons(cfg, waypoint_cfg)
+                    if reasons:
+                        cfg["enabled"] = False
+                        cfg["disabled_reason"] = "; ".join(reasons)
+                except Exception as exc:
+                    cfg["enabled"] = False
+                    cfg["disabled_reason"] = str(exc)
+                    cfg["display_steps"] = []
+            else:
+                cfg["display_steps"] = list(cfg.get("waypoints") or [])
+            if target_type == "coordinated":
                 if not self.crane_enabled:
                     cfg["enabled"] = False
                     cfg["disabled_reason"] = "Crane is unavailable in the current configuration."
@@ -1578,6 +1604,9 @@ class DashboardController:
         if scenario.get("target") == "coordinated":
             self._advance_coordinated_scenario(scenario)
             return
+        if scenario.get("target") == "sequential_cell":
+            self.sequential_engine.advance(scenario)
+            return
         if scenario.get("stop_requested"):
             if not scenario.get("active_order_id"):
                 with self.lock:
@@ -1763,7 +1792,7 @@ class DashboardController:
         @app.post("/api/scenarios/<scenario_id>/start")
         def scenario_start_endpoint(scenario_id: str):
             waypoint_cfg = self._load_waypoints()
-            scenarios = self._load_scenarios(waypoint_cfg["waypoints"])
+            scenarios = self._load_scenarios(waypoint_cfg)
             cfg = scenarios.get(scenario_id)
             if cfg is None:
                 abort(404, f"Unknown scenario {scenario_id!r}")
@@ -1772,7 +1801,7 @@ class DashboardController:
             target_type = str(cfg.get("target", "rox"))
             with self.lock:
                 if self.active_scenario and self.active_scenario.get("status") in {
-                    "RUNNING", "PAUSED", "CANCELLING",
+                    "RUNNING", "PAUSED", "WAITING_OPERATOR", "CANCELLING",
                 }:
                     abort(409, "Another scenario is already active")
 
@@ -1818,6 +1847,15 @@ class DashboardController:
                         "started_at": _utc_now(),
                         "updated_at": _utc_now(),
                     }
+            elif target_type == "sequential_cell":
+                try:
+                    active = self.sequential_engine.start(scenario_id, cfg, waypoint_cfg)
+                except RuntimeError as exc:
+                    abort(409, str(exc))
+                active["started_at"] = _utc_now()
+                active["updated_at"] = _utc_now()
+                with self.lock:
+                    self.active_scenario = active
             elif target_type == "rox":
                 reasons = self._dispatch_reasons(
                     "rox", self._copy_target_state("rox"), waypoint_cfg
@@ -1851,12 +1889,29 @@ class DashboardController:
             )
             return jsonify({"ok": True, "scenario": self.active_scenario}), 202
 
+        @app.post("/api/scenarios/active/confirm")
+        def scenario_confirm_endpoint():
+            with self.lock:
+                current = copy.deepcopy(self.active_scenario) or {}
+            try:
+                confirmed = self.sequential_engine.confirm(current)
+            except RuntimeError as exc:
+                abort(409, str(exc))
+            self._add_event(
+                "INFO",
+                "operator",
+                f"Operator confirmed scenario step {current.get('active_step_id')}",
+                code="SEQUENTIAL_OPERATOR_CONFIRMED",
+            )
+            return jsonify({"ok": True, "scenario": confirmed})
+
         @app.post("/api/scenarios/active/stop")
         def scenario_stop_endpoint():
             with self.lock:
                 if not self.active_scenario or self.active_scenario.get("status") not in {
                     "RUNNING",
                     "PAUSED",
+                    "WAITING_OPERATOR",
                     "CANCELLING",
                 }:
                     abort(409, "No active scenario")
@@ -1864,19 +1919,22 @@ class DashboardController:
                 self.active_scenario["status"] = "CANCELLING"
             with self.lock:
                 current = copy.deepcopy(self.active_scenario) or {}
-            targets = ("crane", "rox") if current.get("target") == "coordinated" else ("rox",)
-            sent = False
-            order_ids = dict(current.get("order_ids") or {})
-            for target in targets:
-                state = self._copy_target_state(target).get("last_state") or {}
-                order_id = str(order_ids.get(target) or state.get("orderId", ""))
-                if self._active_order(state) or order_id:
-                    self._cancel_target_order(target, order_id)
-                    sent = True
-            if not sent:
-                with self.lock:
-                    if self.active_scenario:
-                        self.active_scenario["status"] = "CANCELLED"
+            if current.get("target") == "sequential_cell":
+                sent = self.sequential_engine.request_stop(current)
+            else:
+                targets = ("crane", "rox") if current.get("target") == "coordinated" else ("rox",)
+                sent = False
+                order_ids = dict(current.get("order_ids") or {})
+                for target in targets:
+                    state = self._copy_target_state(target).get("last_state") or {}
+                    order_id = str(order_ids.get(target) or state.get("orderId", ""))
+                    if self._active_order(state) or order_id:
+                        self._cancel_target_order(target, order_id)
+                        sent = True
+                if not sent:
+                    with self.lock:
+                        if self.active_scenario:
+                            self.active_scenario["status"] = "CANCELLED"
             self._add_event(
                 "WARNING",
                 "scenario",
@@ -1975,7 +2033,7 @@ class DashboardController:
         except Exception as exc:
             waypoint_cfg = {"map_id": self.default_map_id, "configured": False, "waypoints": {}}
             waypoint_error = str(exc)
-        scenarios = self._load_scenarios(waypoint_cfg["waypoints"])
+        scenarios = self._load_scenarios(waypoint_cfg)
         caches = {target: self._copy_target_state(target) for target in self.targets}
         devices = {
             target: self._device_projection(target, cache, waypoint_cfg)
@@ -2023,7 +2081,7 @@ class DashboardController:
         command_chain: Dict[str, Any]
         latest_mission = missions[-1] if missions else None
         scenario_status = str((active_scenario or {}).get("status", ""))
-        scenario_is_active = scenario_status in {"RUNNING", "PAUSED", "CANCELLING"}
+        scenario_is_active = scenario_status in {"RUNNING", "PAUSED", "WAITING_OPERATOR", "CANCELLING"}
         latest_belongs_to_scenario = bool(
             active_scenario
             and latest_mission
@@ -2035,40 +2093,48 @@ class DashboardController:
             and (scenario_is_active or latest_belongs_to_scenario or not latest_mission)
         )
         if show_scenario_chain:
-            count = len(active_scenario.get("waypoints") or [])
-            completed = int(active_scenario.get("completed_steps", 0))
-            step_runs = active_scenario.get("step_runs") or [None for _ in range(count)]
-            active_scenario["progress_percent"] = (
-                round((completed / count) * 100.0, 1) if count else 0.0
-            )
-            scenario_steps = []
-            for index, name in enumerate(active_scenario.get("waypoints") or []):
-                order_id = step_runs[index] if index < len(step_runs) else None
-                run = next((item for item in missions if item.get("order_id") == order_id), None)
-                if index < completed:
-                    phase, step_status = "completed", "FINISHED"
-                elif index == completed and active_scenario.get("status") in {"RUNNING", "PAUSED", "CANCELLING"}:
-                    phase, step_status = "active", (run or {}).get("status", active_scenario.get("status"))
-                elif active_scenario.get("status") == "FINISHED":
-                    phase, step_status = "completed", "FINISHED"
-                elif active_scenario.get("status") in {"FAILED", "REJECTED", "CANCELLED"} and index == completed:
-                    phase, step_status = "failed", active_scenario.get("status")
-                else:
-                    phase, step_status = "upcoming", "UPCOMING"
-                waypoint = waypoint_cfg["waypoints"].get(name, {})
-                scenario_steps.append(
-                    {
-                        "index": index,
-                        "waypoint": name,
-                        "label": waypoint.get("label", name.replace("_", " ").title()),
-                        "phase": phase,
-                        "status": step_status,
-                        "order_id": order_id,
-                        "x": waypoint.get("x"),
-                        "y": waypoint.get("y"),
-                        "theta": waypoint.get("theta"),
-                    }
+            if active_scenario.get("target") == "sequential_cell":
+                scenario_steps = self.sequential_engine.project_steps(active_scenario)
+                count = len(scenario_steps)
+                completed = int(active_scenario.get("completed_steps", 0))
+                active_scenario["progress_percent"] = (
+                    round((completed / count) * 100.0, 1) if count else 0.0
                 )
+            else:
+                count = len(active_scenario.get("waypoints") or [])
+                completed = int(active_scenario.get("completed_steps", 0))
+                step_runs = active_scenario.get("step_runs") or [None for _ in range(count)]
+                active_scenario["progress_percent"] = (
+                    round((completed / count) * 100.0, 1) if count else 0.0
+                )
+                scenario_steps = []
+                for index, name in enumerate(active_scenario.get("waypoints") or []):
+                    order_id = step_runs[index] if index < len(step_runs) else None
+                    run = next((item for item in missions if item.get("order_id") == order_id), None)
+                    if index < completed:
+                        phase, step_status = "completed", "FINISHED"
+                    elif index == completed and active_scenario.get("status") in {"RUNNING", "PAUSED", "CANCELLING"}:
+                        phase, step_status = "active", (run or {}).get("status", active_scenario.get("status"))
+                    elif active_scenario.get("status") == "FINISHED":
+                        phase, step_status = "completed", "FINISHED"
+                    elif active_scenario.get("status") in {"FAILED", "REJECTED", "CANCELLED"} and index == completed:
+                        phase, step_status = "failed", active_scenario.get("status")
+                    else:
+                        phase, step_status = "upcoming", "UPCOMING"
+                    waypoint = waypoint_cfg["waypoints"].get(name, {})
+                    scenario_steps.append(
+                        {
+                            "index": index,
+                            "waypoint": name,
+                            "label": waypoint.get("label", name.replace("_", " ").title()),
+                            "phase": phase,
+                            "status": step_status,
+                            "order_id": order_id,
+                            "x": waypoint.get("x"),
+                            "y": waypoint.get("y"),
+                            "theta": waypoint.get("theta"),
+                        }
+                    )
             active_scenario["steps"] = scenario_steps
             command_chain = {
                 "kind": "scenario",
@@ -2076,6 +2142,7 @@ class DashboardController:
                 "status": active_scenario.get("status"),
                 "description": active_scenario.get("description"),
                 "progress_percent": active_scenario.get("progress_percent"),
+                "operator_prompt": active_scenario.get("operator_prompt"),
                 "steps": scenario_steps,
             }
         elif current or missions:

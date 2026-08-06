@@ -374,6 +374,15 @@ def _projection(ctx: MutableMapping[str, Any], cfg: Mapping[str, Any]) -> Dict[s
     }
 
 
+# Public service helpers shared by the dashboard scenario engine.  The Flask
+# routes below use the same implementations, ensuring manual controls and
+# repeatable scenarios cannot drift to different coordinate logic.
+load_crane_waypoint_config = _load_config
+build_crane_xy_order = _build_xy_order
+build_crane_hoist_order = _build_hoist_order
+crane_readiness = _readiness
+
+
 def register_crane_manual_controls(app: Any, ctx: MutableMapping[str, Any]) -> None:
     """Register routes once. Safe to call repeatedly."""
     if app.extensions.get("crane_manual_controls"):

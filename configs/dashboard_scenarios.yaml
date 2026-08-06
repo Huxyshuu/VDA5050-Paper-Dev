@@ -1,33 +1,148 @@
-# Dashboard mission sequences.
 scenarios:
   short_commissioning:
     label: Short commissioning loop
     description: Home → short test → home. Use this before longer physical tests.
     target: rox
-    waypoints: [home, short_test, home]
+    waypoints:
+    - home
+    - short_test
+    - home
     enabled: true
     risk: low
-
   rox_case_study_route:
     label: ROX case-study route
     description: ROX-only route through the current handover and drop-off poses.
     target: rox
-    waypoints: [home, short_test, crane_handover, warehouse_dropoff, home]
+    waypoints:
+    - home
+    - short_test
+    - crane_handover
+    - warehouse_dropoff
+    - home
     enabled: true
     risk: supervised
-
   crane_approach_only:
     label: ROX crane approach
-    description: Navigate only the ROX-Diff to crane_handover. No crane command is sent.
+    description: Navigate only the ROX-Diff to crane_handover. No crane command is
+      sent.
     target: rox
-    waypoints: [crane_handover]
+    waypoints:
+    - crane_handover
     enabled: true
     risk: supervised
-
   coordinated_handover:
     label: Coordinated crane + ROX-Diff handover
-    description: Sends the verified full crane and ROX orders together and uses exact VDA action states for rendezvous release.
+    description: Sends the verified full crane and ROX orders together and uses exact
+      VDA action states for rendezvous release.
     target: coordinated
-    waypoints: [crane_handover]
+    waypoints:
+    - crane_handover
     enabled: true
     risk: supervised-no-load-first
+  sequential_pickup_delivery:
+    label: Sequential pickup and warehouse delivery
+    description: Homes both participants, transfers one item from the source to ROX-Diff,
+      waits for human confirmations, delivers it to the warehouse, and returns both
+      participants home.
+    target: sequential_cell
+    enabled: true
+    risk: supervised-no-load-first
+    steps:
+    - id: crane_home_start
+      target: crane
+      command: crane_home_all
+      label: Home crane
+      description: Raise the hook to home, then move bridge and trolley to the configured
+        crane home position.
+    - id: rox_home_start
+      target: rox
+      command: rox_waypoint
+      waypoint: home
+      label: Move ROX-Diff home
+      description: Navigate ROX-Diff to its verified home pose.
+    - id: rox_to_handover
+      target: rox
+      command: rox_waypoint
+      waypoint: crane_handover
+      label: Move ROX-Diff to crane handover
+      description: Park ROX-Diff at the verified handover pose and wait there.
+    - id: crane_to_source
+      target: crane
+      command: crane_waypoint
+      waypoint: source_station
+      label: Move crane above source
+      description: Move bridge and trolley to the configured source station before
+        lowering the hook.
+    - id: crane_lower_source
+      target: crane
+      command: crane_hoist
+      position: source_lower_m
+      label: Lower hook to source pickup height
+      description: Lower the hook to the verified source attachment height.
+    - id: confirm_source_pickup
+      target: operator
+      command: operator_confirm
+      label: Confirm item attached
+      prompt: Attach or verify the item on the crane, clear the source area, then
+        confirm to continue.
+      confirm_label: Item attached — continue
+    - id: crane_raise_source
+      target: crane
+      command: crane_hoist
+      position: source_safe_lift_m
+      label: Raise item clear of source
+      description: Raise the item to the verified source-clear height before horizontal
+        crane travel.
+    - id: crane_to_handover
+      target: crane
+      command: crane_waypoint
+      waypoint: rox_handover
+      label: Move crane above ROX-Diff
+      description: Move bridge and trolley to the crane-local handover position aligned
+        with ROX-Diff.
+    - id: crane_lower_handover
+      target: crane
+      command: crane_hoist
+      position: handover_lower_m
+      label: Lower item onto ROX-Diff
+      description: Lower the item to the verified ROX-Diff handover height.
+    - id: confirm_handover_release
+      target: operator
+      command: operator_confirm
+      label: Confirm item released onto ROX-Diff
+      prompt: Release or verify the item on ROX-Diff, clear the hook and robot, then
+        confirm to continue.
+      confirm_label: Item released — continue
+    - id: crane_raise_handover
+      target: crane
+      command: crane_hoist
+      position: handover_safe_lift_m
+      label: Raise hook clear of ROX-Diff
+      description: Raise the hook to the verified departure-clear height before ROX-Diff
+        moves.
+    - id: rox_to_warehouse
+      target: rox
+      command: rox_waypoint
+      waypoint: warehouse_dropoff
+      label: Deliver item to warehouse drop-off
+      description: Navigate ROX-Diff with the item to the verified warehouse drop-off
+        pose.
+    - id: confirm_human_unload
+      target: operator
+      command: operator_confirm
+      label: Confirm human unloading complete
+      prompt: Remove the item from ROX-Diff, clear the robot path, then confirm to
+        return home.
+      confirm_label: Item removed — return home
+    - id: rox_home_finish
+      target: rox
+      command: rox_waypoint
+      waypoint: home
+      label: Return ROX-Diff home
+      description: Navigate ROX-Diff back to its verified home pose.
+    - id: crane_home_finish
+      target: crane
+      command: crane_home_all
+      label: Return crane home
+      description: Raise the hook to home, then return bridge and trolley to the configured
+        crane home position.
