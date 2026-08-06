@@ -8,6 +8,7 @@ attached/released/removed sensor.
 from __future__ import annotations
 
 import copy
+import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Mapping, MutableMapping, Optional
 from uuid import uuid4
@@ -41,6 +42,13 @@ SUPPORTED_COMMANDS = {
 }
 TERMINAL_FAILURES = {"FAILED", "REJECTED", "CANCELLED"}
 ACTIVE_INSTANT_STATES = {"WAITING", "INITIALIZING", "RUNNING", "PAUSED", "RETRIABLE"}
+DEFAULT_TIMEOUTS_S = {
+    "crane_home_all": 300.0,
+    "crane_waypoint": 180.0,
+    "crane_hoist": 120.0,
+    "rox_waypoint": 300.0,
+    "operator_confirm": 900.0,
+}
 
 
 class SequentialCellScenarioEngine:
@@ -83,6 +91,7 @@ class SequentialCellScenarioEngine:
                     "target": target,
                     "label": str(raw.get("label") or step_id.replace("_", " ").title()),
                     "description": str(raw.get("description") or ""),
+                    "timeout_s": max(1.0, float(raw.get("timeout_s", DEFAULT_TIMEOUTS_S[command]))),
                 }
             )
             result.append(item)
@@ -162,6 +171,11 @@ class SequentialCellScenarioEngine:
             "active_final_node_sequence_id": 0,
             "operator_prompt": None,
             "confirmations": [],
+            "step_history": [],
+            "active_step_started_at": None,
+            "active_step_started_epoch": None,
+            "active_timeout_s": None,
+            "last_transition": "Scenario created",
             "stop_requested": False,
             "cancel_sent": False,
             "started_at": _utc_now(),
@@ -190,27 +204,92 @@ class SequentialCellScenarioEngine:
                 "active_action_id": None,
                 "active_final_node_sequence_id": 0,
                 "operator_prompt": None,
+                "active_step_started_at": None,
+                "active_step_started_epoch": None,
+                "active_timeout_s": None,
             }
         )
 
     def _finish_step(self, active: MutableMapping[str, Any], result_id: Optional[str]) -> None:
         index = int(active.get("completed_steps", 0))
-        step_runs = active.setdefault("step_runs", [None for _ in active.get("steps") or []])
+        steps = active.get("steps") or []
+        step = steps[index] if index < len(steps) else {}
+        started_epoch = active.get("active_step_started_epoch")
+        duration = max(0.0, time.time() - float(started_epoch)) if started_epoch else 0.0
+        step_runs = active.setdefault("step_runs", [None for _ in steps])
         if index < len(step_runs):
             step_runs[index] = result_id
+        active.setdefault("step_history", []).append({
+            "step_id": step.get("id"),
+            "label": step.get("label"),
+            "target": step.get("target"),
+            "command": step.get("command"),
+            "status": "FINISHED",
+            "started_at": active.get("active_step_started_at"),
+            "finished_at": _utc_now(),
+            "duration_s": round(duration, 3),
+            "result_id": result_id,
+        })
         active["completed_steps"] = index + 1
         active["updated_at"] = _utc_now()
+        active["last_transition"] = f"Finished: {step.get('label', step.get('id', 'step'))}"
+        self.controller._add_event(
+            "INFO",
+            str(step.get("target") or "scenario"),
+            f"Sequential step finished: {step.get('label', step.get('id', 'step'))} ({duration:.1f}s)",
+            code="SEQUENTIAL_STEP_FINISHED",
+            details={
+                "scenario_id": active.get("id"),
+                "step_id": step.get("id"),
+                "duration_s": round(duration, 3),
+                "result_id": result_id,
+            },
+        )
         self._clear_active(active)
 
     def _fail_step(self, active: MutableMapping[str, Any], status: str, detail: str) -> None:
+        index = int(active.get("completed_steps", 0))
+        steps = active.get("steps") or []
+        step = steps[index] if index < len(steps) else {}
+        started_epoch = active.get("active_step_started_epoch")
+        duration = max(0.0, time.time() - float(started_epoch)) if started_epoch else 0.0
+        active.setdefault("step_history", []).append({
+            "step_id": step.get("id"),
+            "label": step.get("label"),
+            "target": step.get("target"),
+            "command": step.get("command"),
+            "status": status,
+            "started_at": active.get("active_step_started_at"),
+            "finished_at": _utc_now(),
+            "duration_s": round(duration, 3),
+            "error": detail,
+        })
         active["status"] = status
         active["error"] = detail
         active["updated_at"] = _utc_now()
+        active["finished_at"] = _utc_now()
+        active["last_transition"] = f"Failed: {step.get('label', step.get('id', 'step'))}"
+        self.controller._add_event(
+            "ERROR",
+            str(step.get("target") or "scenario"),
+            f"Sequential step failed: {step.get('label', step.get('id', 'step'))}: {detail}",
+            code="SEQUENTIAL_STEP_FAILED",
+            details={
+                "scenario_id": active.get("id"),
+                "step_id": step.get("id"),
+                "duration_s": round(duration, 3),
+                "status": status,
+            },
+        )
 
     def _dispatch_step(self, active: MutableMapping[str, Any], step: Mapping[str, Any]) -> None:
         command = str(step["command"])
         active["active_step_id"] = str(step["id"])
         active["active_target"] = str(step["target"])
+        active["active_step_started_at"] = _utc_now()
+        active["active_step_started_epoch"] = time.time()
+        active["active_timeout_s"] = float(step.get("timeout_s", DEFAULT_TIMEOUTS_S[command]))
+        active["last_transition"] = f"Started: {step['label']}"
         active["updated_at"] = _utc_now()
 
         if command == "operator_confirm":
@@ -222,6 +301,11 @@ class SequentialCellScenarioEngine:
                 "prompt": str(step.get("prompt") or step.get("description") or "Confirm the manual step is complete."),
                 "confirm_label": str(step.get("confirm_label") or "Continue scenario"),
             }
+            self.controller._add_event(
+                "WARNING", "operator", f"Scenario waiting for operator: {step['label']}",
+                code="SEQUENTIAL_OPERATOR_WAIT",
+                details={"scenario_id": active.get("id"), "step_id": step.get("id")},
+            )
             return
 
         if command == "rox_waypoint":
@@ -273,6 +357,34 @@ class SequentialCellScenarioEngine:
         if active.get("status") == "WAITING_OPERATOR":
             return
         if active.get("status") not in {"RUNNING", "CANCELLING"}:
+            return
+
+        started_epoch = active.get("active_step_started_epoch")
+        timeout_s = active.get("active_timeout_s")
+        if (
+            active.get("active_kind")
+            and started_epoch
+            and timeout_s
+            and time.time() - float(started_epoch) > float(timeout_s)
+        ):
+            target = str(active.get("active_target") or "")
+            kind = active.get("active_kind")
+            try:
+                if kind == "order" and target:
+                    self.controller._cancel_target_order(target, str(active.get("active_order_id") or ""))
+                elif kind == "instant" and target:
+                    self.controller.publish_instant("cancelOrder", target=target)
+            except Exception as exc:
+                self.controller._add_event(
+                    "ERROR", target or "scenario", f"Timeout cancellation failed: {exc}",
+                    code="SEQUENTIAL_TIMEOUT_CANCEL_FAILED",
+                )
+            self._fail_step(
+                active,
+                "FAILED",
+                f"Step {active.get('active_step_id')} exceeded its {float(timeout_s):.0f}s timeout",
+            )
+            self._commit(active)
             return
 
         if active.get("stop_requested"):
@@ -360,6 +472,11 @@ class SequentialCellScenarioEngine:
         active.setdefault("confirmations", []).append(
             {"step_id": step_id, "confirmed_at": _utc_now()}
         )
+        self.controller._add_event(
+            "INFO", "operator", f"Operator confirmed scenario step {step_id}",
+            code="SEQUENTIAL_OPERATOR_CONFIRMED",
+            details={"scenario_id": active.get("id"), "step_id": step_id},
+        )
         self._finish_step(active, f"operator:{step_id}")
         active["status"] = "RUNNING"
         self._commit(active)
@@ -413,6 +530,13 @@ class SequentialCellScenarioEngine:
                     "phase": phase,
                     "status": step_status,
                     "run_id": step_runs[index] if index < len(step_runs) else None,
+                    "timeout_s": float(step.get("timeout_s", DEFAULT_TIMEOUTS_S[step["command"]])),
+                    "history": next((item for item in reversed(active.get("step_history") or []) if item.get("step_id") == step["id"]), None),
+                    "elapsed_s": (
+                        round(max(0.0, time.time() - float(active.get("active_step_started_epoch"))), 1)
+                        if index == completed and active.get("active_step_started_epoch")
+                        else None
+                    ),
                 }
             )
         return result

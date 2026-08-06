@@ -91,7 +91,18 @@ ALLOW_UNHOMED_START = os.getenv("ALLOW_UNHOMED_START", "false").strip().lower() 
     "1", "true", "yes", "on"
 }
 
-WATCHDOG_INTERVAL_S = 0.049  # mirror watchdog.py behaviour # 0.1
+WATCHDOG_INTERVAL_S = max(0.01, float(os.getenv("CRANE_WATCHDOG_INTERVAL_S", "0.049")))
+CRANE_WATCHDOG_WARN_GAP_S = max(
+    WATCHDOG_INTERVAL_S * 1.5, float(os.getenv("CRANE_WATCHDOG_WARN_GAP_S", "0.15"))
+)
+CRANE_WATCHDOG_CRITICAL_GAP_S = max(
+    CRANE_WATCHDOG_WARN_GAP_S, float(os.getenv("CRANE_WATCHDOG_CRITICAL_GAP_S", "0.50"))
+)
+CRANE_WATCHDOG_FAILURE_LIMIT = max(1, int(os.getenv("CRANE_WATCHDOG_FAILURE_LIMIT", "3")))
+CRANE_MOTION_STALL_WARN_S = max(1.0, float(os.getenv("CRANE_MOTION_STALL_WARN_S", "6.0")))
+CRANE_MOTION_STALL_FAIL_S = max(
+    CRANE_MOTION_STALL_WARN_S, float(os.getenv("CRANE_MOTION_STALL_FAIL_S", "15.0"))
+)
 STATE_INTERVAL_S = 3.0  # periodic /state publish
 VISU_INTERVAL_S = 3.0  # periodic /visualization publish
 CRANE_AUTO_WAIT_TIMEOUT_S = float(
@@ -117,6 +128,89 @@ HOME_HOIST_MM = _metres_env_to_mm("CRANE_HOME_HOIST_M", 3.071)
 
 
 # ───────────────────────────────────────────────────────── utilities ──
+
+
+class WatchdogHealth:
+    """Thread-safe timing and failure telemetry for the PLC watchdog writer."""
+
+    def __init__(self) -> None:
+        self._lock = threading.RLock()
+        self.started_monotonic = time.monotonic()
+        self.last_attempt_monotonic: Optional[float] = None
+        self.last_success_monotonic: Optional[float] = None
+        self.last_duration_ms = 0.0
+        self.max_duration_ms = 0.0
+        self.last_gap_ms = 0.0
+        self.max_gap_ms = 0.0
+        self.consecutive_failures = 0
+        self.total_failures = 0
+        self.overruns = 0
+        self.ticks = 0
+        self.last_value: Optional[int] = None
+        self.last_error = ""
+
+    def note_attempt(self, started: float) -> None:
+        with self._lock:
+            self.last_attempt_monotonic = started
+
+    def note_success(self, value: Optional[int], started: float, finished: float) -> None:
+        with self._lock:
+            if self.last_success_monotonic is not None:
+                self.last_gap_ms = (finished - self.last_success_monotonic) * 1000.0
+                self.max_gap_ms = max(self.max_gap_ms, self.last_gap_ms)
+            duration_ms = max(0.0, (finished - started) * 1000.0)
+            self.last_duration_ms = duration_ms
+            self.max_duration_ms = max(self.max_duration_ms, duration_ms)
+            self.last_success_monotonic = finished
+            self.consecutive_failures = 0
+            self.ticks += 1
+            self.last_value = value
+            self.last_error = ""
+
+    def note_failure(self, exc: BaseException) -> int:
+        with self._lock:
+            self.consecutive_failures += 1
+            self.total_failures += 1
+            self.last_error = f"{type(exc).__name__}: {exc}"
+            return self.consecutive_failures
+
+    def note_overrun(self) -> None:
+        with self._lock:
+            self.overruns += 1
+
+    def snapshot(self) -> Dict[str, Any]:
+        now = time.monotonic()
+        with self._lock:
+            age = None if self.last_success_monotonic is None else max(0.0, now - self.last_success_monotonic)
+            if (
+                self.consecutive_failures >= CRANE_WATCHDOG_FAILURE_LIMIT
+                or age is None
+                or age > CRANE_WATCHDOG_CRITICAL_GAP_S
+            ):
+                status = "CRITICAL"
+            elif (
+                self.consecutive_failures > 0
+                or age > CRANE_WATCHDOG_WARN_GAP_S
+                or self.last_gap_ms > CRANE_WATCHDOG_WARN_GAP_S * 1000.0
+            ):
+                status = "DEGRADED"
+            else:
+                status = "HEALTHY"
+            return {
+                "status": status,
+                "interval_s": WATCHDOG_INTERVAL_S,
+                "last_success_age_s": age,
+                "last_write_duration_ms": self.last_duration_ms,
+                "max_write_duration_ms": self.max_duration_ms,
+                "last_success_gap_ms": self.last_gap_ms,
+                "max_success_gap_ms": self.max_gap_ms,
+                "consecutive_failures": self.consecutive_failures,
+                "total_failures": self.total_failures,
+                "overruns": self.overruns,
+                "ticks": self.ticks,
+                "last_value": self.last_value,
+                "last_error": self.last_error,
+            }
 
 
 def wait_for_panel_button(
@@ -306,22 +400,61 @@ def wait_for_crane_automatic_mode(
     return False
 
 
-def _watchdog_loop(crane: Crane, stop_event: threading.Event, log: logging.Logger):
-    """Process-wide watchdog that ticks until stop_event is set."""
-    log.info("Global watchdog loop started (interval=%.3fs)", WATCHDOG_INTERVAL_S)
-    last_log = time.time()
+def _watchdog_loop(
+    crane: Crane,
+    stop_event: threading.Event,
+    log: logging.Logger,
+    health: WatchdogHealth,
+):
+    """Deadline-scheduled process watchdog with visible health telemetry."""
+    log.info(
+        "Global watchdog loop started (interval=%.3fs, warning gap=%.3fs, critical gap=%.3fs)",
+        WATCHDOG_INTERVAL_S,
+        CRANE_WATCHDOG_WARN_GAP_S,
+        CRANE_WATCHDOG_CRITICAL_GAP_S,
+    )
+    next_deadline = time.monotonic()
+    last_gap_warning = 0.0
     while not stop_event.is_set():
+        next_deadline += WATCHDOG_INTERVAL_S
+        started = time.monotonic()
+        health.note_attempt(started)
         try:
             crane.increment_watchdog()
-        except Exception as e:
-            log.debug("Watchdog tick error (non-fatal): %s", e)
-        # heartbeat every ~10s
-        now = time.time()
-        if now - last_log > 10.0:
-            log.debug("Watchdog tick.")
-            last_log = now
-        time.sleep(WATCHDOG_INTERVAL_S)
-    log.info("Global watchdog loop stopped.")
+            finished = time.monotonic()
+            health.note_success(getattr(crane, "_watchdog_value", None), started, finished)
+            snap = health.snapshot()
+            if (
+                snap["last_success_gap_ms"] > CRANE_WATCHDOG_WARN_GAP_S * 1000.0
+                and finished - last_gap_warning > 5.0
+            ):
+                log.warning(
+                    "Watchdog timing degraded: latest successful gap %.1f ms, last write %.1f ms",
+                    snap["last_success_gap_ms"],
+                    snap["last_write_duration_ms"],
+                )
+                last_gap_warning = finished
+        except Exception as exc:
+            failures = health.note_failure(exc)
+            if failures == 1:
+                log.warning("Watchdog write failed: %s", exc)
+            elif failures >= CRANE_WATCHDOG_FAILURE_LIMIT:
+                log.error(
+                    "Watchdog write failed %d consecutive times; PLC automatic mode may be lost: %s",
+                    failures,
+                    exc,
+                )
+        delay = next_deadline - time.monotonic()
+        if delay <= 0:
+            health.note_overrun()
+            next_deadline = time.monotonic()
+            delay = 0.0
+        stop_event.wait(delay)
+    try:
+        crane.stop_all()
+    except Exception:
+        pass
+    log.info("Global watchdog loop stopped. Final health=%s", health.snapshot())
 
 
 def _move_xy_to(
@@ -646,14 +779,21 @@ def _internal_action_type(action_type: Optional[str]) -> str:
 class VDA5050Adapter:
     """Main adapter class bridging MQTT ‹-› crane."""
 
-    def __init__(self, crane: Crane, log: logging.Logger):
+    def __init__(self, crane: Crane, log: logging.Logger, watchdog_health: WatchdogHealth):
         self._paused = False
         self._hold_mode = False  # True if we don’t have speed scaling API
         self._speed_scale_backup = None  # remembers scale at pause
 
         self.log = log.getChild("adapter")
         self.crane = crane
+        self.watchdog_health = watchdog_health
         self.header = HeaderCounter()
+        self._motion_diag_lock = threading.RLock()
+        self._motion_last_positions: Optional[Tuple[int, int, int]] = None
+        self._motion_started_monotonic: Optional[float] = None
+        self._motion_last_progress_monotonic: Optional[float] = None
+        self._motion_stall_latched = False
+        self._motion_last_error = ""
 
         # --- VDA state book-keeping (matches state.schema required fields) ---
         self.current_order_id: str = ""
@@ -1035,55 +1175,62 @@ class VDA5050Adapter:
             time.sleep(STATE_INTERVAL_S)
 
     def _automatic_mode_guard_task(self):
-        """Continuously enforce the PLC automatic-mode signal.
-
-        Losing automatic mode immediately stops all axes and cancels any active
-        VDA order. Dispatch remains blocked until WatchDogFault becomes false
-        again and the next state publication reports AUTOMATIC.
-        """
+        """Continuously enforce PLC mode and watchdog transport health."""
         self.log.info(
-            "Automatic-mode guard running at %.2fs using "
-            "DX_Custom_V.Status.WatchDogFault",
+            "Automatic-mode guard running at %.2fs using DX_Custom_V.Status.WatchDogFault",
             CRANE_AUTO_MODE_POLL_S,
         )
         last_fault: Optional[bool] = None
+        last_health_status: Optional[str] = None
         fault_stop_latched = False
         while not self._stop.is_set():
             try:
-                fault = bool(self.crane.get_watchdog_fault())
+                plc_fault = bool(self.crane.get_watchdog_fault())
             except Exception as exc:
-                fault = True
-                self.log.debug("Automatic-mode guard read failed: %s", exc)
-            self.watchdog_fault = fault
+                plc_fault = True
+                self.log.warning("Automatic-mode guard read failed: %s", exc)
+            health = self.watchdog_health.snapshot()
+            transport_critical = health["status"] == "CRITICAL"
+            fault = bool(plc_fault or transport_critical)
+            self.watchdog_fault = plc_fault
             self.operating_mode = "MANUAL" if fault else "AUTOMATIC"
+            if health["status"] != last_health_status:
+                level = self.log.error if transport_critical else (self.log.warning if health["status"] == "DEGRADED" else self.log.info)
+                level("Watchdog transport health changed to %s: %s", health["status"], health)
+                last_health_status = health["status"]
+            if transport_critical:
+                self._set_runtime_error(
+                    "WATCHDOG_COMMUNICATION_FAILURE",
+                    f"Watchdog transport is CRITICAL: {health.get('last_error') or 'successful write gap exceeded'}",
+                )
+            else:
+                self._clear_runtime_error("WATCHDOG_COMMUNICATION_FAILURE")
             changed = fault != last_fault
             if changed:
-                self.log.warning(
-                    "WatchDogFault changed to %s; VDA operatingMode=%s",
-                    fault,
-                    self.operating_mode,
-                ) if fault else self.log.info(
-                    "WatchDogFault cleared; VDA operatingMode=AUTOMATIC"
-                )
+                if fault:
+                    self.log.error(
+                        "Crane automatic availability lost: WatchDogFault=%s, watchdogHealth=%s",
+                        plc_fault,
+                        health["status"],
+                    )
+                else:
+                    self.log.info("WatchDogFault cleared and watchdog transport is healthy; operatingMode=AUTOMATIC")
                 last_fault = fault
             if not fault:
                 fault_stop_latched = False
             elif not fault_stop_latched:
-                # One fail-closed STOP per fault episode avoids repeatedly
-                # writing the same OPC UA command while the crane is idle.
                 try:
                     self.crane.stop_all()
-                except Exception:
-                    pass
+                except Exception as exc:
+                    self.log.warning("Fail-closed STOP could not be written: %s", exc)
                 fault_stop_latched = True
             if fault and (self._order_active or self._driving or self._instant_motion_active) and not self._cancel.is_set():
                 self._cancel.set()
                 self._force_hold_pose()
                 self.log.error(
-                    "Automatic mode was lost during motion/order execution; "
-                    "motion stopped and the current order was canceled."
+                    "Automatic/watchdog health was lost during motion; motion stopped and current order was canceled."
                 )
-            time.sleep(CRANE_AUTO_MODE_POLL_S)
+            self._stop.wait(CRANE_AUTO_MODE_POLL_S)
 
     def _publish_visualization_task(self):
         self.log.info("Visualization publisher running at %.2fs", VISU_INTERVAL_S)
@@ -2523,6 +2670,86 @@ class VDA5050Adapter:
         finally:
             self.log.info("[action end] %s (%.2fs)", atype, time.time() - t0)
 
+    def _set_runtime_error(self, error_type: str, description: str) -> None:
+        self.errors = [item for item in self.errors if item.get("errorType") != error_type]
+        refs = []
+        if self.current_order_id:
+            refs.append({"referenceKey": "orderId", "referenceValue": self.current_order_id})
+        self.errors.append({
+            "errorType": error_type,
+            "errorLevel": "WARNING",
+            "errorDescription": description,
+            "errorReferences": refs,
+        })
+
+    def _clear_runtime_error(self, error_type: str) -> None:
+        self.errors = [item for item in self.errors if item.get("errorType") != error_type]
+
+    def _update_motion_diagnostics(self, bridge_mm: int, trolley_mm: int, hoist_mm: int) -> Dict[str, Any]:
+        now = time.monotonic()
+        active_actions = [
+            item for item in (self.action_states + self.instant_action_states)
+            if item.get("actionStatus") in {"INITIALIZING", "WAITING", "RUNNING", "PAUSED"}
+        ]
+        active_action = active_actions[0] if active_actions else {}
+        moving = bool(self._driving or self._instant_motion_active) or (
+            active_action.get("actionType") in {
+                "lowerHoist", "raiseHoist", "resetHoist", "resetBridgeTrolley", "resetAllHome"
+            } and active_action.get("actionStatus") == "RUNNING"
+        )
+        positions = (bridge_mm, trolley_mm, hoist_mm)
+        with self._motion_diag_lock:
+            if moving and self._motion_started_monotonic is None:
+                self._motion_started_monotonic = now
+                self._motion_last_progress_monotonic = now
+                self._motion_stall_latched = False
+                self._motion_last_error = ""
+            if moving and self._motion_last_positions is not None and any(
+                abs(a - b) >= 1 for a, b in zip(positions, self._motion_last_positions)
+            ):
+                self._motion_last_progress_monotonic = now
+                self._motion_stall_latched = False
+            self._motion_last_positions = positions
+            if not moving:
+                self._motion_started_monotonic = None
+                self._motion_last_progress_monotonic = now
+                self._motion_stall_latched = False
+            progress_age = 0.0 if self._motion_last_progress_monotonic is None else max(0.0, now - self._motion_last_progress_monotonic)
+            elapsed = 0.0 if self._motion_started_monotonic is None else max(0.0, now - self._motion_started_monotonic)
+            stalled = bool(moving and not self._paused and not self._hold_mode and progress_age >= CRANE_MOTION_STALL_WARN_S)
+            if (
+                moving and not self._paused and not self._hold_mode
+                and progress_age >= CRANE_MOTION_STALL_FAIL_S
+                and not self._motion_stall_latched
+            ):
+                self._motion_stall_latched = True
+                self._motion_last_error = (
+                    f"No crane position progress for {progress_age:.1f}s during "
+                    f"{active_action.get('actionType') or ('XY movement' if self._driving else 'motion')}"
+                )
+                self.log.error(self._motion_last_error)
+                self._set_runtime_error("CRANE_MOTION_STALLED", self._motion_last_error)
+                self._cancel.set()
+                try:
+                    self.crane.stop_all()
+                except Exception as exc:
+                    self.log.warning("STOP after motion stall failed: %s", exc)
+            elif not stalled:
+                self._clear_runtime_error("CRANE_MOTION_STALLED")
+            return {
+                "status": "STALLED" if stalled else ("MOVING" if moving else "IDLE"),
+                "phase": active_action.get("actionType") or ("XY_MOVE" if self._driving else "IDLE"),
+                "action_id": active_action.get("actionId", ""),
+                "action_status": active_action.get("actionStatus", ""),
+                "elapsed_s": elapsed,
+                "last_progress_age_s": progress_age,
+                "stall_warn_s": CRANE_MOTION_STALL_WARN_S,
+                "stall_fail_s": CRANE_MOTION_STALL_FAIL_S,
+                "targets": dict(self._active_targets),
+                "positions_mm": {"bridge": bridge_mm, "trolley": trolley_mm, "hoist": hoist_mm},
+                "last_error": self._motion_last_error,
+            }
+
     # ───────────────────────────── message builders ──────────────────────────
 
     def _connection_msg(self, state: str) -> Dict[str, Any]:
@@ -2564,9 +2791,13 @@ class VDA5050Adapter:
             trolley_mm = int(self.crane.get_trolley_position_absolute())
 
             # --- hoist telemetry into information[] with required infoLevel ---
+            motion_diag: Dict[str, Any] = {
+                "status": "UNKNOWN", "phase": "UNKNOWN", "last_error": "hoist telemetry unavailable"
+            }
             try:
                 hoist_mm = int(self.crane.get_hoist_position_absolute())
                 hoist_m = hoist_mm / 1000.0
+                motion_diag = self._update_motion_diagnostics(bridge_mm, trolley_mm, hoist_mm)
                 info_item = {
                     "infoType": "HOIST_POSITION",
                     "infoLevel": "INFO",
@@ -2621,6 +2852,51 @@ class VDA5050Adapter:
                 if item.get("infoType") != "WATCHDOG_FAULT"
             ]
             self.information_messages.append(watchdog_item)
+
+            watchdog_health = self.watchdog_health.snapshot()
+            watchdog_health_item = {
+                "infoType": "WATCHDOG_HEALTH",
+                "infoLevel": (
+                    "WARNING" if watchdog_health["status"] != "HEALTHY" else "INFO"
+                ),
+                "infoDescriptor": (
+                    f"Watchdog {watchdog_health['status']}: "
+                    f"last success age={watchdog_health['last_success_age_s'] if watchdog_health['last_success_age_s'] is not None else -1:.3f}s, "
+                    f"failures={watchdog_health['consecutive_failures']}"
+                ),
+                "infoDescription": (
+                    f"Deadline-scheduled OPC UA watchdog health is {watchdog_health['status']}"
+                ),
+                "infoReferences": [
+                    {"referenceKey": key, "referenceValue": str(value)}
+                    for key, value in watchdog_health.items()
+                ],
+            }
+            motion_health_item = {
+                "infoType": "CRANE_MOTION_HEALTH",
+                "infoLevel": "WARNING" if motion_diag.get("status") == "STALLED" else "INFO",
+                "infoDescriptor": (
+                    f"Motion {motion_diag.get('status')}: {motion_diag.get('phase')} "
+                    f"progress age={float(motion_diag.get('last_progress_age_s', 0.0)):.1f}s"
+                ),
+                "infoDescription": str(motion_diag.get("last_error") or "Crane motion telemetry"),
+                "infoReferences": [
+                    {"referenceKey": "status", "referenceValue": str(motion_diag.get("status", "UNKNOWN"))},
+                    {"referenceKey": "phase", "referenceValue": str(motion_diag.get("phase", "UNKNOWN"))},
+                    {"referenceKey": "actionId", "referenceValue": str(motion_diag.get("action_id", ""))},
+                    {"referenceKey": "actionStatus", "referenceValue": str(motion_diag.get("action_status", ""))},
+                    {"referenceKey": "elapsed_s", "referenceValue": f"{float(motion_diag.get('elapsed_s', 0.0)):.3f}"},
+                    {"referenceKey": "last_progress_age_s", "referenceValue": f"{float(motion_diag.get('last_progress_age_s', 0.0)):.3f}"},
+                    {"referenceKey": "targets", "referenceValue": json.dumps(motion_diag.get("targets", {}), sort_keys=True)},
+                    {"referenceKey": "positions_mm", "referenceValue": json.dumps(motion_diag.get("positions_mm", {}), sort_keys=True)},
+                    {"referenceKey": "last_error", "referenceValue": str(motion_diag.get("last_error", ""))},
+                ],
+            }
+            self.information_messages = [
+                item for item in self.information_messages
+                if item.get("infoType") not in {"WATCHDOG_HEALTH", "CRANE_MOTION_HEALTH"}
+            ]
+            self.information_messages.extend([watchdog_health_item, motion_health_item])
             state_header_id = self.header.next("state")
             self._last_state_header_id = state_header_id
 
@@ -2777,9 +3053,10 @@ def main():
 
     # --- Start GLOBAL watchdog BEFORE any waits/homing ---
     watchdog_stop = threading.Event()
+    watchdog_health = WatchdogHealth()
     watchdog_thread = threading.Thread(
         target=_watchdog_loop,
-        args=(crane, watchdog_stop, log),
+        args=(crane, watchdog_stop, log, watchdog_health),
         daemon=True,
         name="watchdog",
     )
@@ -2910,7 +3187,7 @@ def main():
             "is performed at adapter startup; use the dashboard Home controls when ready."
         )
     # --- Start adapter threads/MQTT after successful or explicitly overridden preflight ---
-    adapter = VDA5050Adapter(crane, log)
+    adapter = VDA5050Adapter(crane, log, watchdog_health)
     adapter_ref["obj"] = adapter
     try:
         adapter.start()

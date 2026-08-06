@@ -980,6 +980,56 @@ class DashboardController:
             reasons.append("Waypoint file is not marked configured")
         return reasons
 
+    @staticmethod
+    def _information_diagnostics(state: Mapping[str, Any]) -> Dict[str, Any]:
+        result: Dict[str, Any] = {}
+        for item in state.get("information") or []:
+            if not isinstance(item, Mapping):
+                continue
+            info_type = str(item.get("infoType") or "")
+            if info_type not in {"WATCHDOG_HEALTH", "CRANE_MOTION_HEALTH", "WATCHDOG_FAULT"}:
+                continue
+            refs = {
+                str(ref.get("referenceKey")): ref.get("referenceValue")
+                for ref in item.get("infoReferences") or []
+                if isinstance(ref, Mapping) and ref.get("referenceKey") is not None
+            }
+            parsed: Dict[str, Any] = {
+                "level": item.get("infoLevel", "INFO"),
+                "descriptor": item.get("infoDescriptor") or item.get("infoDescription") or "",
+                "references": refs,
+            }
+            for key in (
+                "interval_s", "last_success_age_s", "last_write_duration_ms",
+                "max_write_duration_ms", "last_success_gap_ms", "max_success_gap_ms", "elapsed_s",
+                "last_progress_age_s", "stall_warn_s", "stall_fail_s",
+            ):
+                if key in refs:
+                    try:
+                        parsed[key] = float(refs[key])
+                    except (TypeError, ValueError):
+                        parsed[key] = refs[key]
+            for key in ("consecutive_failures", "total_failures", "overruns", "ticks"):
+                if key in refs:
+                    try:
+                        parsed[key] = int(float(refs[key]))
+                    except (TypeError, ValueError):
+                        parsed[key] = refs[key]
+            for key in ("targets", "positions_mm"):
+                if key in refs:
+                    try:
+                        parsed[key] = json.loads(str(refs[key]))
+                    except Exception:
+                        parsed[key] = refs[key]
+            if "status" in refs:
+                parsed["status"] = refs["status"]
+            if "phase" in refs:
+                parsed["phase"] = refs["phase"]
+            if "last_error" in refs:
+                parsed["last_error"] = refs["last_error"]
+            result[info_type.lower()] = parsed
+        return result
+
     def _device_projection(
         self, target: str, target_cache: Mapping[str, Any], waypoint_cfg: Mapping[str, Any]
     ) -> Dict[str, Any]:
@@ -989,6 +1039,7 @@ class DashboardController:
         power = state.get("powerSupply") or {}
         safety = state.get("safetyState") or {}
         errors = state.get("errors") or []
+        diagnostics = self._information_diagnostics(state)
         reasons = self._dispatch_reasons(target, target_cache, waypoint_cfg)
         enabled = self.rox_enabled if target == "rox" else self.crane_enabled
         return {
@@ -1042,6 +1093,7 @@ class DashboardController:
             "raw_state": state,
             "instant_actions": state.get("instantActionStates") or [],
             "order_actions": state.get("actionStates") or [],
+            "diagnostics": diagnostics,
             "retriable_action_ids": [
                 str(item.get("actionId"))
                 for item in state.get("actionStates") or []
@@ -1296,6 +1348,10 @@ class DashboardController:
                 "emergency": device.get("safety", {}).get("active_emergency_stop"),
                 "field": bool(device.get("safety", {}).get("field_violation")),
                 "errors": tuple((err.get("type"), err.get("level")) for err in device.get("errors", [])),
+                "watchdog_health": (device.get("diagnostics", {}).get("watchdog_health", {}) or {}).get("status"),
+                "watchdog_failures": (device.get("diagnostics", {}).get("watchdog_health", {}) or {}).get("total_failures", 0),
+                "motion_health": (device.get("diagnostics", {}).get("crane_motion_health", {}) or {}).get("status"),
+                "motion_phase": (device.get("diagnostics", {}).get("crane_motion_health", {}) or {}).get("phase"),
             }
             old = self._last_signature.get(target)
             if old is not None:
@@ -1313,6 +1369,14 @@ class DashboardController:
                     self._add_event("WARNING" if current["field"] else "INFO", target, "Protective field is occupied" if current["field"] else "Protective field is clear", code="FIELD_VIOLATION_CHANGED")
                 if old.get("errors") != current["errors"] and current["errors"]:
                     self._add_event("WARNING", target, f"{len(current['errors'])} VDA error(s) reported", code="ERROR_SET_CHANGED")
+                if old.get("watchdog_health") != current["watchdog_health"] and current["watchdog_health"]:
+                    level = "ERROR" if current["watchdog_health"] == "CRITICAL" else ("WARNING" if current["watchdog_health"] == "DEGRADED" else "INFO")
+                    self._add_event(level, target, f"Watchdog transport health: {current['watchdog_health']}", code="WATCHDOG_HEALTH_CHANGED")
+                if old.get("watchdog_failures") != current["watchdog_failures"] and current["watchdog_failures"]:
+                    self._add_event("WARNING", target, f"Watchdog write failures total: {current['watchdog_failures']}", code="WATCHDOG_WRITE_FAILURE")
+                if old.get("motion_health") != current["motion_health"] and current["motion_health"]:
+                    level = "ERROR" if current["motion_health"] == "STALLED" else "INFO"
+                    self._add_event(level, target, f"Crane motion health: {current['motion_health']} ({current['motion_phase'] or 'unknown phase'})", code="CRANE_MOTION_HEALTH_CHANGED")
             self._last_signature[target] = current
 
     # ------------------------------------------------------------------
@@ -2143,6 +2207,11 @@ class DashboardController:
                 "description": active_scenario.get("description"),
                 "progress_percent": active_scenario.get("progress_percent"),
                 "operator_prompt": active_scenario.get("operator_prompt"),
+                "active_step_started_at": active_scenario.get("active_step_started_at"),
+                "active_timeout_s": active_scenario.get("active_timeout_s"),
+                "last_transition": active_scenario.get("last_transition"),
+                "error": active_scenario.get("error"),
+                "step_history": active_scenario.get("step_history") or [],
                 "steps": scenario_steps,
             }
         elif current or missions:
@@ -2186,6 +2255,23 @@ class DashboardController:
         map_projection = self._load_map(waypoint_cfg.get("map_id"))
         map_projection.pop("_png", None)
         experiment = self._experiment_projection()
+        crane_diag = devices.get("crane", {}).get("diagnostics", {})
+        active_step = next((step for step in (active_scenario or {}).get("steps", []) if step.get("phase") == "active"), None)
+        execution_monitor = {
+            "scenario_status": (active_scenario or {}).get("status", "IDLE"),
+            "scenario_label": (active_scenario or {}).get("label", ""),
+            "active_step": active_step,
+            "last_transition": (active_scenario or {}).get("last_transition", ""),
+            "error": (active_scenario or {}).get("error", ""),
+            "step_history": (active_scenario or {}).get("step_history", []),
+            "watchdog": crane_diag.get("watchdog_health", {}),
+            "motion": crane_diag.get("crane_motion_health", {}),
+            "watchdog_fault": crane_diag.get("watchdog_fault", {}),
+            "recent_execution_events": [
+                event for event in events
+                if event.get("source") in {"crane", "rox", "scenario", "operator"}
+            ][:40],
+        }
 
         return {
             "generated_at": _utc_now(),
@@ -2212,6 +2298,7 @@ class DashboardController:
             "controls": self._control_projection(rox_state),
             "control_availability": control_availability,
             "events": events[: self.event_limit],
+            "execution_monitor": execution_monitor,
             "capabilities": {
                 "pause": True,
                 "resume": True,
