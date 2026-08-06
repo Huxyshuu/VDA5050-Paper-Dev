@@ -1,5 +1,5 @@
 map_id: map
-configured: false
+configured: true
 coordinate_system: ilmatar_bridge_trolley_absolute_m
 waypoints:
   source_station:
