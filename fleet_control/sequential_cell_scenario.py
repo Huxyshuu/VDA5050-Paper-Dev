@@ -8,6 +8,7 @@ attached/released/removed sensor.
 from __future__ import annotations
 
 import copy
+import os
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Mapping, MutableMapping, Optional
@@ -42,6 +43,10 @@ SUPPORTED_COMMANDS = {
 }
 TERMINAL_FAILURES = {"FAILED", "REJECTED", "CANCELLED"}
 ACTIVE_INSTANT_STATES = {"WAITING", "INITIALIZING", "RUNNING", "PAUSED", "RETRIABLE"}
+SEQUENTIAL_ACTION_DELAY_S = max(
+    0.0, float(os.getenv("SEQUENTIAL_ACTION_DELAY_S", "1.5"))
+)
+
 DEFAULT_TIMEOUTS_S = {
     "crane_home_all": 300.0,
     "crane_waypoint": 180.0,
@@ -231,6 +236,8 @@ class SequentialCellScenarioEngine:
             "result_id": result_id,
         })
         active["completed_steps"] = index + 1
+        active["next_dispatch_not_before_epoch"] = time.time() + SEQUENTIAL_ACTION_DELAY_S
+        active["inter_step_delay_s"] = SEQUENTIAL_ACTION_DELAY_S
         active["updated_at"] = _utc_now()
         active["last_transition"] = f"Finished: {step.get('label', step.get('id', 'step'))}"
         self.controller._add_event(
@@ -338,7 +345,17 @@ class SequentialCellScenarioEngine:
             active.update({"active_kind": "instant", "active_action_id": action_id})
             return
         if command == "crane_waypoint":
-            order = build_crane_xy_order(crane_cfg, live["state"], str(step["waypoint"]))
+            order = build_crane_xy_order(
+                crane_cfg,
+                live["state"],
+                str(step["waypoint"]),
+                ensure_travel_safe=bool(step.get("ensure_travel_safe", True)),
+                required_hoist_position=(
+                    str(step["required_hoist_position"])
+                    if step.get("required_hoist_position")
+                    else None
+                ),
+            )
         elif command == "crane_hoist":
             order = build_crane_hoist_order(crane_cfg, live["state"], str(step["position"]))
         else:  # pragma: no cover - normalize_steps prevents this
@@ -433,6 +450,17 @@ class SequentialCellScenarioEngine:
                 self._fail_step(active, "FAILED", f"Step {active.get('active_step_id')} failed")
             self._commit(active)
             return
+
+        not_before = active.get("next_dispatch_not_before_epoch")
+        if not_before and time.time() < float(not_before):
+            active["last_transition"] = (
+                f"Settling before next step ({max(0.0, float(not_before) - time.time()):.1f}s)"
+            )
+            active["updated_at"] = _utc_now()
+            self._commit(active)
+            return
+        if not_before:
+            active["next_dispatch_not_before_epoch"] = None
 
         index = int(active.get("completed_steps", 0))
         steps = active.get("steps") or []

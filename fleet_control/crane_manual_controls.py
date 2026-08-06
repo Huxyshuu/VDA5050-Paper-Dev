@@ -200,7 +200,13 @@ def _base_position(state: Mapping[str, Any], map_id: str) -> Tuple[float, float]
 
 
 def _build_xy_order(
-    cfg: Mapping[str, Any], state: Mapping[str, Any], destination_name: str
+    cfg: Mapping[str, Any],
+    state: Mapping[str, Any],
+    destination_name: str,
+    *,
+    ensure_travel_safe: bool = True,
+    required_hoist_position: Optional[str] = None,
+    hoist_tolerance_m: float = 0.015,
 ) -> Dict[str, Any]:
     map_id = str(cfg["map_id"])
     current_x, current_y = _base_position(state, map_id)
@@ -218,11 +224,27 @@ def _build_xy_order(
     current_hoist = _extract_hoist_m(state)
     travel_safe = cfg["hoist_positions"].get("travel_safe_m")
     start_actions: List[Dict[str, Any]] = []
-    if travel_safe is not None:
-        if current_hoist is None:
-            raise RuntimeError("Crane state does not contain HOIST_POSITION telemetry")
-        # In this installation, a larger absolute hoist value is higher.  Do not
-        # lower an already-higher hook merely to match the minimum safe height.
+    if current_hoist is None:
+        raise RuntimeError("Crane state does not contain HOIST_POSITION telemetry")
+
+    if required_hoist_position:
+        positions = cfg["hoist_positions"]
+        if required_hoist_position not in positions:
+            raise RuntimeError(
+                f"Required hoist position {required_hoist_position!r} is not configured"
+            )
+        required_height = float(positions[required_hoist_position])
+        # For Ilmatar, a larger absolute hoist value means a higher hook.
+        if current_hoist + max(0.0, float(hoist_tolerance_m)) < required_height:
+            raise RuntimeError(
+                f"Hook is {current_hoist:.3f} m but {required_hoist_position} "
+                f"requires at least {required_height:.3f} m before horizontal travel"
+            )
+
+    if ensure_travel_safe and travel_safe is not None:
+        # Generic manual waypoint buttons may be called from any hook height, so
+        # they retain the automatic pre-lift. Sequential scenarios can disable it
+        # after explicitly completing and verifying their own lift step.
         if current_hoist + 0.005 < float(travel_safe):
             start_actions.append(_action("raiseHoist", "zu", float(travel_safe)))
 

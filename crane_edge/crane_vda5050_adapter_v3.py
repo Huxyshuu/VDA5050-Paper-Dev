@@ -103,6 +103,22 @@ CRANE_MOTION_STALL_WARN_S = max(1.0, float(os.getenv("CRANE_MOTION_STALL_WARN_S"
 CRANE_MOTION_STALL_FAIL_S = max(
     CRANE_MOTION_STALL_WARN_S, float(os.getenv("CRANE_MOTION_STALL_FAIL_S", "15.0"))
 )
+# Give the PLC a quiet re-arm window between independent crane commands.  The
+# barrier stops all axes, lets the watchdog recover, and verifies that automatic
+# mode remains available before the next command is sent.
+CRANE_ACTION_SETTLE_S = max(0.0, float(os.getenv("CRANE_ACTION_SETTLE_S", "1.5")))
+CRANE_PRE_MOTION_SETTLE_S = max(0.0, float(os.getenv("CRANE_PRE_MOTION_SETTLE_S", "0.75")))
+CRANE_WATCHDOG_RECOVERY_TIMEOUT_S = max(
+    1.0, float(os.getenv("CRANE_WATCHDOG_RECOVERY_TIMEOUT_S", "5.0"))
+)
+CRANE_WATCHDOG_RECOVERY_STABLE_S = max(
+    WATCHDOG_INTERVAL_S * 2.0,
+    float(os.getenv("CRANE_WATCHDOG_RECOVERY_STABLE_S", "0.75")),
+)
+CRANE_WATCHDOG_CRITICAL_LATCH_S = max(
+    CRANE_WATCHDOG_RECOVERY_STABLE_S,
+    float(os.getenv("CRANE_WATCHDOG_CRITICAL_LATCH_S", "1.5")),
+)
 STATE_INTERVAL_S = 3.0  # periodic /state publish
 VISU_INTERVAL_S = 3.0  # periodic /visualization publish
 CRANE_AUTO_WAIT_TIMEOUT_S = float(
@@ -148,6 +164,8 @@ class WatchdogHealth:
         self.ticks = 0
         self.last_value: Optional[int] = None
         self.last_error = ""
+        self.critical_until_monotonic = 0.0
+        self.last_critical_gap_ms = 0.0
 
     def note_attempt(self, started: float) -> None:
         with self._lock:
@@ -158,6 +176,12 @@ class WatchdogHealth:
             if self.last_success_monotonic is not None:
                 self.last_gap_ms = (finished - self.last_success_monotonic) * 1000.0
                 self.max_gap_ms = max(self.max_gap_ms, self.last_gap_ms)
+                if self.last_gap_ms >= CRANE_WATCHDOG_CRITICAL_GAP_S * 1000.0:
+                    self.last_critical_gap_ms = self.last_gap_ms
+                    self.critical_until_monotonic = max(
+                        self.critical_until_monotonic,
+                        finished + CRANE_WATCHDOG_CRITICAL_LATCH_S,
+                    )
             duration_ms = max(0.0, (finished - started) * 1000.0)
             self.last_duration_ms = duration_ms
             self.max_duration_ms = max(self.max_duration_ms, duration_ms)
@@ -186,6 +210,7 @@ class WatchdogHealth:
                 self.consecutive_failures >= CRANE_WATCHDOG_FAILURE_LIMIT
                 or age is None
                 or age > CRANE_WATCHDOG_CRITICAL_GAP_S
+                or now < self.critical_until_monotonic
             ):
                 status = "CRITICAL"
             elif (
@@ -210,6 +235,8 @@ class WatchdogHealth:
                 "ticks": self.ticks,
                 "last_value": self.last_value,
                 "last_error": self.last_error,
+                "last_critical_gap_ms": self.last_critical_gap_ms,
+                "critical_latch_remaining_s": max(0.0, self.critical_until_monotonic - now),
             }
 
 
@@ -1328,6 +1355,94 @@ class VDA5050Adapter:
         except Exception:
             pass
 
+    def _motion_transition_barrier(
+        self,
+        context: str,
+        *,
+        settle_s: float = CRANE_ACTION_SETTLE_S,
+        stop_all: bool = True,
+    ) -> bool:
+        """Stop, settle and require a stable watchdog before another command.
+
+        Ilmatar appears to need a short command re-arm period between axis modes.
+        This barrier also gives the high-priority watchdog writer a quiet window
+        after motion-related OPC UA traffic.  It fails closed if automatic mode
+        disappears or watchdog transport health does not recover in time.
+        """
+        started = time.monotonic()
+        if stop_all:
+            try:
+                self.crane.stop_all()
+            except Exception as exc:
+                self.log.error("Transition barrier %s could not stop all axes: %s", context, exc)
+                return False
+
+        minimum_until = started + max(0.0, settle_s)
+        deadline = started + max(
+            max(0.0, settle_s),
+            CRANE_WATCHDOG_RECOVERY_TIMEOUT_S,
+        )
+        healthy_since: Optional[float] = None
+        last_snapshot: Dict[str, Any] = {}
+        self.log.info(
+            "Transition barrier: %s (settle %.2fs, watchdog recovery timeout %.2fs)",
+            context,
+            settle_s,
+            CRANE_WATCHDOG_RECOVERY_TIMEOUT_S,
+        )
+
+        while time.monotonic() <= deadline:
+            if self._stop_or_cancel.is_set():
+                self.log.warning("Transition barrier %s interrupted by stop/cancel", context)
+                return False
+            try:
+                plc_fault = bool(self.crane.get_watchdog_fault())
+            except Exception as exc:
+                self.log.error("Transition barrier %s cannot read WatchDogFault: %s", context, exc)
+                return False
+
+            last_snapshot = self.watchdog_health.snapshot()
+            healthy_now = (
+                not plc_fault
+                and last_snapshot.get("status") == "HEALTHY"
+                and int(last_snapshot.get("consecutive_failures", 0)) == 0
+                and last_snapshot.get("last_success_age_s") is not None
+                and float(last_snapshot["last_success_age_s"]) <= CRANE_WATCHDOG_WARN_GAP_S
+            )
+            now = time.monotonic()
+            if healthy_now:
+                healthy_since = healthy_since or now
+                if (
+                    now >= minimum_until
+                    and now - healthy_since >= CRANE_WATCHDOG_RECOVERY_STABLE_S
+                ):
+                    self.watchdog_fault = False
+                    self.operating_mode = "AUTOMATIC"
+                    self.log.info(
+                        "Transition barrier complete: %s; watchdog stable for %.2fs",
+                        context,
+                        now - healthy_since,
+                    )
+                    return True
+            else:
+                healthy_since = None
+                if plc_fault:
+                    self.watchdog_fault = True
+                    self.operating_mode = "MANUAL"
+                    self.log.error(
+                        "Transition barrier %s failed: WatchDogFault=true",
+                        context,
+                    )
+                    return False
+            time.sleep(0.05)
+
+        self.log.error(
+            "Transition barrier %s timed out waiting for watchdog recovery: %s",
+            context,
+            last_snapshot,
+        )
+        return False
+
     def _retarget_prevent_drifting(self):
         """Stop all axes and retarget to current pose to prevent further drifting."""
         try:
@@ -1615,10 +1730,16 @@ class VDA5050Adapter:
             update_id,
             len(nodes),
         )
-        try:
-            self.crane.stop_all()  # clear latched commands at order start
-        except Exception:
-            self.log.debug("stop_all at order start failed (non-fatal).")
+        if not self._motion_transition_barrier(
+            "order start",
+            settle_s=CRANE_PRE_MOTION_SETTLE_S,
+        ):
+            self._set_runtime_error(
+                "CRANE_TRANSITION_BARRIER_FAILED",
+                "Crane could not establish a stable automatic/watchdog state before order start",
+            )
+            self._cancel.set()
+            return
 
         for idx, node in enumerate(nodes):
             if self._stop_or_cancel.is_set():
@@ -1735,6 +1856,17 @@ class VDA5050Adapter:
                         pass
                     self.log.info("XY on target.")
                     self._driving = False
+                    if not self._motion_transition_barrier(
+                        f"after XY node {node_id}",
+                        settle_s=CRANE_ACTION_SETTLE_S,
+                    ):
+                        self._set_runtime_error(
+                            "CRANE_TRANSITION_BARRIER_FAILED",
+                            f"Automatic/watchdog state did not recover after XY node {node_id}",
+                        )
+                        self._cancel.set()
+                        self._publish_state()
+                        return
                     self._publish_state()
                     break
 
@@ -2100,9 +2232,21 @@ class VDA5050Adapter:
                     self.crane.stop_hoist()
                 except Exception:
                     pass
-                self._action_finish(
-                    aid, ok=True, result=f"Reached {target_mm / 1000.0:.3f} m"
+                settled = self._motion_transition_barrier(
+                    f"after lowerHoist {target_mm} mm",
+                    settle_s=CRANE_ACTION_SETTLE_S,
                 )
+                self._action_finish(
+                    aid,
+                    ok=settled,
+                    result=(
+                        f"Reached {target_mm / 1000.0:.3f} m and settled"
+                        if settled
+                        else "Target reached but automatic/watchdog recovery failed"
+                    ),
+                )
+                if not settled:
+                    self._cancel.set()
                 return
 
             elif atype == "buttonPress":
@@ -2327,9 +2471,21 @@ class VDA5050Adapter:
                             self.crane.stop_hoist()
                         except Exception:
                             pass
-                        self._action_finish(
-                            aid, ok=True, result=f"Reached {target_mm / 1000.0:.3f} m"
+                        settled = self._motion_transition_barrier(
+                            f"after raiseHoist {target_mm} mm",
+                            settle_s=CRANE_ACTION_SETTLE_S,
                         )
+                        self._action_finish(
+                            aid,
+                            ok=settled,
+                            result=(
+                                f"Reached {target_mm / 1000.0:.3f} m and settled"
+                                if settled
+                                else "Target reached but automatic/watchdog recovery failed"
+                            ),
+                        )
+                        if not settled:
+                            self._cancel.set()
                         break
 
                     now = time.time()
@@ -2544,10 +2700,19 @@ class VDA5050Adapter:
                     except Exception:
                         pass
                     self._restore_motion_after_reset_if_needed(changed, was_paused)
+                if ok:
+                    ok = self._motion_transition_barrier(
+                        "after resetHoist",
+                        settle_s=CRANE_ACTION_SETTLE_S,
+                    )
                 self._action_finish(
                     str(action.get("actionId")),
                     ok=ok,
-                    result=("Hoist home reached" if ok else "Hoist homing aborted, failed, or timed out"),
+                    result=(
+                        "Hoist home reached and settled"
+                        if ok
+                        else "Hoist homing or transition settling failed"
+                    ),
                 )
                 self.log.info("resetHoist: %s.", "done" if ok else "failed")
                 return
@@ -2593,10 +2758,19 @@ class VDA5050Adapter:
                     except Exception:
                         pass
                     self._restore_motion_after_reset_if_needed(changed, was_paused)
+                if ok:
+                    ok = self._motion_transition_barrier(
+                        "after resetBridgeTrolley",
+                        settle_s=CRANE_ACTION_SETTLE_S,
+                    )
                 self._action_finish(
                     str(action.get("actionId")),
                     ok=ok,
-                    result=("Bridge/trolley home reached" if ok else "XY homing aborted, failed, or timed out"),
+                    result=(
+                        "Bridge/trolley home reached and settled"
+                        if ok
+                        else "XY homing or transition settling failed"
+                    ),
                 )
                 self.log.info("resetBridgeTrolley: %s.", "done" if ok else "failed")
                 return
@@ -2631,7 +2805,10 @@ class VDA5050Adapter:
                         stop_event=self._stop_or_cancel,
                         abort_check=lambda: not self._refresh_automatic_mode(),
                     )
-                    if ok_z:
+                    if ok_z and self._motion_transition_barrier(
+                        "resetAllHome Z-to-XY transition",
+                        settle_s=CRANE_ACTION_SETTLE_S,
+                    ):
                         ok_xy = _move_xy_to(
                             self.crane,
                             self.log,
@@ -2644,7 +2821,7 @@ class VDA5050Adapter:
                     else:
                         ok_xy = False
                         self.log.error(
-                            "resetAllHome: skipping XY because hoist homing failed or was aborted"
+                            "resetAllHome: skipping XY because hoist homing or the Z-to-XY transition barrier failed"
                         )
                 finally:
                     self._instant_motion_active = False
@@ -2654,6 +2831,11 @@ class VDA5050Adapter:
                         pass
                     self._restore_motion_after_reset_if_needed(changed, was_paused)
                 ok = ok_z and ok_xy
+                if ok:
+                    ok = self._motion_transition_barrier(
+                        "after resetAllHome",
+                        settle_s=CRANE_ACTION_SETTLE_S,
+                    )
                 self._action_finish(
                     str(action.get("actionId")),
                     ok=ok,
@@ -2824,7 +3006,7 @@ class VDA5050Adapter:
 
             watchdog_item = {
                 "infoType": "WATCHDOG_FAULT",
-                "infoLevel": "WARNING" if self.watchdog_fault else "INFO",
+                "infoLevel": "INFO",
                 "infoDescriptor": (
                     "WatchDogFault=true; crane is not in automatic mode"
                     if self.watchdog_fault
@@ -2856,9 +3038,7 @@ class VDA5050Adapter:
             watchdog_health = self.watchdog_health.snapshot()
             watchdog_health_item = {
                 "infoType": "WATCHDOG_HEALTH",
-                "infoLevel": (
-                    "WARNING" if watchdog_health["status"] != "HEALTHY" else "INFO"
-                ),
+                "infoLevel": "INFO",
                 "infoDescriptor": (
                     f"Watchdog {watchdog_health['status']}: "
                     f"last success age={watchdog_health['last_success_age_s'] if watchdog_health['last_success_age_s'] is not None else -1:.3f}s, "
@@ -2874,7 +3054,7 @@ class VDA5050Adapter:
             }
             motion_health_item = {
                 "infoType": "CRANE_MOTION_HEALTH",
-                "infoLevel": "WARNING" if motion_diag.get("status") == "STALLED" else "INFO",
+                "infoLevel": "INFO",
                 "infoDescriptor": (
                     f"Motion {motion_diag.get('status')}: {motion_diag.get('phase')} "
                     f"progress age={float(motion_diag.get('last_progress_age_s', 0.0)):.1f}s"

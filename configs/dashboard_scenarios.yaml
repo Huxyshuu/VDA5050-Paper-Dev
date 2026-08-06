@@ -98,8 +98,11 @@ scenarios:
       command: crane_waypoint
       waypoint: rox_handover
       label: Move crane above ROX-Diff
-      description: Move bridge and trolley to the crane-local handover position aligned
-        with ROX-Diff.
+      description: After verifying the hook remains at source_safe_lift_m, move bridge
+        and trolley to the crane-local handover position without adding another hoist
+        command.
+      ensure_travel_safe: false
+      required_hoist_position: source_safe_lift_m
     - id: crane_lower_handover
       target: crane
       command: crane_hoist

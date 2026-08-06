@@ -39,6 +39,13 @@ def main() -> int:
         "CRANE_MOTION_STALL_FAIL_S",
     ):
         check(re.search(rf"^{key}=", env_example, re.MULTILINE) is not None, f"env example documents {key}")
+
+    check("CRANE_ACTION_SETTLE_S" in adapter, "crane action transition settle delay is configurable")
+    check("_motion_transition_barrier" in adapter, "crane uses stop-and-settle transition barriers")
+    check("CRANE_WATCHDOG_CRITICAL_LATCH_S" in adapter, "critical watchdog gaps are latched")
+    check("SEQUENTIAL_ACTION_DELAY_S" in scenario, "sequential scenario delays between steps")
+    check("required_hoist_position" in scenario, "sequential XY travel verifies explicit lift height")
+    check('"infoLevel": "WARNING"' not in adapter, "VDA information levels remain schema-valid")
     print("Watchdog/dashboard diagnostics audit passed.")
     return 0
 
