@@ -1,6 +1,6 @@
 {
   "headerId": 0,
-  "timestamp": "2026-08-05T13:18:09.200Z",
+  "timestamp": "2026-08-06T08:26:59.094Z",
   "version": "3.0.0",
   "manufacturer": "konecranes",
   "serialNumber": "ilmatar_1",
@@ -55,8 +55,8 @@
       "released": true,
       "nodeDescriptor": "Crane and ROX-Diff handover rendezvous",
       "nodePosition": {
-        "x": 16.082,
-        "y": 5.173,
+        "x": 16.902,
+        "y": 5.206,
         "mapId": "map"
       },
       "actions": [
@@ -73,7 +73,7 @@
           "actionParameters": [
             {
               "key": "zd",
-              "value": 1.053
+              "value": 0.493
             }
           ]
         },
@@ -90,7 +90,7 @@
           "actionParameters": [
             {
               "key": "zu",
-              "value": 0.513
+              "value": 1.408
             }
           ]
         }

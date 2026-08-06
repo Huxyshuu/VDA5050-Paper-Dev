@@ -1,5 +1,5 @@
 map_id: map
-configured: false
+configured: true
 coordinate_system: ilmatar_bridge_trolley_absolute_m
 waypoints:
   source_station:
@@ -9,15 +9,15 @@ waypoints:
     description: Legacy starting value only; replace with a live verified reading.
   rox_handover:
     label: ROX-Diff handover station
-    bridge_m: 16.082
-    trolley_m: 5.173
+    bridge_m: 16.902
+    trolley_m: 5.206
     description: Legacy starting value only; align physically with ROX crane_handover.
 hoist_positions:
   travel_safe_m: 3.043
   source_lower_m: 0.255
   source_safe_lift_m: 1.053
-  handover_lower_m: 1.053
-  handover_safe_lift_m: 0.513
+  handover_lower_m: 0.493
+  handover_safe_lift_m: 1.408
 home:
   bridge_m: 17.323
   trolley_m: 7.08
