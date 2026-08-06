@@ -1,5 +1,5 @@
 map_id: df_map
-configured: true
+configured: false
 waypoints:
   home:
     x: 0.1729
@@ -14,9 +14,9 @@ waypoints:
     allowed_deviation_xy: 0.18
     allowed_deviation_theta: 0.2
   crane_handover:
-    x: 3.1939
-    y: -2.5503
-    theta: 3.1275
+    x: 3.0607
+    y: -1.3256
+    theta: 3.1241
     allowed_deviation_xy: 0.12
     allowed_deviation_theta: 0.15
   warehouse_dropoff:
