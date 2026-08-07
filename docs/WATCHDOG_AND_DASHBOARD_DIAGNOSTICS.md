@@ -99,3 +99,7 @@ return to `HEALTHY` after timing recovers.
 
 The software stops and reports these conditions. Physical recovery and automatic-mode
 reset remain supervised operations.
+
+For the split lock/write timing, independent PLC-network history, persistent
+JSONL evidence, and the four root-cause cases, see
+[`WATCHDOG_FAILURE_DIAGNOSIS.md`](WATCHDOG_FAILURE_DIAGNOSIS.md).

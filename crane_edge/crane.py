@@ -1,5 +1,6 @@
 from asyncua.sync import Client
 from asyncua import ua
+from contextlib import contextmanager
 import datetime 
 import time
 import threading
@@ -17,9 +18,16 @@ class Crane(object):
         # operations so watchdog writes, telemetry reads, and motion commands do
         # not concurrently use the same socket from different Python threads.
         self._io_lock = threading.RLock()
+        self._io_meta_lock = threading.RLock()
+        self._io_owner = None
+        self._io_owner_thread = None
+        self._io_owner_since_monotonic = None
+        self._io_reason_local = threading.local()
+        self._io_event_callback = None
+        self._last_watchdog_timing = {}
         self._watchdog_priority = threading.Event()
         self.client = Client(clientaddress)
-        self.client.connect() 
+        self._run_io("connect", "connect", self.client.connect)
         self._global_speed_scale = 1.0  # NEW: 0.0 ... 1.0 multiplier applied to all set_*_speed()
         #NS = "ns=" + str(self.client.get_namespace_index("AIIC"))
         NS = "ns=5"
@@ -155,28 +163,215 @@ class Crane(object):
 
         self.set_target_current_position()
 
-    def _read_node(self, node):
-        """Read one OPC UA node through the shared-session coordinator."""
-        # Give a pending watchdog write a brief opportunity to take the lock.
-        while self._watchdog_priority.is_set():
-            time.sleep(0.001)
-        with self._io_lock:
-            return node.read_value()
+    def set_io_event_callback(self, callback):
+        """Register a non-OPC-UA observer for completed I/O operations."""
+        with self._io_meta_lock:
+            self._io_event_callback = callback
 
-    def _write_node(self, node, value):
-        """Write one OPC UA node while prioritising the PLC watchdog."""
-        is_watchdog = node is self._node_watchdog
-        if is_watchdog:
+    @contextmanager
+    def io_reason(self, reason):
+        """Label node transactions in the current thread without holding a lock."""
+        previous = getattr(self._io_reason_local, "value", None)
+        self._io_reason_local.value = str(reason)
+        try:
+            yield
+        finally:
+            if previous is None:
+                try:
+                    del self._io_reason_local.value
+                except AttributeError:
+                    pass
+            else:
+                self._io_reason_local.value = previous
+
+    def io_snapshot(self):
+        """Return the current shared-session owner for watchdog diagnostics."""
+        now = time.monotonic()
+        with self._io_meta_lock:
+            since = self._io_owner_since_monotonic
+            return {
+                "owner": self._io_owner,
+                "thread": self._io_owner_thread,
+                "owner_since_monotonic": since,
+                "owner_age_ms": (
+                    max(0.0, (now - since) * 1000.0) if since is not None else 0.0
+                ),
+                "watchdog_pending": self._watchdog_priority.is_set(),
+            }
+
+    def _resolved_reason(self, explicit, default):
+        return str(explicit or getattr(self._io_reason_local, "value", None) or default)
+
+    @staticmethod
+    def _is_any_node(node, candidates):
+        return any(node is candidate for candidate in candidates)
+
+    def _read_reason_for_node(self, node, explicit=None):
+        contextual = explicit or getattr(self._io_reason_local, "value", None)
+        if contextual:
+            return str(contextual)
+        if threading.current_thread().name == "executor":
+            if self._is_any_node(
+                node,
+                (self._node_bridge_position_mm, self._node_bridge_position_m,
+                 self._node_trolley_position_mm, self._node_trolley_position_m),
+            ):
+                return "move_xy"
+            if self._is_any_node(
+                node,
+                (self._node_hoist_position_mm, self._node_hoist_position_m),
+            ):
+                return "move_hoist"
+        return "state_telemetry"
+
+    def _write_reason_for_node(self, node, explicit=None):
+        contextual = explicit or getattr(self._io_reason_local, "value", None)
+        if contextual:
+            return str(contextual)
+        if self._is_any_node(
+            node,
+            (self._node_bridge_forward, self._node_bridge_backward,
+             self._node_trolley_forward, self._node_trolley_backward,
+             self._node_bridge_speed, self._node_trolley_speed),
+        ):
+            return "move_xy"
+        if self._is_any_node(
+            node,
+            (self._node_hoist_up, self._node_hoist_down, self._node_hoist_speed),
+        ):
+            return "move_hoist"
+        return "motion_control"
+
+    def _run_io(
+        self,
+        reason,
+        operation,
+        transaction,
+        *,
+        watchdog=False,
+        scheduled_deadline_monotonic=None,
+        attempt_started_monotonic=None,
+    ):
+        """Run exactly one OPC UA transaction and return its split timing."""
+        if watchdog:
             self._watchdog_priority.set()
-        elif self._watchdog_priority.is_set():
+        else:
+            # Low-priority work yields before requesting the session while a
+            # watchdog tick is pending. No OPC UA lock is held while waiting.
             while self._watchdog_priority.is_set():
                 time.sleep(0.001)
+
+        attempt_started = (
+            float(attempt_started_monotonic)
+            if attempt_started_monotonic is not None
+            else time.monotonic()
+        )
+        lock_requested = time.monotonic()
+        owner_at_request = self.io_snapshot()
+        if watchdog:
+            self._io_lock.acquire()
+        else:
+            # Do not remain queued ahead of a watchdog tick. Poll briefly, and
+            # if the watchdog became pending while this caller acquired the
+            # session, release it before starting any OPC UA transaction.
+            while True:
+                if not self._io_lock.acquire(timeout=0.002):
+                    continue
+                if not self._watchdog_priority.is_set():
+                    break
+                self._io_lock.release()
+        lock_acquired = time.monotonic()
+        thread_name = threading.current_thread().name
+        with self._io_meta_lock:
+            previous_owner = (
+                self._io_owner,
+                self._io_owner_thread,
+                self._io_owner_since_monotonic,
+            )
+            self._io_owner = str(reason)
+            self._io_owner_thread = thread_name
+            self._io_owner_since_monotonic = lock_acquired
+
+        operation_started = time.monotonic()
+        result = None
+        error = None
         try:
-            with self._io_lock:
-                node.write_value(value)
-        finally:
-            if is_watchdog:
-                self._watchdog_priority.clear()
+            result = transaction()
+        except BaseException as exc:
+            error = exc
+        operation_finished = time.monotonic()
+        with self._io_meta_lock:
+            self._io_owner, self._io_owner_thread, self._io_owner_since_monotonic = previous_owner
+        self._io_lock.release()
+        if watchdog:
+            self._watchdog_priority.clear()
+
+        scheduled = (
+            float(scheduled_deadline_monotonic)
+            if scheduled_deadline_monotonic is not None
+            else attempt_started
+        )
+        timing = {
+            "reason": str(reason),
+            "operation": str(operation),
+            "scheduled_deadline_monotonic": scheduled,
+            "attempt_started_monotonic": attempt_started,
+            "lock_requested_monotonic": lock_requested,
+            "lock_acquired_monotonic": lock_acquired,
+            "write_started_monotonic": operation_started,
+            "write_finished_monotonic": operation_finished,
+            "watchdog_schedule_lateness_ms": max(0.0, (attempt_started - scheduled) * 1000.0),
+            "watchdog_lock_wait_ms": max(0.0, (lock_acquired - lock_requested) * 1000.0),
+            "watchdog_write_duration_ms": max(0.0, (operation_finished - operation_started) * 1000.0),
+            "watchdog_total_cycle_ms": max(0.0, (operation_finished - attempt_started) * 1000.0),
+            "lock_owner_at_request": owner_at_request.get("owner"),
+            "lock_owner_thread_at_request": owner_at_request.get("thread"),
+            "success": error is None,
+            "error": "" if error is None else f"{type(error).__name__}: {error}",
+        }
+        if watchdog:
+            with self._io_meta_lock:
+                self._last_watchdog_timing = dict(timing)
+        with self._io_meta_lock:
+            callback = self._io_event_callback
+        if callback is not None:
+            try:
+                callback(dict(timing))
+            except Exception:
+                pass
+        if error is not None:
+            raise error
+        return result, timing
+
+    def _read_node(self, node, reason=None):
+        """Read one OPC UA node through the shared-session coordinator."""
+        value, _ = self._run_io(
+            self._read_reason_for_node(node, reason),
+            "read",
+            node.read_value,
+        )
+        return value
+
+    def _write_node(
+        self,
+        node,
+        value,
+        reason=None,
+        *,
+        scheduled_deadline_monotonic=None,
+        attempt_started_monotonic=None,
+    ):
+        """Write one OPC UA node while preserving watchdog priority."""
+        is_watchdog = node is self._node_watchdog
+        _, timing = self._run_io(
+            "watchdog" if is_watchdog else self._write_reason_for_node(node, reason),
+            "write",
+            lambda: node.write_value(value),
+            watchdog=is_watchdog,
+            scheduled_deadline_monotonic=scheduled_deadline_monotonic,
+            attempt_started_monotonic=attempt_started_monotonic,
+        )
+        return timing
 
 
     """Functions related to connecting to opcua server"""
@@ -184,21 +379,19 @@ class Crane(object):
     # Works
     def connect(self):
         """Connect to the OPC UA Server."""
-        with self._io_lock:
-            self.client.connect()
+        self._run_io("connect", "connect", self.client.connect)
 
     # Not working
     def disconnect(self): #close
         """Disconnect from OPC UA Server."""
-        with self._io_lock:
-            self.client.disconnect()
+        self._run_io("disconnect", "disconnect", self.client.disconnect)
 
 
     """Functions related to watchdog"""
     # Works
     def get_watchdog(self):
         """Get Watchdog value."""
-        return self._read_node(self._node_watchdog)
+        return self._read_node(self._node_watchdog, reason="watchdog_read")
 
     def get_watchdog_fault(self):
         """Return PLC watchdog-fault status.
@@ -207,7 +400,7 @@ class Crane(object):
         and automatic/remote mode is active. True means automatic mode is not
         available and motion commands must not be accepted.
         """
-        return bool(self._read_node(self._node_watchdog_fault))
+        return bool(self._read_node(self._node_watchdog_fault, reason="automatic_mode_guard"))
 
     def is_automatic_mode(self):
         """Return True only when DX_Custom_V.Status.WatchDogFault is false."""
@@ -215,16 +408,40 @@ class Crane(object):
 
 
     # Setting works but goes back to original value next iteration
-    def set_watchdog(self, watchdog_value):
+    def set_watchdog(
+        self,
+        watchdog_value,
+        *,
+        scheduled_deadline_monotonic=None,
+        attempt_started_monotonic=None,
+    ):
         """Set Watchdog to number x."""
-        self._write_node(self._node_watchdog, ua.DataValue(ua.Variant(watchdog_value, ua.VariantType.Int16)))
+        return self._write_node(
+            self._node_watchdog,
+            ua.DataValue(ua.Variant(watchdog_value, ua.VariantType.Int16)),
+            scheduled_deadline_monotonic=scheduled_deadline_monotonic,
+            attempt_started_monotonic=attempt_started_monotonic,
+        )
 
     # Works
     def increment_watchdog(self):
         """Increment Watchdog by 1."""
         #print(self._watchdog_value)
         self._watchdog_value = (self._watchdog_value % 30000) + 1
-        self.set_watchdog(self._watchdog_value)
+        return self.set_watchdog(self._watchdog_value)
+
+    def increment_watchdog_timed(self, scheduled_deadline_monotonic, attempt_started_monotonic):
+        """Increment the watchdog and return split schedule/lock/write timings."""
+        self._watchdog_value = (self._watchdog_value % 30000) + 1
+        return self.set_watchdog(
+            self._watchdog_value,
+            scheduled_deadline_monotonic=scheduled_deadline_monotonic,
+            attempt_started_monotonic=attempt_started_monotonic,
+        )
+
+    def last_watchdog_timing(self):
+        with self._io_meta_lock:
+            return dict(self._last_watchdog_timing)
 
 
     
@@ -238,7 +455,11 @@ class Crane(object):
     # Works, temporarely changes code. Doesnt save.
     def set_accesscode(self, accesscode):
         """Set AccessCode to number x."""
-        self._write_node(self._node_access_code, ua.DataValue(ua.Variant(accesscode, ua.VariantType.Int32)))
+        self._write_node(
+            self._node_access_code,
+            ua.DataValue(ua.Variant(accesscode, ua.VariantType.Int32)),
+            reason="configuration",
+        )
 
     
     """Functions to get position for crane"""
@@ -1169,11 +1390,12 @@ class Crane(object):
 
     # TODO use this instead of manual change through opcua
     # Works
-    def stop_all(self):
-        """Stop all 3 axis"""
-        self.stop_bridge()
-        self.stop_trolley()
-        self.stop_hoist()
+    def stop_all(self, reason="stop_all"):
+        """Stop all three axes, attributing each OPC UA write to *reason*."""
+        with self.io_reason(reason):
+            self.stop_bridge()
+            self.stop_trolley()
+            self.stop_hoist()
         time.sleep(0.1)
 
 
@@ -1254,6 +1476,17 @@ class Crane(object):
                 [data.monitored_item.Value.Value.Value,
                  data.monitored_item.Value.SourceTimestamp.timestamp()])
 
+    def _subscribe_node(self, interval, queue, node):
+        """Create a subscription through the same serialized OPC UA session."""
+        def transaction():
+            handler = self.SubHandler(queue)
+            subscription = self.client.create_subscription(interval, handler)
+            handle = subscription.subscribe_data_change(node)
+            return subscription, handle
+
+        result, _ = self._run_io("subscription", "subscribe", transaction)
+        return result
+
     # Not working
     def sub_trolley(self, interval, queue):
         """
@@ -1262,14 +1495,7 @@ class Crane(object):
         Queue is the queue where data will be put
         """
 
-        handler = self.SubHandler(queue)
-        sub = self.client.create_subscription(interval, handler)
-        var = self._node_trolley_position_mm
-        handle = sub.subscribe_data_change(var)
-
-        # subscription can be ended by writing:
-        # sub.unsubscribe(handle)
-        return sub, handle
+        return self._subscribe_node(interval, queue, self._node_trolley_position_mm)
 
     # Not working
     def sub_bridge(self, interval, queue):
@@ -1279,14 +1505,7 @@ class Crane(object):
         Queue is the queue where data will be put
         """
 
-        handler = self.SubHandler(queue)
-        sub = self.client.create_subscription(interval, handler)
-        var = self._node_bridge_position_mm
-        handle = sub.subscribe_data_change(var)
-
-        # subscription can be ended by writing:
-        # sub.unsubscribe(handle)
-        return sub, handle
+        return self._subscribe_node(interval, queue, self._node_bridge_position_mm)
 
     # Not working
     def sub_hoist(self, interval, queue):
@@ -1296,14 +1515,7 @@ class Crane(object):
         Queue is the queue where data will be put
         """
 
-        handler = self.SubHandler(queue)
-        sub = self.client.create_subscription(interval, handler)
-        var = self._node_hoist_position_mm
-        handle = sub.subscribe_data_change(var)
-
-        # subscription can be ended by writing:
-        # sub.unsubscribe(handle)
-        return sub, handle
+        return self._subscribe_node(interval, queue, self._node_hoist_position_mm)
 
     # Not working
     def sub_trolley_speed(self, interval, queue):
@@ -1313,12 +1525,7 @@ class Crane(object):
         Queue is the queue where data will be put
         """
 
-        handler = self.SubHandler(queue)
-        sub = self.client.create_subscription(interval, handler)
-        var = self._node_trolley_speed_feedback
-        handle = sub.subscribe_data_change(var)
-
-        return sub, handle
+        return self._subscribe_node(interval, queue, self._node_trolley_speed_feedback)
 
     # Not working
     def sub_bridge_speed(self, interval, queue):
@@ -1328,12 +1535,7 @@ class Crane(object):
         Queue is the queue where data will be put
         """
 
-        handler = self.SubHandler(queue)
-        sub = self.client.create_subscription(interval, handler)
-        var = self._node_brige_speed_feedback
-        handle = sub.subscribe_data_change(var)
-
-        return sub, handle
+        return self._subscribe_node(interval, queue, self._node_brige_speed_feedback)
     
     # Not working
     def sub_hoist_speed(self, interval, queue):
@@ -1343,12 +1545,7 @@ class Crane(object):
         Queue is the queue where data will be put
         """
 
-        handler = self.SubHandler(queue)
-        sub = self.client.create_subscription(interval, handler)
-        var = self._node_hoist_speed_feedback
-        handle = sub.subscribe_data_change(var)
-
-        return sub, handle
+        return self._subscribe_node(interval, queue, self._node_hoist_speed_feedback)
         
         
     # --- Global speed scaling (used by PAUSE/RESUME) -----------------------------
@@ -1375,5 +1572,3 @@ class Crane(object):
     def get_speed_scale(self) -> float:    return self.get_global_speed()
     def set_speed_factor(self, s: float):  self.set_global_speed(s)
     def get_speed_factor(self) -> float:   return self.get_global_speed()
-
-

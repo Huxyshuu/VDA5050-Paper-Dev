@@ -45,6 +45,7 @@ def main() -> int:
         ROOT / "fleet_control" / "crane_manual_controls.py",
         ROOT / "fleet_control" / "sequential_cell_scenario.py",
         ROOT / "crane_edge" / "crane.py",
+        ROOT / "crane_edge" / "network_diagnostics.py",
         ROOT / "crane_edge" / "crane_vda5050_adapter_v3.py",
         *sorted((ROOT / "scripts").glob("*.py")),
         *sorted((ROOT / "ros2_ws/src/rox_vda5050_adapter/launch").glob("*.py")),

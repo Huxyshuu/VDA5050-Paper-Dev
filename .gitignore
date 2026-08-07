@@ -34,6 +34,9 @@ runtime/
 results/experiments/*.sqlite3
 results/experiments/*.sqlite3-*
 
+# Runtime crane watchdog/network evidence
+logs/crane_diagnostics/
+
 # Local crane credentials (never commit)
 crane_edge/access.txt
 access.txt

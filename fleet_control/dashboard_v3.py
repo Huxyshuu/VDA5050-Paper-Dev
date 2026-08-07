@@ -994,7 +994,13 @@ class DashboardController:
             if not isinstance(item, Mapping):
                 continue
             info_type = str(item.get("infoType") or "")
-            if info_type not in {"WATCHDOG_HEALTH", "CRANE_MOTION_HEALTH", "WATCHDOG_FAULT"}:
+            if info_type not in {
+                "WATCHDOG_HEALTH",
+                "CRANE_MOTION_HEALTH",
+                "WATCHDOG_FAULT",
+                "CRANE_NETWORK_HEALTH",
+                "CRANE_FAILURE_SNAPSHOT",
+            }:
                 continue
             refs = {
                 str(ref.get("referenceKey")): ref.get("referenceValue")
@@ -1007,9 +1013,20 @@ class DashboardController:
                 "references": refs,
             }
             for key in (
-                "interval_s", "last_success_age_s", "last_write_duration_ms",
-                "max_write_duration_ms", "last_success_gap_ms", "max_success_gap_ms", "elapsed_s",
+                "interval_s", "interval_ms", "last_success_age_s", "last_success_age_ms",
+                "last_write_duration_ms", "write_duration_ms", "max_write_duration_ms",
+                "lock_wait_ms", "max_lock_wait_ms", "schedule_lateness_ms",
+                "max_schedule_lateness_ms", "total_cycle_ms", "max_total_cycle_ms",
+                "current_lock_owner_age_ms",
+                "last_success_gap_ms", "max_success_gap_ms", "elapsed_s",
                 "last_progress_age_s", "stall_warn_s", "stall_fail_s",
+                "wifi_signal_dbm", "ping_rtt_ms", "rx_errors", "tx_errors",
+                "rx_dropped", "tx_dropped", "tcp_retrans_segs",
+                "rx_errors_delta", "tx_errors_delta", "rx_dropped_delta",
+                "tx_dropped_delta", "tcp_retrans_segs_delta",
+                "cpu_utilisation_percent", "cpu_load_1m", "cpu_temp_c",
+                "watchdog_gap_ms", "watchdog_lock_wait_ms", "watchdog_write_ms",
+                "watchdog_schedule_lateness_ms", "watchdog_max_gap_ms",
             ):
                 if key in refs:
                     try:
@@ -1028,6 +1045,16 @@ class DashboardController:
                         parsed[key] = json.loads(str(refs[key]))
                     except Exception:
                         parsed[key] = refs[key]
+            for key in ("wireless", "ping_success", "throttled", "under_voltage", "watchdog_fault"):
+                if key in refs:
+                    normalized = str(refs[key]).strip().lower()
+                    parsed[key] = (
+                        normalized == "true"
+                        if normalized in {"true", "false"}
+                        else refs[key]
+                    )
+            for key, value in refs.items():
+                parsed.setdefault(key, value)
             if "status" in refs:
                 parsed["status"] = refs["status"]
             if "phase" in refs:
@@ -1359,6 +1386,10 @@ class DashboardController:
                 "watchdog_failures": (device.get("diagnostics", {}).get("watchdog_health", {}) or {}).get("total_failures", 0),
                 "motion_health": (device.get("diagnostics", {}).get("crane_motion_health", {}) or {}).get("status"),
                 "motion_phase": (device.get("diagnostics", {}).get("crane_motion_health", {}) or {}).get("phase"),
+                "network_health": (device.get("diagnostics", {}).get("crane_network_health", {}) or {}).get("status"),
+                "failure_event": (device.get("diagnostics", {}).get("crane_failure_snapshot", {}) or {}).get("event_type"),
+                "failure_timestamp": (device.get("diagnostics", {}).get("crane_failure_snapshot", {}) or {}).get("timestamp"),
+                "watchdog_fault": (device.get("diagnostics", {}).get("watchdog_fault", {}) or {}).get("value"),
             }
             old = self._last_signature.get(target)
             if old is not None:
@@ -1384,6 +1415,22 @@ class DashboardController:
                 if old.get("motion_health") != current["motion_health"] and current["motion_health"]:
                     level = "ERROR" if current["motion_health"] == "STALLED" else "INFO"
                     self._add_event(level, target, f"Crane motion health: {current['motion_health']} ({current['motion_phase'] or 'unknown phase'})", code="CRANE_MOTION_HEALTH_CHANGED")
+                if old.get("network_health") != current["network_health"] and current["network_health"]:
+                    level = "WARNING" if current["network_health"] in {"DEGRADED", "UNAVAILABLE"} else "INFO"
+                    self._add_event(level, target, f"PLC network health: {current['network_health']}", code="CRANE_NETWORK_HEALTH_CHANGED")
+                if old.get("watchdog_fault") != current["watchdog_fault"] and current["watchdog_fault"] is not None:
+                    fault_true = str(current["watchdog_fault"]).lower() == "true"
+                    self._add_event("ERROR" if fault_true else "INFO", target, f"WatchDogFault changed to {current['watchdog_fault']}", code="WATCHDOG_FAULT_TRUE" if fault_true else "WATCHDOG_FAULT_FALSE")
+                if (
+                    old.get("failure_timestamp") != current["failure_timestamp"]
+                    and current["failure_timestamp"]
+                ):
+                    self._add_event(
+                        "ERROR",
+                        target,
+                        f"Crane diagnostic captured: {current['failure_event'] or 'failure'}",
+                        code=str(current["failure_event"] or "CRANE_FAILURE_SNAPSHOT"),
+                    )
             self._last_signature[target] = current
 
     # ------------------------------------------------------------------
@@ -2335,6 +2382,8 @@ class DashboardController:
             "watchdog": crane_diag.get("watchdog_health", {}),
             "motion": crane_diag.get("crane_motion_health", {}),
             "watchdog_fault": crane_diag.get("watchdog_fault", {}),
+            "network": crane_diag.get("crane_network_health", {}),
+            "failure_snapshot": crane_diag.get("crane_failure_snapshot", {}),
             "recent_execution_events": [
                 event for event in events
                 if event.get("source") in {"crane", "rox", "scenario", "operator"}

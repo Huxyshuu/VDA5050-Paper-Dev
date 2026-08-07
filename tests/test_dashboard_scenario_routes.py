@@ -153,6 +153,39 @@ class DashboardScenarioRouteTests(unittest.TestCase):
         self.assertEqual("run-current", run_id)
         self.assertEqual("confirm_source_pickup", step_id)
 
+    def test_dashboard_parses_split_watchdog_and_network_metrics(self) -> None:
+        state = {
+            "information": [
+                {
+                    "infoType": "WATCHDOG_HEALTH",
+                    "infoLevel": "INFO",
+                    "infoReferences": [
+                        {"referenceKey": "status", "referenceValue": "CRITICAL"},
+                        {"referenceKey": "lock_wait_ms", "referenceValue": "7.5"},
+                        {"referenceKey": "write_duration_ms", "referenceValue": "993.8"},
+                        {"referenceKey": "schedule_lateness_ms", "referenceValue": "2.0"},
+                    ],
+                },
+                {
+                    "infoType": "CRANE_NETWORK_HEALTH",
+                    "infoLevel": "INFO",
+                    "infoReferences": [
+                        {"referenceKey": "status", "referenceValue": "DEGRADED"},
+                        {"referenceKey": "interface", "referenceValue": "wlan0"},
+                        {"referenceKey": "wireless", "referenceValue": "True"},
+                        {"referenceKey": "wifi_signal_dbm", "referenceValue": "-76"},
+                        {"referenceKey": "ping_rtt_ms", "referenceValue": "182.4"},
+                    ],
+                },
+            ]
+        }
+        diagnostics = DashboardController._information_diagnostics(state)
+        self.assertEqual(7.5, diagnostics["watchdog_health"]["lock_wait_ms"])
+        self.assertEqual(993.8, diagnostics["watchdog_health"]["write_duration_ms"])
+        self.assertEqual("wlan0", diagnostics["crane_network_health"]["interface"])
+        self.assertTrue(diagnostics["crane_network_health"]["wireless"])
+        self.assertEqual(-76.0, diagnostics["crane_network_health"]["wifi_signal_dbm"])
+
     def test_concurrent_starts_claim_the_scenario_slot_once(self) -> None:
         app, controller = self.bare_controller("concurrent_starts")
         first_inside = threading.Event()
