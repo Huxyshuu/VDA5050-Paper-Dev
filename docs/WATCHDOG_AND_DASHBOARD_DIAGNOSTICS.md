@@ -16,14 +16,19 @@ The crane uses `DX_Custom_V.Controls.Watchdog` for the external watchdog and
 
 The update adds:
 
-- one serialized OPC UA I/O lock for watchdog, telemetry, and motion commands;
-- priority for pending watchdog writes;
+- a dedicated OPC UA client/session used only for watchdog heartbeat writes;
+- a separate serialized control-session lock for telemetry, motion, STOP,
+  home/reset, visualization, and automatic-mode reads;
+- a controller-health gate that stops heartbeat feeding if the control side,
+  runtime guard, MQTT adapter, or watchdog session becomes unusable;
 - monotonic deadline scheduling instead of `write + sleep` timing;
 - last and maximum successful write gaps;
 - write duration, overrun, and failure counters;
 - visible warnings on the first write failure;
 - fail-closed cancellation if watchdog transport health becomes critical;
-- VDA `information[]` entries named `WATCHDOG_HEALTH` and `CRANE_MOTION_HEALTH`.
+- per-node slow control-transaction timing and structured JSONL evidence;
+- VDA `information[]` entries for watchdog, OPC UA sessions/control health, and
+  crane motion.
 
 Default settings:
 
@@ -46,6 +51,10 @@ A new **Scenario, crane motion and watchdog health** panel shows:
 
 - active scenario step, status, elapsed time, and timeout;
 - watchdog status, last-success age, write duration, current/max gap, failures, and overruns;
+- independent control/watchdog session states, feed permission, and latest/max
+  control transaction timing;
+- latest slow/critical control transaction owner, operation, logical node, and
+  correlated network evidence;
 - crane motion phase, action ID, elapsed time, and no-progress age;
 - the latest failure or transition;
 - a filtered execution timeline for crane, ROX-Diff, scenario, and operator events.
@@ -103,3 +112,7 @@ reset remain supervised operations.
 For the split lock/write timing, independent PLC-network history, persistent
 JSONL evidence, and the four root-cause cases, see
 [`WATCHDOG_FAILURE_DIAGNOSIS.md`](WATCHDOG_FAILURE_DIAGNOSIS.md).
+
+For the dedicated watchdog/control sessions, controller-health feed gate,
+access-code ownership, and physical validation sequence, see
+[`DEDICATED_WATCHDOG_SESSION.md`](DEDICATED_WATCHDOG_SESSION.md).

@@ -177,6 +177,26 @@ class DashboardScenarioRouteTests(unittest.TestCase):
                         {"referenceKey": "ping_rtt_ms", "referenceValue": "182.4"},
                     ],
                 },
+                {
+                    "infoType": "OPCUA_SESSION_HEALTH",
+                    "infoLevel": "INFO",
+                    "infoReferences": [
+                        {"referenceKey": "architecture", "referenceValue": "dedicated_watchdog"},
+                        {"referenceKey": "control_session_status", "referenceValue": "CONNECTED"},
+                        {"referenceKey": "watchdog_session_status", "referenceValue": "CONNECTED"},
+                        {"referenceKey": "watchdog_feed_enabled", "referenceValue": "True"},
+                    ],
+                },
+                {
+                    "infoType": "OPCUA_CONTROL_HEALTH",
+                    "infoLevel": "INFO",
+                    "infoReferences": [
+                        {"referenceKey": "latest_owner", "referenceValue": "stop_all"},
+                        {"referenceKey": "latest_logical_node", "referenceValue": "hoist_down"},
+                        {"referenceKey": "latest_transaction_duration_ms", "referenceValue": "938.2"},
+                        {"referenceKey": "max_transaction_duration_ms", "referenceValue": "938.2"},
+                    ],
+                },
             ]
         }
         diagnostics = DashboardController._information_diagnostics(state)
@@ -185,6 +205,10 @@ class DashboardScenarioRouteTests(unittest.TestCase):
         self.assertEqual("wlan0", diagnostics["crane_network_health"]["interface"])
         self.assertTrue(diagnostics["crane_network_health"]["wireless"])
         self.assertEqual(-76.0, diagnostics["crane_network_health"]["wifi_signal_dbm"])
+        self.assertEqual("dedicated_watchdog", diagnostics["opcua_session_health"]["architecture"])
+        self.assertTrue(diagnostics["opcua_session_health"]["watchdog_feed_enabled"])
+        self.assertEqual("stop_all", diagnostics["opcua_control_health"]["latest_owner"])
+        self.assertEqual(938.2, diagnostics["opcua_control_health"]["latest_transaction_duration_ms"])
 
     def test_concurrent_starts_claim_the_scenario_slot_once(self) -> None:
         app, controller = self.bare_controller("concurrent_starts")

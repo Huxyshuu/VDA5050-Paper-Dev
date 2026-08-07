@@ -40,8 +40,10 @@ import requests
 from crane import Crane  # local project import – ensure PYTHONPATH is set
 try:
     from network_diagnostics import CraneDiagnostics
+    from watchdog_session import DedicatedWatchdogSession, WatchdogFeedGate
 except ImportError:  # package import during tests/tools
     from crane_edge.network_diagnostics import CraneDiagnostics
+    from crane_edge.watchdog_session import DedicatedWatchdogSession, WatchdogFeedGate
 
 # ───────────────────────────────────────────────────────── configuration ──
 
@@ -117,6 +119,17 @@ CRANE_DIAGNOSTICS_LOG_DIR = Path(
 CRANE_PLC_PING_TIMEOUT_S = max(
     0.1, float(os.getenv("CRANE_PLC_PING_TIMEOUT_S", "0.5"))
 )
+CRANE_OPCUA_SLOW_WARN_MS = max(
+    0.0, float(os.getenv("CRANE_OPCUA_SLOW_WARN_MS", "100"))
+)
+CRANE_OPCUA_SLOW_CRITICAL_MS = max(
+    CRANE_OPCUA_SLOW_WARN_MS,
+    float(os.getenv("CRANE_OPCUA_SLOW_CRITICAL_MS", "500")),
+)
+CRANE_CONTROLLER_GUARD_TIMEOUT_S = max(
+    0.25,
+    float(os.getenv("CRANE_CONTROLLER_GUARD_TIMEOUT_S", "5.0")),
+)
 CRANE_MOTION_STALL_WARN_S = max(1.0, float(os.getenv("CRANE_MOTION_STALL_WARN_S", "6.0")))
 CRANE_MOTION_STALL_FAIL_S = max(
     CRANE_MOTION_STALL_WARN_S, float(os.getenv("CRANE_MOTION_STALL_FAIL_S", "15.0"))
@@ -144,6 +157,10 @@ CRANE_AUTO_WAIT_TIMEOUT_S = float(
 )
 CRANE_AUTO_STABLE_S = max(0.0, float(os.getenv("CRANE_AUTO_STABLE_S", "1.0")))
 CRANE_AUTO_MODE_POLL_S = max(0.05, float(os.getenv("CRANE_AUTO_MODE_POLL_S", "0.20")))
+CRANE_CONTROLLER_GUARD_TIMEOUT_S = max(
+    CRANE_CONTROLLER_GUARD_TIMEOUT_S,
+    CRANE_AUTO_MODE_POLL_S * 5.0,
+)
 CRANE_MQTT_CONNECT_TIMEOUT_S = max(1.0, float(os.getenv("CRANE_MQTT_CONNECT_TIMEOUT_S", "15.0")))
 CRANE_HOME_ON_START = os.getenv("CRANE_HOME_ON_START", "false").strip().lower() in {
     "1", "true", "yes", "on"
@@ -167,9 +184,9 @@ HOME_HOIST_MM = _metres_env_to_mm("CRANE_HOME_HOIST_M", 3.071)
 class WatchdogHealth:
     """Thread-safe timing and failure telemetry for the PLC watchdog writer."""
 
-    def __init__(self, lock_owner_provider: Optional[Callable[[], Mapping[str, Any]]] = None) -> None:
+    def __init__(self, session_provider: Optional[Callable[[], Mapping[str, Any]]] = None) -> None:
         self._lock = threading.RLock()
-        self._lock_owner_provider = lock_owner_provider
+        self._session_provider = session_provider
         self.started_monotonic = time.monotonic()
         self.last_attempt_monotonic: Optional[float] = None
         self.last_success_monotonic: Optional[float] = None
@@ -191,10 +208,19 @@ class WatchdogHealth:
         self.last_critical_gap_ms = 0.0
         self.last_critical_event_timestamp = ""
         self._last_status: Optional[str] = None
+        self.feed_enabled = False
+        self.feed_disabled_reason = "controller-health gate has not enabled feeding"
 
     def note_attempt(self, started: float) -> None:
         with self._lock:
             self.last_attempt_monotonic = started
+
+    def note_feed_state(self, enabled: bool, reason: str = "") -> None:
+        with self._lock:
+            self.feed_enabled = bool(enabled)
+            self.feed_disabled_reason = "" if enabled else str(reason or "watchdog feed disabled")
+            if not enabled:
+                self.last_error = self.feed_disabled_reason
 
     def _note_timing(self, timing: Mapping[str, Any]) -> None:
         self.last_timing = dict(timing)
@@ -266,16 +292,18 @@ class WatchdogHealth:
 
     def snapshot(self) -> Dict[str, Any]:
         now = time.monotonic()
-        owner: Mapping[str, Any] = {}
-        if self._lock_owner_provider is not None:
+        session: Mapping[str, Any] = {}
+        if self._session_provider is not None:
             try:
-                owner = self._lock_owner_provider()
+                session = self._session_provider()
             except Exception:
-                owner = {}
+                session = {}
         with self._lock:
             age = None if self.last_success_monotonic is None else max(0.0, now - self.last_success_monotonic)
             if (
                 self.consecutive_failures >= CRANE_WATCHDOG_FAILURE_LIMIT
+                or not self.feed_enabled
+                or session.get("status") == "LOST"
                 or age is None
                 or age > CRANE_WATCHDOG_CRITICAL_GAP_S
                 or now < self.critical_until_monotonic
@@ -295,7 +323,8 @@ class WatchdogHealth:
                 self.last_critical_event_timestamp = utc_ts()
             self._last_status = status
             timing = dict(self.last_timing)
-            lock_wait_ms = float(timing.get("watchdog_lock_wait_ms", 0.0) or 0.0)
+            raw_lock_wait = timing.get("watchdog_lock_wait_ms")
+            lock_wait_ms = None if raw_lock_wait is None else float(raw_lock_wait or 0.0)
             write_duration_ms = float(timing.get("watchdog_write_duration_ms", 0.0) or 0.0)
             schedule_lateness_ms = float(timing.get("watchdog_schedule_lateness_ms", 0.0) or 0.0)
             total_cycle_ms = float(timing.get("watchdog_total_cycle_ms", 0.0) or 0.0)
@@ -309,6 +338,8 @@ class WatchdogHealth:
                 "max_success_gap_ms": self.max_gap_ms,
                 "lock_wait_ms": lock_wait_ms,
                 "max_lock_wait_ms": self.max_lock_wait_ms,
+                "control_lock_wait_ms": float(timing.get("control_lock_wait_ms", 0.0) or 0.0),
+                "lock_wait_applicable": bool(timing.get("watchdog_lock_wait_applicable", False)),
                 "write_duration_ms": write_duration_ms,
                 "last_write_duration_ms": write_duration_ms,
                 "max_write_duration_ms": self.max_write_duration_ms,
@@ -325,12 +356,16 @@ class WatchdogHealth:
                 "last_critical_gap_ms": self.last_critical_gap_ms,
                 "last_critical_event_timestamp": self.last_critical_event_timestamp,
                 "critical_latch_remaining_s": max(0.0, self.critical_until_monotonic - now),
-                "current_lock_owner": owner.get("owner"),
-                "current_lock_owner_thread": owner.get("thread"),
-                "current_lock_owner_age_ms": owner.get("owner_age_ms", 0.0),
+                "current_lock_owner": None,
+                "current_lock_owner_thread": None,
+                "current_lock_owner_age_ms": 0.0,
                 "lock_owner_at_request": timing.get("lock_owner_at_request"),
                 "lock_owner_thread_at_request": timing.get("lock_owner_thread_at_request"),
                 "diagnostic_hint": self._diagnostic_hint(timing),
+                "feed_enabled": self.feed_enabled,
+                "feed_disabled_reason": self.feed_disabled_reason,
+                "session_architecture": "dedicated_watchdog",
+                "watchdog_session_status": session.get("status", "LOST"),
                 **{
                     key: timing.get(key)
                     for key in (
@@ -466,6 +501,7 @@ def wait_for_panel_button(
 def wait_for_crane_automatic_mode(
     crane: Crane,
     log: logging.Logger,
+    feed_gate: Optional[WatchdogFeedGate] = None,
     stop_event: Optional[threading.Event] = None,
     timeout: Optional[float] = None,
     stable_s: float = 1.0,
@@ -491,6 +527,8 @@ def wait_for_crane_automatic_mode(
         now = time.monotonic()
         try:
             fault = bool(crane.get_watchdog_fault())
+            if feed_gate is not None:
+                feed_gate.note_guard_heartbeat("startup_preflight")
             if fault != last_fault:
                 log.info(
                     "OPC UA WatchDogFault=%s -> operating mode %s",
@@ -514,6 +552,12 @@ def wait_for_crane_automatic_mode(
             if now - last_heartbeat >= 2.0:
                 log.warning("Cannot read WatchDogFault yet: %s", exc)
                 last_heartbeat = now
+        if feed_gate is not None and feed_gate.snapshot().get("fatal_reason"):
+            log.error(
+                "Automatic-mode preflight aborted because watchdog feeding is inhibited: %s",
+                feed_gate.snapshot().get("reason"),
+            )
+            return False
         if timeout is not None and now - started >= timeout:
             log.error(
                 "Automatic-mode wait timed out after %.1fs; "
@@ -533,30 +577,55 @@ def wait_for_crane_automatic_mode(
 
 
 def _watchdog_loop(
-    crane: Crane,
+    watchdog_session: DedicatedWatchdogSession,
+    feed_gate: WatchdogFeedGate,
     stop_event: threading.Event,
     log: logging.Logger,
     health: WatchdogHealth,
     diagnostics: Optional[CraneDiagnostics] = None,
 ):
-    """Deadline-scheduled process watchdog with visible health telemetry."""
+    """Deadline-scheduled heartbeat on its dedicated OPC UA session."""
     log.info(
-        "Global watchdog loop started (interval=%.3fs, warning gap=%.3fs, critical gap=%.3fs)",
+        "Dedicated watchdog heartbeat started (interval=%.3fs, warning gap=%.3fs, critical gap=%.3fs)",
         WATCHDOG_INTERVAL_S,
         CRANE_WATCHDOG_WARN_GAP_S,
         CRANE_WATCHDOG_CRITICAL_GAP_S,
     )
     next_deadline = time.monotonic()
     last_gap_warning = 0.0
+    feed_was_enabled: Optional[bool] = None
     while not stop_event.is_set():
         delay = next_deadline - time.monotonic()
         if delay > 0 and stop_event.wait(delay):
             break
         scheduled_deadline = next_deadline
         started = time.monotonic()
+        gate_snapshot = feed_gate.snapshot()
+        feed_enabled = bool(gate_snapshot["feed_enabled"])
+        health.note_feed_state(feed_enabled, str(gate_snapshot.get("reason") or ""))
+        if feed_enabled != feed_was_enabled:
+            level = log.info if feed_enabled else log.error
+            level(
+                "Dedicated watchdog feed %s: %s",
+                "ENABLED" if feed_enabled else "DISABLED",
+                gate_snapshot.get("reason") or "controller health valid",
+            )
+            if diagnostics is not None:
+                diagnostics.record_event(
+                    "WATCHDOG_FEED_ENABLED" if feed_enabled else "WATCHDOG_FEED_DISABLED",
+                    watchdog=health.snapshot(),
+                    extra={"feed_gate": gate_snapshot},
+                    include_history=not feed_enabled,
+                )
+            feed_was_enabled = feed_enabled
+        if not feed_enabled:
+            if diagnostics is not None:
+                diagnostics.record_watchdog(health.snapshot())
+            next_deadline = time.monotonic() + WATCHDOG_INTERVAL_S
+            continue
         health.note_attempt(started)
         try:
-            timing = crane.increment_watchdog_timed(scheduled_deadline, started)
+            timing = watchdog_session.write_next(scheduled_deadline, started)
             finished = float(timing["write_finished_monotonic"])
             health.note_success(getattr(crane, "_watchdog_value", None), timing)
             snap = health.snapshot()
@@ -570,19 +639,20 @@ def _watchdog_loop(
                     "Watchdog timing degraded: gap=%.1f ms schedule=%.1f ms lock=%.1f ms write=%.1f ms owner=%s hint=%s",
                     snap["last_success_gap_ms"],
                     snap["schedule_lateness_ms"],
-                    snap["lock_wait_ms"],
+                    float(snap["lock_wait_ms"] or 0.0),
                     snap["write_duration_ms"],
                     snap.get("lock_owner_at_request") or "none",
                     snap["diagnostic_hint"],
                 )
                 last_gap_warning = finished
         except Exception as exc:
-            timing = crane.last_watchdog_timing()
+            timing = watchdog_session.last_timing()
             failures = health.note_failure(exc, timing)
+            feed_gate.inhibit(f"dedicated watchdog OPC UA session lost: {type(exc).__name__}: {exc}")
             snap = health.snapshot()
             if diagnostics is not None:
                 diagnostics.record_event(
-                    "OPCUA_EXCEPTION",
+                    "OPCUA_WATCHDOG_SESSION_LOST",
                     watchdog=snap,
                     extra={"operation": "watchdog", "error": f"{type(exc).__name__}: {exc}"},
                     include_history=failures >= CRANE_WATCHDOG_FAILURE_LIMIT,
@@ -602,11 +672,7 @@ def _watchdog_loop(
             missed = max(1, int((now - next_deadline) / WATCHDOG_INTERVAL_S) + 1)
             health.note_overrun(missed)
             next_deadline = now
-    try:
-        crane.stop_all()
-    except Exception:
-        pass
-    log.info("Global watchdog loop stopped. Final health=%s", health.snapshot())
+    log.info("Dedicated watchdog loop stopped. Final health=%s", health.snapshot())
 
 
 def _move_xy_to(
@@ -936,6 +1002,8 @@ class VDA5050Adapter:
         crane: Crane,
         log: logging.Logger,
         watchdog_health: WatchdogHealth,
+        watchdog_session: DedicatedWatchdogSession,
+        feed_gate: WatchdogFeedGate,
         diagnostics: Optional[CraneDiagnostics] = None,
     ):
         self._paused = False
@@ -945,6 +1013,8 @@ class VDA5050Adapter:
         self.log = log.getChild("adapter")
         self.crane = crane
         self.watchdog_health = watchdog_health
+        self.watchdog_session = watchdog_session
+        self.feed_gate = feed_gate
         self.diagnostics = diagnostics
         self.header = HeaderCounter()
         self._motion_diag_lock = threading.RLock()
@@ -960,6 +1030,11 @@ class VDA5050Adapter:
             "action_id": "",
             "action_status": "",
             "last_error": "",
+        }
+        self._last_control_positions_mm: Dict[str, int] = {
+            "bridge": 0,
+            "trolley": 0,
+            "hoist": 0,
         }
 
         # --- VDA state book-keeping (matches state.schema required fields) ---
@@ -1073,6 +1148,9 @@ class VDA5050Adapter:
             "action_type": action.get("actionType", ""),
             "action_status": action.get("actionStatus", ""),
             "scenario_step": self._node_ctx.get("node_id") or self.last_node_id,
+            "control_session": self.crane.io_snapshot(),
+            "watchdog_session": self.watchdog_session.snapshot(),
+            "watchdog_feed_gate": self.feed_gate.snapshot(),
         }
 
 
@@ -1125,6 +1203,8 @@ class VDA5050Adapter:
         self._mqtt_connected = False
         if not self._stop.is_set() and (was_connected or _mqtt_reason_is_failure(reason_code)):
             self.log.warning("MQTT disconnected unexpectedly (reason=%s)", reason_code)
+            self.feed_gate.inhibit(f"runtime MQTT session lost: {reason_code}")
+            self._cancel.set()
 
     def _header_matches_identity(self, payload: Dict[str, Any]) -> bool:
         return (
@@ -1305,9 +1385,11 @@ class VDA5050Adapter:
         self._start_thread(self._publish_state_task, name="state_pub")
         self._start_thread(self._publish_visualization_task, name="visu_pub")
         self._start_thread(self._order_executor_task, name="executor")
+        self.feed_gate.activate_runtime()
 
     def stop(self):
         self.log.info("Stop requested. Signaling threads ...")
+        self.feed_gate.shutdown()
         self._stop.set()
         try:
             if not self._mqtt_connected:
@@ -1346,7 +1428,14 @@ class VDA5050Adapter:
     def _thread_wrapper(self, target, name: str):
         try:
             target()
-        except Exception:
+        except Exception as exc:
+            self.feed_gate.inhibit(f"fatal adapter thread {name}: {type(exc).__name__}: {exc}")
+            self._cancel.set()
+            self.operating_mode = "MANUAL"
+            try:
+                self.crane.stop_all(reason=f"fatal_adapter_thread_{name}")
+            except Exception:
+                pass
             self.log.error(
                 "Unhandled exception in thread '%s':\n%s", name, traceback.format_exc()
             )
@@ -1377,14 +1466,18 @@ class VDA5050Adapter:
         while not self._stop.is_set():
             try:
                 plc_fault = bool(self.crane.get_watchdog_fault())
+                self.feed_gate.note_guard_heartbeat("automatic_mode_guard")
             except Exception as exc:
                 plc_fault = True
+                self.feed_gate.mark_control_lost(
+                    f"automatic-mode guard control read failed: {type(exc).__name__}: {exc}"
+                )
                 self.log.warning("Automatic-mode guard read failed: %s", exc)
             # The guard may acquire the session immediately after a delayed
             # watchdog write, before the watchdog thread updates WatchdogHealth.
             # Fold in the completed timing idempotently so a WatchDogFault edge
             # always carries the write that immediately preceded it.
-            latest_watchdog_timing = self.crane.last_watchdog_timing()
+            latest_watchdog_timing = self.watchdog_session.last_timing()
             if latest_watchdog_timing.get("success"):
                 self.watchdog_health.note_success(
                     getattr(self.crane, "_watchdog_value", None),
@@ -1444,6 +1537,10 @@ class VDA5050Adapter:
                         )
                 last_plc_fault = plc_fault
             transport_critical = health["status"] == "CRITICAL"
+            if plc_fault:
+                self.feed_gate.inhibit("DX_Custom_V.Status.WatchDogFault asserted during runtime")
+            if transport_critical:
+                self.feed_gate.inhibit("dedicated watchdog transport became CRITICAL")
             fault = bool(plc_fault or transport_critical)
             self.watchdog_fault = plc_fault
             self.operating_mode = "MANUAL" if fault else "AUTOMATIC"
@@ -3235,8 +3332,15 @@ class VDA5050Adapter:
     def _publish_state_impl(self):
         try:
             # positions (mm)
-            bridge_mm = int(self.crane.get_bridge_position_absolute())
-            trolley_mm = int(self.crane.get_trolley_position_absolute())
+            try:
+                bridge_mm = int(self.crane.get_bridge_position_absolute())
+                trolley_mm = int(self.crane.get_trolley_position_absolute())
+                self._last_control_positions_mm.update(
+                    {"bridge": bridge_mm, "trolley": trolley_mm}
+                )
+            except Exception:
+                bridge_mm = self._last_control_positions_mm["bridge"]
+                trolley_mm = self._last_control_positions_mm["trolley"]
 
             # --- hoist telemetry into information[] with required infoLevel ---
             motion_diag: Dict[str, Any] = {
@@ -3244,6 +3348,7 @@ class VDA5050Adapter:
             }
             try:
                 hoist_mm = int(self.crane.get_hoist_position_absolute())
+                self._last_control_positions_mm["hoist"] = hoist_mm
                 hoist_m = hoist_mm / 1000.0
                 motion_diag = self._update_motion_diagnostics(bridge_mm, trolley_mm, hoist_mm)
                 info_item = {
@@ -3318,6 +3423,61 @@ class VDA5050Adapter:
                     for key, value in watchdog_health.items()
                 ],
             }
+            control_health = self.crane.io_diagnostics_snapshot()
+            control_latest = control_health.get("latest_transaction") or {}
+            watchdog_session_health = self.watchdog_session.snapshot()
+            feed_gate_health = self.feed_gate.snapshot()
+            session_health_item = {
+                "infoType": "OPCUA_SESSION_HEALTH",
+                "infoLevel": "INFO",
+                "infoDescriptor": (
+                    f"Dedicated watchdog architecture: control="
+                    f"{control_health.get('session_status', 'LOST')}, watchdog="
+                    f"{watchdog_session_health.get('status', 'LOST')}"
+                ),
+                "infoDescription": "Independent OPC UA control and watchdog sessions",
+                "infoReferences": [
+                    {"referenceKey": key, "referenceValue": str(value)}
+                    for key, value in {
+                        "architecture": "dedicated_watchdog",
+                        "control_session_status": control_health.get("session_status", "LOST"),
+                        "control_session_healthy": control_health.get("session_healthy", False),
+                        "control_session_last_error": control_health.get("session_last_error", ""),
+                        "watchdog_session_status": watchdog_session_health.get("status", "LOST"),
+                        "watchdog_session_last_error": watchdog_session_health.get("last_error", ""),
+                        "watchdog_feed_enabled": feed_gate_health.get("feed_enabled", False),
+                        "watchdog_feed_reason": feed_gate_health.get("reason", ""),
+                        "guard_source": feed_gate_health.get("guard_source", ""),
+                        "guard_age_ms": feed_gate_health.get("guard_age_ms"),
+                    }.items()
+                ],
+            }
+            control_health_item = {
+                "infoType": "OPCUA_CONTROL_HEALTH",
+                "infoLevel": "INFO",
+                "infoDescriptor": (
+                    f"Control OPC UA latest {control_latest.get('operation', 'none')} "
+                    f"{float(control_latest.get('transaction_duration_ms', 0.0) or 0.0):.1f} ms; "
+                    f"max={float(control_health.get('max_transaction_duration_ms', 0.0) or 0.0):.1f} ms"
+                ),
+                "infoDescription": "Serialized control-session transaction timing",
+                "infoReferences": [
+                    {"referenceKey": key, "referenceValue": str(value)}
+                    for key, value in {
+                        "status": control_health.get("session_status", "LOST"),
+                        "latest_owner": control_latest.get("owner", ""),
+                        "latest_operation": control_latest.get("operation", ""),
+                        "latest_logical_node": control_latest.get("logical_node", ""),
+                        "latest_lock_wait_ms": control_latest.get("lock_wait_ms"),
+                        "latest_transaction_duration_ms": control_latest.get("transaction_duration_ms"),
+                        "latest_total_duration_ms": control_latest.get("total_duration_ms"),
+                        "max_transaction_duration_ms": control_health.get("max_transaction_duration_ms"),
+                        "max_total_duration_ms": control_health.get("max_total_duration_ms"),
+                        "slow_warn_ms": control_health.get("slow_warn_ms"),
+                        "slow_critical_ms": control_health.get("slow_critical_ms"),
+                    }.items()
+                ],
+            }
             motion_health_item = {
                 "infoType": "CRANE_MOTION_HEALTH",
                 "infoLevel": "INFO",
@@ -3363,10 +3523,44 @@ class VDA5050Adapter:
                     }
                 )
                 failure = diagnostic_snapshot.get("latest_failure") or {}
+                slow_transaction = diagnostic_snapshot.get("latest_slow_transaction") or {}
+                if slow_transaction:
+                    slow_details = slow_transaction.get("details") or {}
+                    slow_network = slow_transaction.get("network") or {}
+                    control_health_item["infoReferences"].extend(
+                        {"referenceKey": key, "referenceValue": str(value)}
+                        for key, value in {
+                            "slow_event_type": slow_transaction.get("event_type", ""),
+                            "slow_timestamp": slow_transaction.get("timestamp", ""),
+                            "slow_owner": slow_details.get("owner", ""),
+                            "slow_operation": slow_details.get("operation", ""),
+                            "slow_logical_node": slow_details.get("logical_node", ""),
+                            "slow_lock_wait_ms": slow_details.get("lock_wait_ms"),
+                            "slow_transaction_duration_ms": slow_details.get("transaction_duration_ms"),
+                            "slow_total_duration_ms": slow_details.get("total_duration_ms"),
+                            "slow_wifi_signal_dbm": slow_network.get("wifi_signal_dbm"),
+                            "slow_tcp_retrans_delta": slow_network.get("tcp_retrans_segs_delta"),
+                            "slow_ping_rtt_ms": slow_network.get("ping_rtt_ms"),
+                        }.items()
+                    )
+                critical_transaction = diagnostic_snapshot.get("latest_critical_transaction") or {}
+                if critical_transaction:
+                    critical_details = critical_transaction.get("details") or {}
+                    control_health_item["infoReferences"].extend(
+                        {"referenceKey": key, "referenceValue": str(value)}
+                        for key, value in {
+                            "critical_timestamp": critical_transaction.get("timestamp", ""),
+                            "critical_owner": critical_details.get("owner", ""),
+                            "critical_operation": critical_details.get("operation", ""),
+                            "critical_logical_node": critical_details.get("logical_node", ""),
+                            "critical_transaction_duration_ms": critical_details.get("transaction_duration_ms"),
+                        }.items()
+                    )
                 if failure:
                     failure_watchdog = failure.get("watchdog") or {}
                     failure_context = failure.get("context") or {}
                     failure_network = failure.get("network") or {}
+                    failure_details = failure.get("details") or {}
                     failure_refs = {
                         "event_type": failure.get("event_type", ""),
                         "timestamp": failure.get("timestamp", ""),
@@ -3397,7 +3591,26 @@ class VDA5050Adapter:
                         "cpu_temp_c": failure_network.get("cpu_temp_c"),
                         "throttled": failure_network.get("throttled"),
                         "under_voltage": failure_network.get("under_voltage"),
+                        "control_owner": failure_details.get("owner"),
+                        "control_operation": failure_details.get("operation"),
+                        "control_logical_node": failure_details.get("logical_node"),
+                        "control_lock_wait_ms": failure_details.get("lock_wait_ms"),
+                        "control_transaction_ms": failure_details.get("transaction_duration_ms"),
                     }
+                    failure_event_type = failure.get("event_type")
+                    if failure_event_type in {
+                        "OPCUA_SLOW_TRANSACTION",
+                        "OPCUA_CRITICAL_TRANSACTION",
+                    }:
+                        failure_refs["watchdog_failure_type"] = "CONTROL_SESSION_SLOW_TRANSACTION"
+                    elif failure_event_type == "OPCUA_CONTROL_SESSION_LOST":
+                        failure_refs["watchdog_failure_type"] = "CONTROL_SESSION_LOST"
+                    elif failure_event_type == "OPCUA_TRANSACTION_EXCEPTION":
+                        failure_refs["watchdog_failure_type"] = "CONTROL_SESSION_EXCEPTION"
+                    elif failure_watchdog.get("diagnostic_hint") == "LOCK_CONTENTION":
+                        failure_refs["watchdog_failure_type"] = "LOCK_CONTENTION"
+                    else:
+                        failure_refs["watchdog_failure_type"] = "WATCHDOG_SESSION_WRITE_DELAY"
                     diagnostic_items.append(
                         {
                             "infoType": "CRANE_FAILURE_SNAPSHOT",
@@ -3422,10 +3635,18 @@ class VDA5050Adapter:
                     "CRANE_MOTION_HEALTH",
                     "CRANE_NETWORK_HEALTH",
                     "CRANE_FAILURE_SNAPSHOT",
+                    "OPCUA_SESSION_HEALTH",
+                    "OPCUA_CONTROL_HEALTH",
                 }
             ]
             self.information_messages.extend(
-                [watchdog_health_item, motion_health_item, *diagnostic_items]
+                [
+                    watchdog_health_item,
+                    session_health_item,
+                    control_health_item,
+                    motion_health_item,
+                    *diagnostic_items,
+                ]
             )
             state_header_id = self.header.next("state")
             self._last_state_header_id = state_header_id
@@ -3435,7 +3656,7 @@ class VDA5050Adapter:
                 "y": trolley_mm / 1000.0,
                 "theta": 0.0,
                 "mapId": DEFAULT_MAP_ID,
-                "localized": True,
+                "localized": bool(self.crane.io_snapshot().get("session_healthy")),
             }
 
             payload = {
@@ -3493,7 +3714,7 @@ class VDA5050Adapter:
                 "y": trolley_mm / 1000.0,
                 "theta": 0.0,
                 "mapId": DEFAULT_MAP_ID,
-                "localized": True,
+                "localized": bool(self.crane.io_snapshot().get("session_healthy")),
             }
             payload = {
                 "headerId": self.header.next("visualization"),
@@ -3595,48 +3816,165 @@ def main():
     )
     diagnostics.start()
 
+    feed_gate = WatchdogFeedGate(CRANE_CONTROLLER_GUARD_TIMEOUT_S)
+    adapter_ref = {"obj": None}
+    watchdog_health_ref: Dict[str, Optional[WatchdogHealth]] = {"obj": None}
+    control_loss_lock = threading.Lock()
+    control_loss_handled = {"value": False}
+
+    log.info("Connecting crane CONTROL OPC UA session...")
     try:
-        crane = Crane(url)
+        crane = Crane(
+            url,
+            slow_warn_ms=CRANE_OPCUA_SLOW_WARN_MS,
+            slow_critical_ms=CRANE_OPCUA_SLOW_CRITICAL_MS,
+        )
     except Exception as exc:
         diagnostics.record_event(
-            "OPCUA_EXCEPTION",
+            "OPCUA_CONTROL_SESSION_LOST",
             extra={"operation": "connect", "error": f"{type(exc).__name__}: {exc}"},
             include_history=True,
         )
         diagnostics.stop()
         raise
-    crane.set_accesscode(access)
-    crane.stop_all()  # ensure safe state at boot
-    log.info("Crane connected to %s, accesscode set.", url)
+    feed_gate.mark_control_connected()
+    crane.configure_io_diagnostics(
+        CRANE_OPCUA_SLOW_WARN_MS,
+        CRANE_OPCUA_SLOW_CRITICAL_MS,
+    )
+    log.info("Control OPC UA session connected.")
+
+    def _observe_control_opcua_io(timing: Mapping[str, Any]) -> None:
+        duration = float(timing.get("transaction_duration_ms", 0.0) or 0.0)
+        health_obj = watchdog_health_ref["obj"]
+        health_snapshot = health_obj.snapshot() if health_obj is not None else {}
+        if not timing.get("success"):
+            error = str(timing.get("error") or "control OPC UA transaction failed")
+            feed_gate.mark_control_lost(error)
+            diagnostics.record_event(
+                "OPCUA_TRANSACTION_EXCEPTION",
+                watchdog=health_snapshot,
+                extra=timing,
+                include_history=True,
+            )
+            with control_loss_lock:
+                first_loss = not control_loss_handled["value"]
+                control_loss_handled["value"] = True
+            if first_loss:
+                diagnostics.record_event(
+                    "OPCUA_CONTROL_SESSION_LOST",
+                    watchdog=health_snapshot,
+                    extra=timing,
+                    include_history=True,
+                )
+                log.error("CONTROL OPC UA SESSION LOST: %s", error)
+                adapter_obj = adapter_ref["obj"]
+                if adapter_obj is not None:
+                    adapter_obj._cancel.set()
+                    adapter_obj.operating_mode = "MANUAL"
+                    adapter_obj._set_runtime_error(
+                        "OPCUA_CONTROL_SESSION_LOST",
+                        "Main crane OPC UA control session is unavailable; watchdog feeding is disabled.",
+                    )
+                try:
+                    crane.stop_all(reason="control_session_loss")
+                except Exception as stop_exc:
+                    log.error("Best-effort STOP after control-session loss failed: %s", stop_exc)
+            return
+        if duration < CRANE_OPCUA_SLOW_WARN_MS:
+            return
+        critical = duration >= CRANE_OPCUA_SLOW_CRITICAL_MS
+        event_type = "OPCUA_CRITICAL_TRANSACTION" if critical else "OPCUA_SLOW_TRANSACTION"
+        diagnostics.record_event(event_type, watchdog=health_snapshot, extra=timing)
+        level = log.error if critical else log.warning
+        adapter_obj = adapter_ref["obj"]
+        context = adapter_obj._diagnostic_context() if adapter_obj is not None else {}
+        level(
+            "%s OPC UA TRANSACTION owner=%s operation=%s logical_node=%s "
+            "lock_wait_ms=%.1f transaction_ms=%.1f total_ms=%.1f thread=%s "
+            "motion_phase=%s order_id=%s action_id=%s",
+            "CRITICAL" if critical else "SLOW",
+            timing.get("owner"),
+            timing.get("operation"),
+            timing.get("logical_node"),
+            float(timing.get("lock_wait_ms", 0.0) or 0.0),
+            duration,
+            float(timing.get("total_duration_ms", 0.0) or 0.0),
+            timing.get("thread"),
+            context.get("motion_phase", ""),
+            context.get("order_id", ""),
+            context.get("action_id", ""),
+        )
+
+    crane.set_io_event_callback(_observe_control_opcua_io)
+    startup_slow_transaction = crane.io_diagnostics_snapshot().get("latest_slow_transaction")
+    if startup_slow_transaction:
+        _observe_control_opcua_io(startup_slow_transaction)
+    # The access code remains owned by the CONTROL session and is written once.
+    # It is never passed to diagnostics and the watchdog client has no access node.
+    try:
+        crane.set_accesscode(access)
+        crane.stop_all()  # ensure safe state at boot
+    except Exception as exc:
+        feed_gate.mark_control_lost(
+            f"control OPC UA startup transaction failed: {type(exc).__name__}: {exc}"
+        )
+        crane.set_io_event_callback(None)
+        try:
+            crane.disconnect()
+        except Exception:
+            pass
+        diagnostics.stop()
+        raise SystemExit(f"Control OPC UA startup failed closed: {exc}")
+    if not crane.io_snapshot().get("session_healthy"):
+        diagnostics.stop()
+        crane.set_io_event_callback(None)
+        crane.disconnect()
+        raise SystemExit("Control OPC UA session became unhealthy during startup.")
+    log.info("Control access code written once; initial STOP completed.")
+
+    log.info("Connecting dedicated WATCHDOG OPC UA session...")
+    watchdog_session = DedicatedWatchdogSession(url)
+    try:
+        watchdog_session.connect()
+    except Exception as exc:
+        feed_gate.inhibit(f"dedicated watchdog session startup failed: {exc}")
+        diagnostics.record_event(
+            "OPCUA_WATCHDOG_SESSION_LOST",
+            extra={"operation": "connect", "error": f"{type(exc).__name__}: {exc}"},
+            include_history=True,
+        )
+        try:
+            crane.stop_all(reason="watchdog_session_startup_failure")
+        finally:
+            crane.disconnect()
+            diagnostics.stop()
+        raise SystemExit(f"Dedicated watchdog OPC UA session failed: {exc}")
+    log.info("Watchdog OPC UA session connected.")
+    log.info("Watchdog node ready.")
+    log.info("Both OPC UA sessions active.")
+    log.info("CONTROL session: motion / stop / telemetry")
+    log.info("WATCHDOG session: watchdog heartbeat only")
 
     # --- Start GLOBAL watchdog BEFORE any waits/homing ---
     watchdog_stop = threading.Event()
-    watchdog_health = WatchdogHealth(crane.io_snapshot)
-
-    def _observe_opcua_io(timing: Mapping[str, Any]) -> None:
-        if timing.get("success") or timing.get("reason") == "watchdog":
-            return
-        diagnostics.record_event(
-            "OPCUA_EXCEPTION",
-            watchdog=watchdog_health.snapshot(),
-            extra=timing,
-            include_history=True,
-        )
-
-    crane.set_io_event_callback(_observe_opcua_io)
+    watchdog_health = WatchdogHealth(watchdog_session.snapshot)
+    watchdog_health_ref["obj"] = watchdog_health
+    feed_gate.note_guard_heartbeat("startup_preflight")
     watchdog_thread = threading.Thread(
         target=_watchdog_loop,
-        args=(crane, watchdog_stop, log, watchdog_health, diagnostics),
+        args=(watchdog_session, feed_gate, watchdog_stop, log, watchdog_health, diagnostics),
         daemon=True,
         name="watchdog",
+    )
+    log.info(
+        "Starting watchdog at %.1f ms interval using dedicated session.",
+        WATCHDOG_INTERVAL_S * 1000.0,
     )
     watchdog_thread.start()
 
     # Global shutdown event so waits can exit on Ctrl-C
     shutdown_evt = threading.Event()
-
-    # Late-bound adapter reference for the signal handler
-    adapter_ref = {"obj": None}
 
     # One signal handler that works both before and after adapter exists
     def _sigterm(_sig, _frm):
@@ -3648,6 +3986,7 @@ def main():
             pass
 
         log.info("Signal received: shutting down.")
+        feed_gate.shutdown()
         shutdown_evt.set()  # abort any waits (e.g., AUTOMATIC)
 
         # 1) STOP crane first
@@ -3669,6 +4008,7 @@ def main():
             watchdog_stop.set()
             if watchdog_thread.is_alive():
                 watchdog_thread.join(timeout=2.0)
+            watchdog_session.disconnect()
             diagnostics.stop()
         finally:
             try:
@@ -3692,23 +4032,28 @@ def main():
     ok_auto = wait_for_crane_automatic_mode(
         crane,
         log,
+        feed_gate=feed_gate,
         stop_event=shutdown_evt,
         timeout=CRANE_AUTO_WAIT_TIMEOUT_S,
         stable_s=CRANE_AUTO_STABLE_S,
     )
     if not ok_auto:
-        if not ALLOW_UNHOMED_START:
+        gate_failure = str(feed_gate.snapshot().get("fatal_reason") or "")
+        if gate_failure or not ALLOW_UNHOMED_START:
             try:
                 crane.stop_all()
             finally:
+                feed_gate.shutdown()
                 watchdog_stop.set()
                 watchdog_thread.join(timeout=2.0)
+                watchdog_session.disconnect()
                 diagnostics.stop()
                 crane.disconnect()
             raise SystemExit(
                 "Refusing to accept crane orders because "
                 "DX_Custom_V.Status.WatchDogFault did not become false. "
-                "Check access code, watchdog loop, PLC mode, and OPC UA status."
+                "Check access code, dedicated watchdog session, PLC mode, and OPC UA status. "
+                + (f"Feed gate: {gate_failure}" if gate_failure else "")
             )
         log.warning(
             "ALLOW_UNHOMED_START=true: adapter will start for supervised telemetry; "
@@ -3719,13 +4064,18 @@ def main():
             "CRANE_HOME_ON_START=true: automatic mode confirmed; beginning configured "
             "startup homing (Z then XY)."
         )
+        def _startup_homing_abort_check() -> bool:
+            fault = bool(crane.get_watchdog_fault())
+            feed_gate.note_guard_heartbeat("startup_homing_guard")
+            return fault
+
         ok_z = _move_hoist_to(
             crane,
             log,
             HOME_HOIST_MM,
             timeout_s=300.0,
             stop_event=shutdown_evt,
-            abort_check=lambda: bool(crane.get_watchdog_fault()),
+            abort_check=_startup_homing_abort_check,
         )
         if ok_z:
             ok_xy = _move_xy_to(
@@ -3735,7 +4085,7 @@ def main():
                 HOME_TROLLEY_MM,
                 timeout_s=300.0,
                 stop_event=shutdown_evt,
-                abort_check=lambda: bool(crane.get_watchdog_fault()),
+                abort_check=_startup_homing_abort_check,
             )
         else:
             ok_xy = False
@@ -3747,8 +4097,10 @@ def main():
         if not (ok_z and ok_xy):
             log.error("Startup homing failed or timed out; crane remains stopped.")
             if not ALLOW_UNHOMED_START:
+                feed_gate.shutdown()
                 watchdog_stop.set()
                 watchdog_thread.join(timeout=2.0)
+                watchdog_session.disconnect()
                 diagnostics.stop()
                 crane.disconnect()
                 raise SystemExit(
@@ -3762,7 +4114,15 @@ def main():
             "is performed at adapter startup; use the dashboard Home controls when ready."
         )
     # --- Start adapter threads/MQTT after successful or explicitly overridden preflight ---
-    adapter = VDA5050Adapter(crane, log, watchdog_health, diagnostics)
+    feed_gate.note_guard_heartbeat("adapter_startup")
+    adapter = VDA5050Adapter(
+        crane,
+        log,
+        watchdog_health,
+        watchdog_session,
+        feed_gate,
+        diagnostics,
+    )
     adapter_ref["obj"] = adapter
     try:
         adapter.start()
@@ -3772,8 +4132,10 @@ def main():
             crane.stop_all()
         except Exception:
             pass
+        feed_gate.shutdown()
         watchdog_stop.set()
         watchdog_thread.join(timeout=2.0)
+        watchdog_session.disconnect()
         diagnostics.stop()
         try:
             crane.disconnect()

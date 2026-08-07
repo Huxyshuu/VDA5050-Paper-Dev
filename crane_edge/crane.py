@@ -12,7 +12,7 @@ from scipy.interpolate import interp1d
 class Crane(object): 
     """Definition of Ilmatar Crane interface through OPC UA."""
 
-    def __init__(self, clientaddress) -> None:
+    def __init__(self, clientaddress, slow_warn_ms=100.0, slow_critical_ms=500.0) -> None:
         self.x = 1
         # asyncua.sync uses one underlying OPC UA session. Serialize all node
         # operations so watchdog writes, telemetry reads, and motion commands do
@@ -24,18 +24,21 @@ class Crane(object):
         self._io_owner_since_monotonic = None
         self._io_reason_local = threading.local()
         self._io_event_callback = None
-        self._last_watchdog_timing = {}
-        self._watchdog_priority = threading.Event()
+        self._session_connected = False
+        self._session_healthy = False
+        self._session_last_error = ""
+        self._latest_io_timing = {}
+        self._latest_slow_io = {}
+        self._latest_critical_io = {}
+        self._max_transaction_duration_ms = 0.0
+        self._max_total_duration_ms = 0.0
+        self._slow_warn_ms = max(0.0, float(slow_warn_ms))
+        self._slow_critical_ms = max(self._slow_warn_ms, float(slow_critical_ms))
         self.client = Client(clientaddress)
         self._run_io("connect", "connect", self.client.connect)
         self._global_speed_scale = 1.0  # NEW: 0.0 ... 1.0 multiplier applied to all set_*_speed()
         #NS = "ns=" + str(self.client.get_namespace_index("AIIC"))
         NS = "ns=5"
-
-        # Watchdog
-        self._node_watchdog = self.client.get_node(
-            NS + ";s=DX_Custom_V.Controls.Watchdog")
-        
 
         # Authoritative automatic/remote-mode indicator. The PLC exposes
         # WatchDogFault=False while the external watchdog is healthy and
@@ -147,11 +150,15 @@ class Crane(object):
             NS + ";s=DX_Custom_V.Status.Hoist.ControlSignals.SpeedFeedback_mmin")
 
 
+        self._node_logical_names = {
+            id(value): name.removeprefix("_node_")
+            for name, value in vars(self).items()
+            if name.startswith("_node_")
+        }
+
         self.bridge_last_zeroed = self.get_motorcontroller_bridge_value()
         self.trolley_last_zeroed = self.get_motorcontroller_trolley_value()
         self.hoist_last_zeroed = self.get_motorcontroller_hoist_value()
-
-        self._watchdog_value = self.get_watchdog()
 
         # Will be initialized in set_moving_height
         self.hoist_moving_height = None
@@ -167,6 +174,14 @@ class Crane(object):
         """Register a non-OPC-UA observer for completed I/O operations."""
         with self._io_meta_lock:
             self._io_event_callback = callback
+
+    def configure_io_diagnostics(self, warn_ms=100.0, critical_ms=500.0):
+        """Set diagnostic-only thresholds for slow control-session transactions."""
+        warn = max(0.0, float(warn_ms))
+        critical = max(warn, float(critical_ms))
+        with self._io_meta_lock:
+            self._slow_warn_ms = warn
+            self._slow_critical_ms = critical
 
     @contextmanager
     def io_reason(self, reason):
@@ -185,7 +200,7 @@ class Crane(object):
                 self._io_reason_local.value = previous
 
     def io_snapshot(self):
-        """Return the current shared-session owner for watchdog diagnostics."""
+        """Return the current CONTROL-session owner and health."""
         now = time.monotonic()
         with self._io_meta_lock:
             since = self._io_owner_since_monotonic
@@ -196,7 +211,25 @@ class Crane(object):
                 "owner_age_ms": (
                     max(0.0, (now - since) * 1000.0) if since is not None else 0.0
                 ),
-                "watchdog_pending": self._watchdog_priority.is_set(),
+                "session": "control",
+                "session_status": "CONNECTED" if self._session_connected and self._session_healthy else "LOST",
+                "session_connected": self._session_connected,
+                "session_healthy": self._session_healthy,
+                "session_last_error": self._session_last_error,
+            }
+
+    def io_diagnostics_snapshot(self):
+        """Return in-memory control transaction/session statistics without I/O."""
+        with self._io_meta_lock:
+            return {
+                **self.io_snapshot(),
+                "latest_transaction": dict(self._latest_io_timing),
+                "latest_slow_transaction": dict(self._latest_slow_io),
+                "latest_critical_transaction": dict(self._latest_critical_io),
+                "max_transaction_duration_ms": self._max_transaction_duration_ms,
+                "max_total_duration_ms": self._max_total_duration_ms,
+                "slow_warn_ms": self._slow_warn_ms,
+                "slow_critical_ms": self._slow_critical_ms,
             }
 
     def _resolved_reason(self, explicit, default):
@@ -242,44 +275,28 @@ class Crane(object):
             return "move_hoist"
         return "motion_control"
 
+    def _logical_name_for_node(self, node):
+        return self._node_logical_names.get(id(node), "unknown_node")
+
+    @staticmethod
+    def _node_identifier(node):
+        node_id = getattr(node, "nodeid", None)
+        return str(node_id) if node_id is not None else ""
+
     def _run_io(
         self,
         reason,
         operation,
         transaction,
         *,
-        watchdog=False,
-        scheduled_deadline_monotonic=None,
-        attempt_started_monotonic=None,
+        logical_name="control_session",
+        node_identifier="",
     ):
-        """Run exactly one OPC UA transaction and return its split timing."""
-        if watchdog:
-            self._watchdog_priority.set()
-        else:
-            # Low-priority work yields before requesting the session while a
-            # watchdog tick is pending. No OPC UA lock is held while waiting.
-            while self._watchdog_priority.is_set():
-                time.sleep(0.001)
-
-        attempt_started = (
-            float(attempt_started_monotonic)
-            if attempt_started_monotonic is not None
-            else time.monotonic()
-        )
+        """Run exactly one CONTROL-session transaction and report its timing."""
+        attempt_started = time.monotonic()
         lock_requested = time.monotonic()
         owner_at_request = self.io_snapshot()
-        if watchdog:
-            self._io_lock.acquire()
-        else:
-            # Do not remain queued ahead of a watchdog tick. Poll briefly, and
-            # if the watchdog became pending while this caller acquired the
-            # session, release it before starting any OPC UA transaction.
-            while True:
-                if not self._io_lock.acquire(timeout=0.002):
-                    continue
-                if not self._watchdog_priority.is_set():
-                    break
-                self._io_lock.release()
+        self._io_lock.acquire()
         lock_acquired = time.monotonic()
         thread_name = threading.current_thread().name
         with self._io_meta_lock:
@@ -292,47 +309,64 @@ class Crane(object):
             self._io_owner_thread = thread_name
             self._io_owner_since_monotonic = lock_acquired
 
-        operation_started = time.monotonic()
+        transaction_started = time.monotonic()
         result = None
         error = None
         try:
             result = transaction()
         except BaseException as exc:
             error = exc
-        operation_finished = time.monotonic()
+        transaction_finished = time.monotonic()
         with self._io_meta_lock:
             self._io_owner, self._io_owner_thread, self._io_owner_since_monotonic = previous_owner
         self._io_lock.release()
-        if watchdog:
-            self._watchdog_priority.clear()
-
-        scheduled = (
-            float(scheduled_deadline_monotonic)
-            if scheduled_deadline_monotonic is not None
-            else attempt_started
+        lock_wait_ms = max(0.0, (lock_acquired - lock_requested) * 1000.0)
+        transaction_duration_ms = max(
+            0.0, (transaction_finished - transaction_started) * 1000.0
         )
+        total_duration_ms = max(0.0, (transaction_finished - attempt_started) * 1000.0)
         timing = {
             "reason": str(reason),
+            "owner": str(reason),
             "operation": str(operation),
-            "scheduled_deadline_monotonic": scheduled,
+            "logical_node": str(logical_name),
+            "node_id": str(node_identifier),
+            "session": "control",
             "attempt_started_monotonic": attempt_started,
             "lock_requested_monotonic": lock_requested,
             "lock_acquired_monotonic": lock_acquired,
-            "write_started_monotonic": operation_started,
-            "write_finished_monotonic": operation_finished,
-            "watchdog_schedule_lateness_ms": max(0.0, (attempt_started - scheduled) * 1000.0),
-            "watchdog_lock_wait_ms": max(0.0, (lock_acquired - lock_requested) * 1000.0),
-            "watchdog_write_duration_ms": max(0.0, (operation_finished - operation_started) * 1000.0),
-            "watchdog_total_cycle_ms": max(0.0, (operation_finished - attempt_started) * 1000.0),
+            "transaction_started_monotonic": transaction_started,
+            "transaction_finished_monotonic": transaction_finished,
+            "lock_wait_ms": lock_wait_ms,
+            "transaction_duration_ms": transaction_duration_ms,
+            "total_duration_ms": total_duration_ms,
+            "thread": thread_name,
             "lock_owner_at_request": owner_at_request.get("owner"),
             "lock_owner_thread_at_request": owner_at_request.get("thread"),
             "success": error is None,
+            "exception_type": "" if error is None else type(error).__name__,
             "error": "" if error is None else f"{type(error).__name__}: {error}",
         }
-        if watchdog:
-            with self._io_meta_lock:
-                self._last_watchdog_timing = dict(timing)
         with self._io_meta_lock:
+            if operation == "connect" and error is None:
+                self._session_connected = True
+                self._session_healthy = True
+                self._session_last_error = ""
+            elif operation == "disconnect":
+                self._session_connected = False
+                self._session_healthy = False
+            elif error is not None:
+                self._session_healthy = False
+                self._session_last_error = timing["error"]
+            self._latest_io_timing = dict(timing)
+            self._max_transaction_duration_ms = max(
+                self._max_transaction_duration_ms, transaction_duration_ms
+            )
+            self._max_total_duration_ms = max(self._max_total_duration_ms, total_duration_ms)
+            if transaction_duration_ms >= self._slow_warn_ms:
+                self._latest_slow_io = dict(timing)
+            if transaction_duration_ms >= self._slow_critical_ms:
+                self._latest_critical_io = dict(timing)
             callback = self._io_event_callback
         if callback is not None:
             try:
@@ -349,6 +383,8 @@ class Crane(object):
             self._read_reason_for_node(node, reason),
             "read",
             node.read_value,
+            logical_name=self._logical_name_for_node(node),
+            node_identifier=self._node_identifier(node),
         )
         return value
 
@@ -357,19 +393,14 @@ class Crane(object):
         node,
         value,
         reason=None,
-        *,
-        scheduled_deadline_monotonic=None,
-        attempt_started_monotonic=None,
     ):
-        """Write one OPC UA node while preserving watchdog priority."""
-        is_watchdog = node is self._node_watchdog
+        """Write one OPC UA node through the serialized control session."""
         _, timing = self._run_io(
-            "watchdog" if is_watchdog else self._write_reason_for_node(node, reason),
+            self._write_reason_for_node(node, reason),
             "write",
             lambda: node.write_value(value),
-            watchdog=is_watchdog,
-            scheduled_deadline_monotonic=scheduled_deadline_monotonic,
-            attempt_started_monotonic=attempt_started_monotonic,
+            logical_name=self._logical_name_for_node(node),
+            node_identifier=self._node_identifier(node),
         )
         return timing
 
@@ -386,13 +417,6 @@ class Crane(object):
         """Disconnect from OPC UA Server."""
         self._run_io("disconnect", "disconnect", self.client.disconnect)
 
-
-    """Functions related to watchdog"""
-    # Works
-    def get_watchdog(self):
-        """Get Watchdog value."""
-        return self._read_node(self._node_watchdog, reason="watchdog_read")
-
     def get_watchdog_fault(self):
         """Return PLC watchdog-fault status.
 
@@ -405,43 +429,6 @@ class Crane(object):
     def is_automatic_mode(self):
         """Return True only when DX_Custom_V.Status.WatchDogFault is false."""
         return not self.get_watchdog_fault()
-
-
-    # Setting works but goes back to original value next iteration
-    def set_watchdog(
-        self,
-        watchdog_value,
-        *,
-        scheduled_deadline_monotonic=None,
-        attempt_started_monotonic=None,
-    ):
-        """Set Watchdog to number x."""
-        return self._write_node(
-            self._node_watchdog,
-            ua.DataValue(ua.Variant(watchdog_value, ua.VariantType.Int16)),
-            scheduled_deadline_monotonic=scheduled_deadline_monotonic,
-            attempt_started_monotonic=attempt_started_monotonic,
-        )
-
-    # Works
-    def increment_watchdog(self):
-        """Increment Watchdog by 1."""
-        #print(self._watchdog_value)
-        self._watchdog_value = (self._watchdog_value % 30000) + 1
-        return self.set_watchdog(self._watchdog_value)
-
-    def increment_watchdog_timed(self, scheduled_deadline_monotonic, attempt_started_monotonic):
-        """Increment the watchdog and return split schedule/lock/write timings."""
-        self._watchdog_value = (self._watchdog_value % 30000) + 1
-        return self.set_watchdog(
-            self._watchdog_value,
-            scheduled_deadline_monotonic=scheduled_deadline_monotonic,
-            attempt_started_monotonic=attempt_started_monotonic,
-        )
-
-    def last_watchdog_timing(self):
-        with self._io_meta_lock:
-            return dict(self._last_watchdog_timing)
 
 
     
@@ -1478,14 +1465,22 @@ class Crane(object):
 
     def _subscribe_node(self, interval, queue, node):
         """Create a subscription through the same serialized OPC UA session."""
-        def transaction():
-            handler = self.SubHandler(queue)
-            subscription = self.client.create_subscription(interval, handler)
-            handle = subscription.subscribe_data_change(node)
-            return subscription, handle
-
-        result, _ = self._run_io("subscription", "subscribe", transaction)
-        return result
+        handler = self.SubHandler(queue)
+        subscription, _ = self._run_io(
+            "subscription",
+            "create_subscription",
+            lambda: self.client.create_subscription(interval, handler),
+            logical_name=self._logical_name_for_node(node),
+            node_identifier=self._node_identifier(node),
+        )
+        handle, _ = self._run_io(
+            "subscription",
+            "subscribe_data_change",
+            lambda: subscription.subscribe_data_change(node),
+            logical_name=self._logical_name_for_node(node),
+            node_identifier=self._node_identifier(node),
+        )
+        return subscription, handle
 
     # Not working
     def sub_trolley(self, interval, queue):

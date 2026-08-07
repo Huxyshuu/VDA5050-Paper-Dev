@@ -1000,6 +1000,8 @@ class DashboardController:
                 "WATCHDOG_FAULT",
                 "CRANE_NETWORK_HEALTH",
                 "CRANE_FAILURE_SNAPSHOT",
+                "OPCUA_SESSION_HEALTH",
+                "OPCUA_CONTROL_HEALTH",
             }:
                 continue
             refs = {
@@ -1027,6 +1029,14 @@ class DashboardController:
                 "cpu_utilisation_percent", "cpu_load_1m", "cpu_temp_c",
                 "watchdog_gap_ms", "watchdog_lock_wait_ms", "watchdog_write_ms",
                 "watchdog_schedule_lateness_ms", "watchdog_max_gap_ms",
+                "guard_age_ms", "latest_lock_wait_ms",
+                "latest_transaction_duration_ms", "latest_total_duration_ms",
+                "max_transaction_duration_ms", "max_total_duration_ms",
+                "slow_warn_ms", "slow_critical_ms", "slow_lock_wait_ms",
+                "slow_transaction_duration_ms", "slow_total_duration_ms",
+                "slow_wifi_signal_dbm", "slow_tcp_retrans_delta",
+                "slow_ping_rtt_ms", "control_lock_wait_ms",
+                "control_transaction_ms", "critical_transaction_duration_ms",
             ):
                 if key in refs:
                     try:
@@ -1045,7 +1055,11 @@ class DashboardController:
                         parsed[key] = json.loads(str(refs[key]))
                     except Exception:
                         parsed[key] = refs[key]
-            for key in ("wireless", "ping_success", "throttled", "under_voltage", "watchdog_fault"):
+            for key in (
+                "wireless", "ping_success", "throttled", "under_voltage",
+                "watchdog_fault", "control_session_healthy", "watchdog_feed_enabled",
+                "feed_enabled", "lock_wait_applicable",
+            ):
                 if key in refs:
                     normalized = str(refs[key]).strip().lower()
                     parsed[key] = (
@@ -1389,6 +1403,8 @@ class DashboardController:
                 "network_health": (device.get("diagnostics", {}).get("crane_network_health", {}) or {}).get("status"),
                 "failure_event": (device.get("diagnostics", {}).get("crane_failure_snapshot", {}) or {}).get("event_type"),
                 "failure_timestamp": (device.get("diagnostics", {}).get("crane_failure_snapshot", {}) or {}).get("timestamp"),
+                "control_session": (device.get("diagnostics", {}).get("opcua_session_health", {}) or {}).get("control_session_status"),
+                "watchdog_session": (device.get("diagnostics", {}).get("opcua_session_health", {}) or {}).get("watchdog_session_status"),
                 "watchdog_fault": (device.get("diagnostics", {}).get("watchdog_fault", {}) or {}).get("value"),
             }
             old = self._last_signature.get(target)
@@ -1431,6 +1447,10 @@ class DashboardController:
                         f"Crane diagnostic captured: {current['failure_event'] or 'failure'}",
                         code=str(current["failure_event"] or "CRANE_FAILURE_SNAPSHOT"),
                     )
+                if old.get("control_session") != current["control_session"] and current["control_session"]:
+                    self._add_event("ERROR" if current["control_session"] == "LOST" else "INFO", target, f"Control OPC UA session: {current['control_session']}", code="OPCUA_CONTROL_SESSION_CHANGED")
+                if old.get("watchdog_session") != current["watchdog_session"] and current["watchdog_session"]:
+                    self._add_event("ERROR" if current["watchdog_session"] == "LOST" else "INFO", target, f"Watchdog OPC UA session: {current['watchdog_session']}", code="OPCUA_WATCHDOG_SESSION_CHANGED")
             self._last_signature[target] = current
 
     # ------------------------------------------------------------------
@@ -2384,6 +2404,8 @@ class DashboardController:
             "watchdog_fault": crane_diag.get("watchdog_fault", {}),
             "network": crane_diag.get("crane_network_health", {}),
             "failure_snapshot": crane_diag.get("crane_failure_snapshot", {}),
+            "opcua_sessions": crane_diag.get("opcua_session_health", {}),
+            "control_opcua": crane_diag.get("opcua_control_health", {}),
             "recent_execution_events": [
                 event for event in events
                 if event.get("source") in {"crane", "rox", "scenario", "operator"}

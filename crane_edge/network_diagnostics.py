@@ -527,6 +527,8 @@ class CraneDiagnostics:
         self._last_network_status: Optional[str] = None
         self._last_watchdog_sample_monotonic = 0.0
         self._latest_failure: Dict[str, Any] = {}
+        self._latest_slow_transaction: Dict[str, Any] = {}
+        self._latest_critical_transaction: Dict[str, Any] = {}
         self._recent_events: Deque[Dict[str, Any]] = deque(maxlen=40)
 
     def set_context_provider(self, provider: Callable[[], Mapping[str, Any]]) -> None:
@@ -631,6 +633,17 @@ class CraneDiagnostics:
             self._recent_events.appendleft(copy.deepcopy(compact_event))
             if event_type in {"WATCHDOG_CRITICAL", "WATCHDOG_FAULT_TRUE", "OPCUA_EXCEPTION", "MOTION_STALLED"}:
                 self._latest_failure = copy.deepcopy(compact_event)
+            if event_type in {"OPCUA_SLOW_TRANSACTION", "OPCUA_CRITICAL_TRANSACTION"}:
+                self._latest_slow_transaction = copy.deepcopy(compact_event)
+            if event_type == "OPCUA_CRITICAL_TRANSACTION":
+                self._latest_critical_transaction = copy.deepcopy(compact_event)
+                self._latest_failure = copy.deepcopy(compact_event)
+            if event_type in {
+                "OPCUA_TRANSACTION_EXCEPTION",
+                "OPCUA_CONTROL_SESSION_LOST",
+                "OPCUA_WATCHDOG_SESSION_LOST",
+            }:
+                self._latest_failure = copy.deepcopy(compact_event)
         return compact_event
 
     def record_watchdog(self, snapshot: Mapping[str, Any]) -> None:
@@ -674,10 +687,14 @@ class CraneDiagnostics:
     def snapshot(self) -> Dict[str, Any]:
         with self._lock:
             failure = copy.deepcopy(self._latest_failure)
+            slow_transaction = copy.deepcopy(self._latest_slow_transaction)
+            critical_transaction = copy.deepcopy(self._latest_critical_transaction)
             events = copy.deepcopy(list(self._recent_events))
         return {
             "network": self._compact_sample(self.collector.latest()),
             "latest_failure": failure,
+            "latest_slow_transaction": slow_transaction,
+            "latest_critical_transaction": critical_transaction,
             "recent_events": events,
             "log_path": str(self.recorder.path),
             "log_error": self.recorder.error,
