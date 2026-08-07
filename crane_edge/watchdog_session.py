@@ -12,6 +12,21 @@ from asyncua.sync import Client
 WATCHDOG_NODE_ID = "ns=5;s=DX_Custom_V.Controls.Watchdog"
 
 
+def classify_watchdog_exception(
+    session: "DedicatedWatchdogSession", exc: BaseException
+) -> Dict[str, str]:
+    """Classify a heartbeat failure without guessing that every error is transport loss."""
+    session_lost = session.snapshot().get("status") == "LOST"
+    return {
+        "event_type": (
+            "OPCUA_WATCHDOG_SESSION_LOST" if session_lost else "WATCHDOG_INTERNAL_ERROR"
+        ),
+        "category": "opcua_session_transport" if session_lost else "watchdog_internal",
+        "exception_type": type(exc).__name__,
+        "error": f"{type(exc).__name__}: {exc}",
+    }
+
+
 class WatchdogFeedGate:
     """Latch watchdog feeding off when the control application is not healthy."""
 
@@ -183,6 +198,7 @@ class DedicatedWatchdogSession:
             "lock_owner_at_request": None,
             "lock_owner_thread_at_request": None,
             "success": error is None,
+            "watchdog_value": value,
             "error": "" if error is None else f"{type(error).__name__}: {error}",
         }
         with self._state_lock:
@@ -196,6 +212,21 @@ class DedicatedWatchdogSession:
                 self._last_error = timing["error"]
         if error is not None:
             raise error
+        return timing
+
+    def heartbeat_once(
+        self,
+        scheduled_deadline_monotonic: float,
+        attempt_started_monotonic: float,
+        on_success: Optional[Callable[[int, Dict[str, Any]], None]] = None,
+    ) -> Dict[str, Any]:
+        """Perform one complete dedicated-session heartbeat iteration."""
+        timing = self.write_next(
+            scheduled_deadline_monotonic,
+            attempt_started_monotonic,
+        )
+        if on_success is not None:
+            on_success(int(timing["watchdog_value"]), timing)
         return timing
 
     def disconnect(self) -> None:

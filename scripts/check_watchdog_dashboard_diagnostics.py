@@ -23,6 +23,32 @@ def main() -> int:
     html = (ROOT / "fleet_control/templates/index.html").read_text(encoding="utf-8")
     env_example = (ROOT / "configs/fleet_control.env.example").read_text(encoding="utf-8")
 
+    watchdog_tree = ast.parse(watchdog_session)
+    check(
+        not any(
+            isinstance(node, ast.Name)
+            and isinstance(node.ctx, ast.Load)
+            and node.id == "crane"
+            for node in ast.walk(watchdog_tree)
+        ),
+        "dedicated watchdog module has no free/global control crane dependency",
+    )
+    adapter_tree = ast.parse(adapter)
+    watchdog_loop = next(
+        node
+        for node in ast.walk(adapter_tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "_watchdog_loop"
+    )
+    check(
+        not any(
+            isinstance(node, ast.Name)
+            and isinstance(node.ctx, ast.Load)
+            and node.id == "crane"
+            for node in ast.walk(watchdog_loop)
+        ),
+        "dedicated watchdog loop has no free/global control crane dependency",
+    )
+
     check("self._io_lock = threading.RLock()" in crane, "OPC UA session access is serialized")
     check(
         "DedicatedWatchdogSession(url)" in adapter
@@ -32,7 +58,7 @@ def main() -> int:
     check(
         "_io_lock" not in watchdog_session
         and "increment_watchdog_timed" not in adapter
-        and "watchdog_session.write_next" in adapter,
+        and "watchdog_session.heartbeat_once" in adapter,
         "dedicated watchdog never acquires the control-session lock",
     )
     for field in (
@@ -109,8 +135,10 @@ def main() -> int:
     )
     check(
         "OPCUA_WATCHDOG_SESSION_LOST" in adapter
+        and "WATCHDOG_INTERNAL_ERROR" in watchdog_session
+        and "classify_watchdog_exception" in adapter
         and "feed_gate.inhibit" in adapter,
-        "dedicated watchdog-session loss fails closed",
+        "watchdog transport loss and internal implementation errors are distinct and fail closed",
     )
     check(
         "set_accesscode(access)" in adapter

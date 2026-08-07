@@ -642,6 +642,7 @@ class CraneDiagnostics:
                 "OPCUA_TRANSACTION_EXCEPTION",
                 "OPCUA_CONTROL_SESSION_LOST",
                 "OPCUA_WATCHDOG_SESSION_LOST",
+                "WATCHDOG_INTERNAL_ERROR",
             }:
                 self._latest_failure = copy.deepcopy(compact_event)
         return compact_event

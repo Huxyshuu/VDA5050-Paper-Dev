@@ -40,10 +40,18 @@ import requests
 from crane import Crane  # local project import – ensure PYTHONPATH is set
 try:
     from network_diagnostics import CraneDiagnostics
-    from watchdog_session import DedicatedWatchdogSession, WatchdogFeedGate
+    from watchdog_session import (
+        DedicatedWatchdogSession,
+        WatchdogFeedGate,
+        classify_watchdog_exception,
+    )
 except ImportError:  # package import during tests/tools
     from crane_edge.network_diagnostics import CraneDiagnostics
-    from crane_edge.watchdog_session import DedicatedWatchdogSession, WatchdogFeedGate
+    from crane_edge.watchdog_session import (
+        DedicatedWatchdogSession,
+        WatchdogFeedGate,
+        classify_watchdog_exception,
+    )
 
 # ───────────────────────────────────────────────────────── configuration ──
 
@@ -625,9 +633,12 @@ def _watchdog_loop(
             continue
         health.note_attempt(started)
         try:
-            timing = watchdog_session.write_next(scheduled_deadline, started)
+            timing = watchdog_session.heartbeat_once(
+                scheduled_deadline,
+                started,
+                on_success=health.note_success,
+            )
             finished = float(timing["write_finished_monotonic"])
-            health.note_success(getattr(crane, "_watchdog_value", None), timing)
             snap = health.snapshot()
             if diagnostics is not None:
                 diagnostics.record_watchdog(snap)
@@ -648,21 +659,33 @@ def _watchdog_loop(
         except Exception as exc:
             timing = watchdog_session.last_timing()
             failures = health.note_failure(exc, timing)
-            feed_gate.inhibit(f"dedicated watchdog OPC UA session lost: {type(exc).__name__}: {exc}")
+            classification = classify_watchdog_exception(watchdog_session, exc)
+            feed_gate.inhibit(
+                f"{classification['event_type']}: {classification['error']}"
+            )
+            health.note_feed_state(
+                False,
+                f"{classification['event_type']}: {classification['error']}",
+            )
             snap = health.snapshot()
             if diagnostics is not None:
-                diagnostics.record_event(
-                    "OPCUA_WATCHDOG_SESSION_LOST",
-                    watchdog=snap,
-                    extra={"operation": "watchdog", "error": f"{type(exc).__name__}: {exc}"},
-                    include_history=failures >= CRANE_WATCHDOG_FAILURE_LIMIT,
-                )
                 diagnostics.record_watchdog(snap)
+                diagnostics.record_event(
+                    classification["event_type"],
+                    watchdog=snap,
+                    extra={
+                        "operation": "watchdog",
+                        **classification,
+                        "session": watchdog_session.snapshot(),
+                    },
+                    include_history=True,
+                )
             if failures == 1:
-                log.warning("Watchdog write failed: %s", exc)
+                log.error("%s: %s", classification["event_type"], classification["error"])
             elif failures >= CRANE_WATCHDOG_FAILURE_LIMIT:
                 log.error(
-                    "Watchdog write failed %d consecutive times; PLC automatic mode may be lost: %s",
+                    "%s occurred %d consecutive times; watchdog feeding remains disabled: %s",
+                    classification["event_type"],
                     failures,
                     exc,
                 )
@@ -1480,7 +1503,7 @@ class VDA5050Adapter:
             latest_watchdog_timing = self.watchdog_session.last_timing()
             if latest_watchdog_timing.get("success"):
                 self.watchdog_health.note_success(
-                    getattr(self.crane, "_watchdog_value", None),
+                    latest_watchdog_timing.get("watchdog_value"),
                     latest_watchdog_timing,
                 )
             health = self.watchdog_health.snapshot()
@@ -3607,6 +3630,8 @@ class VDA5050Adapter:
                         failure_refs["watchdog_failure_type"] = "CONTROL_SESSION_LOST"
                     elif failure_event_type == "OPCUA_TRANSACTION_EXCEPTION":
                         failure_refs["watchdog_failure_type"] = "CONTROL_SESSION_EXCEPTION"
+                    elif failure_event_type == "WATCHDOG_INTERNAL_ERROR":
+                        failure_refs["watchdog_failure_type"] = "WATCHDOG_INTERNAL_ERROR"
                     elif failure_watchdog.get("diagnostic_hint") == "LOCK_CONTENTION":
                         failure_refs["watchdog_failure_type"] = "LOCK_CONTENTION"
                     else:

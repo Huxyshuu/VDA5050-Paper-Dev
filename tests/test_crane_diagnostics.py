@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import ast
 import json
 import sys
 import tempfile
@@ -99,7 +100,11 @@ def load_watchdog_classes():
         module = importlib.util.module_from_spec(spec)
         assert spec and spec.loader
         spec.loader.exec_module(module)
-        return module.DedicatedWatchdogSession, module.WatchdogFeedGate
+        return (
+            module.DedicatedWatchdogSession,
+            module.WatchdogFeedGate,
+            module.classify_watchdog_exception,
+        )
     finally:
         for name, previous in saved.items():
             if previous is None:
@@ -113,6 +118,7 @@ class FakeNode:
         self.write_delay_s = write_delay_s
         self.fail_write = fail_write
         self.nodeid = "ns=5;s=test"
+        self.written_values = []
 
     def read_value(self) -> int:
         return 7
@@ -121,6 +127,7 @@ class FakeNode:
         time.sleep(self.write_delay_s)
         if self.fail_write:
             raise RuntimeError("write failed")
+        self.written_values.append(_value)
 
 
 class FakeClient:
@@ -205,7 +212,7 @@ class CraneIoTimingTests(unittest.TestCase):
         )
 
     def test_stop_all_control_lock_cannot_block_dedicated_watchdog(self) -> None:
-        DedicatedWatchdogSession, _ = load_watchdog_classes()
+        DedicatedWatchdogSession, _, _ = load_watchdog_classes()
         crane = self.make_crane()
         holder_started = threading.Event()
         release_holder = threading.Event()
@@ -262,7 +269,7 @@ class CraneIoTimingTests(unittest.TestCase):
 
 class DedicatedWatchdogSessionTests(unittest.TestCase):
     def test_watchdog_uses_a_distinct_client_and_has_independent_state(self) -> None:
-        DedicatedWatchdogSession, _ = load_watchdog_classes()
+        DedicatedWatchdogSession, _, _ = load_watchdog_classes()
         crane = CraneIoTimingTests.make_crane()
         control_client = crane.client
         watchdog_client = FakeClient("opc.tcp://test")
@@ -280,7 +287,7 @@ class DedicatedWatchdogSessionTests(unittest.TestCase):
         self.assertEqual("LOST", watchdog.snapshot()["status"])
 
     def test_control_loss_permanently_disables_watchdog_feed(self) -> None:
-        _, WatchdogFeedGate = load_watchdog_classes()
+        _, WatchdogFeedGate, _ = load_watchdog_classes()
         gate = WatchdogFeedGate(guard_timeout_s=1.0)
         gate.mark_control_connected()
         gate.note_guard_heartbeat("test_guard")
@@ -292,7 +299,7 @@ class DedicatedWatchdogSessionTests(unittest.TestCase):
         self.assertFalse(gate.can_feed())
 
     def test_expired_controller_guard_disables_feed(self) -> None:
-        _, WatchdogFeedGate = load_watchdog_classes()
+        _, WatchdogFeedGate, _ = load_watchdog_classes()
         gate = WatchdogFeedGate(guard_timeout_s=0.25)
         gate.mark_control_connected()
         gate.note_guard_heartbeat("test_guard")
@@ -301,7 +308,7 @@ class DedicatedWatchdogSessionTests(unittest.TestCase):
         self.assertIn("guard heartbeat expired", gate.snapshot()["fatal_reason"])
 
     def test_watchdog_write_loss_is_independently_observable(self) -> None:
-        DedicatedWatchdogSession, _ = load_watchdog_classes()
+        DedicatedWatchdogSession, _, classify_watchdog_exception = load_watchdog_classes()
         node = FakeNode(fail_write=True)
         watchdog = DedicatedWatchdogSession(
             "opc.tcp://test",
@@ -312,6 +319,65 @@ class DedicatedWatchdogSessionTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             watchdog.write_next(now, now)
         self.assertEqual("LOST", watchdog.snapshot()["status"])
+        classified = classify_watchdog_exception(watchdog, RuntimeError("write failed"))
+        self.assertEqual("OPCUA_WATCHDOG_SESSION_LOST", classified["event_type"])
+
+    def test_first_heartbeat_iteration_uses_only_dedicated_dependencies(self) -> None:
+        DedicatedWatchdogSession, WatchdogFeedGate, _ = load_watchdog_classes()
+        node = FakeNode()
+        watchdog = DedicatedWatchdogSession(
+            "opc.tcp://test",
+            client_factory=lambda endpoint: FakeClient(endpoint, node),
+        )
+        watchdog.connect()
+        gate = WatchdogFeedGate(guard_timeout_s=1.0)
+        gate.mark_control_connected()
+        gate.note_guard_heartbeat("test_guard")
+        successes = []
+        now = time.monotonic()
+        timing = watchdog.heartbeat_once(
+            now,
+            now,
+            on_success=lambda value, sample: successes.append((value, sample)),
+        )
+        self.assertEqual(8, timing["watchdog_value"])
+        self.assertEqual(8, node.written_values[-1].value.value)
+        self.assertEqual(8, successes[-1][0])
+        self.assertTrue(gate.can_feed())
+        self.assertEqual("CONNECTED", watchdog.snapshot()["status"])
+        self.assertFalse(hasattr(watchdog, "crane"))
+
+    def test_internal_post_write_error_is_not_session_loss(self) -> None:
+        DedicatedWatchdogSession, _, classify_watchdog_exception = load_watchdog_classes()
+        node = FakeNode()
+        watchdog = DedicatedWatchdogSession(
+            "opc.tcp://test",
+            client_factory=lambda endpoint: FakeClient(endpoint, node),
+        )
+        watchdog.connect()
+        now = time.monotonic()
+
+        def broken_success_callback(_value, _timing):
+            raise NameError("internal callback regression")
+
+        with self.assertRaises(NameError) as caught:
+            watchdog.heartbeat_once(now, now, on_success=broken_success_callback)
+        classified = classify_watchdog_exception(watchdog, caught.exception)
+        self.assertEqual("WATCHDOG_INTERNAL_ERROR", classified["event_type"])
+        self.assertEqual("watchdog_internal", classified["category"])
+        self.assertEqual("CONNECTED", watchdog.snapshot()["status"])
+
+    def test_dedicated_module_has_no_free_crane_name(self) -> None:
+        path = Path(__file__).resolve().parents[1] / "crane_edge" / "watchdog_session.py"
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        free_names = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Name)
+            and isinstance(node.ctx, ast.Load)
+            and node.id == "crane"
+        ]
+        self.assertEqual([], free_names)
 
 
 class NetworkDiagnosticsTests(unittest.TestCase):
