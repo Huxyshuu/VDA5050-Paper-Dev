@@ -14,6 +14,10 @@ setup(
         ("share/" + package_name + "/launch", glob("launch/*.launch.py")),
         ("share/" + package_name + "/config", glob("config/*")),
         ("share/" + package_name + "/factsheets", glob("factsheets/*")),
+        (
+            "share/" + package_name + "/benchmark",
+            ["../../../../benchmark/experiment_logger.py"],
+        ),
     ],
     install_requires=["setuptools", "paho-mqtt", "jsonschema", "PyYAML"],
     zip_safe=True,

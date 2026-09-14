@@ -911,6 +911,84 @@ class DashboardController:
         with self.lock:
             self.events.append(event)
 
+    def _benchmark_projection(self) -> Dict[str, Any]:
+        """Project cross-process benchmark events without comparing host clocks."""
+        source = self.ctx.get("BENCHMARK_EVENTS") if hasattr(self, "ctx") else None
+        if source is None:
+            raw_events: List[Dict[str, Any]] = []
+        else:
+            state_lock = getattr(self, "state_lock", threading.RLock())
+            with state_lock:
+                raw_events = [copy.deepcopy(item) for item in source]
+
+        command_times: Dict[Tuple[str, str, str], int] = {}
+        by_trial: Dict[str, set] = {}
+        for event in raw_events:
+            key = (
+                str(event.get("host", "")),
+                str(event.get("boot_id", "")),
+                str(event.get("trial_id", "")),
+            )
+            if event.get("event_type") == "COMMAND_ISSUED":
+                command_times[key] = int(event.get("monotonic_ns", 0) or 0)
+            by_trial.setdefault(str(event.get("trial_id", "")), set()).add(
+                str(event.get("event_type", ""))
+            )
+
+        projected = []
+        for event in raw_events:
+            item = copy.deepcopy(event)
+            key = (
+                str(item.get("host", "")),
+                str(item.get("boot_id", "")),
+                str(item.get("trial_id", "")),
+            )
+            origin = command_times.get(key)
+            current = int(item.get("monotonic_ns", 0) or 0)
+            item["elapsed_from_command_ms"] = (
+                round((current - origin) / 1_000_000.0, 3)
+                if origin is not None and current >= origin
+                else None
+            )
+            projected.append(item)
+
+        required_native = {
+            "COMMAND_ISSUED",
+            "NATIVE_DISPATCH",
+            "NATIVE_ACK",
+            "MOTION_STARTED",
+            "MOTION_COMPLETED",
+            "RESULT_OBSERVED",
+        }
+        required_vda = required_native | {"MQTT_RECEIVED", "VDA_ACCEPTED"}
+        trial_status = []
+        for trial_id, observed in sorted(by_trial.items()):
+            architecture = next(
+                (
+                    str(item.get("architecture", ""))
+                    for item in raw_events
+                    if str(item.get("trial_id", "")) == trial_id
+                ),
+                "",
+            )
+            required = required_vda if architecture == "vda" else required_native
+            trial_status.append(
+                {
+                    "trial_id": trial_id,
+                    "architecture": architecture,
+                    "complete": required.issubset(observed),
+                    "missing": sorted(required - observed),
+                }
+            )
+        return {
+            "topic": self.ctx.get("BENCHMARK_EVENT_TOPIC", "vda5050/benchmark/events")
+            if hasattr(self, "ctx")
+            else "vda5050/benchmark/events",
+            "events": list(reversed(projected[-200:])),
+            "event_count": len(raw_events),
+            "trials": list(reversed(trial_status[-50:])),
+        }
+
     def _copy_target_state(self, target: str) -> Dict[str, Any]:
         with self.state_lock:
             return copy.deepcopy(self.state.get(target, {}))
@@ -2143,6 +2221,35 @@ class DashboardController:
             self._add_event("INFO", "server", "Event log cleared", code="EVENTS_CLEARED")
             return jsonify({"ok": True})
 
+        @app.get("/api/benchmark/events")
+        def benchmark_events_endpoint():
+            return jsonify(_json_safe(self._benchmark_projection()))
+
+        @app.get("/api/benchmark/events/export.jsonl")
+        def benchmark_events_export_endpoint():
+            source = self.ctx.get("BENCHMARK_EVENTS")
+            with self.state_lock:
+                rows = [copy.deepcopy(item) for item in source] if source is not None else []
+            payload = "".join(
+                json.dumps(row, separators=(",", ":"), allow_nan=False) + "\n"
+                for row in rows
+            )
+            return Response(
+                payload,
+                mimetype="application/x-ndjson",
+                headers={
+                    "Content-Disposition": "attachment; filename=benchmark_events.jsonl"
+                },
+            )
+
+        @app.post("/api/benchmark/events/clear")
+        def benchmark_events_clear_endpoint():
+            source = self.ctx.get("BENCHMARK_EVENTS")
+            if source is not None:
+                with self.state_lock:
+                    source.clear()
+            return jsonify({"ok": True})
+
         @app.get("/api/map/image")
         def map_image_endpoint():
             try:
@@ -2390,6 +2497,7 @@ class DashboardController:
         map_projection = self._load_map(waypoint_cfg.get("map_id"))
         map_projection.pop("_png", None)
         experiment = self._experiment_projection()
+        benchmark = self._benchmark_projection()
         crane_diag = devices.get("crane", {}).get("diagnostics", {})
         active_step = next((step for step in (active_scenario or {}).get("steps", []) if step.get("phase") == "active"), None)
         execution_monitor = {
@@ -2434,6 +2542,7 @@ class DashboardController:
             "missions": recent,
             "map": map_projection,
             "experiment": experiment,
+            "benchmark": benchmark,
             "controls": self._control_projection(rox_state),
             "control_availability": control_availability,
             "events": events[: self.event_limit],

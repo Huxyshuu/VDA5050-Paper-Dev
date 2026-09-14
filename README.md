@@ -21,6 +21,7 @@ The old DBot source remains under `legacy/` for traceability only. It is not par
 - [Current DTLabOpen network](docs/NETWORK_CONFIGURATION.md) — direct Pi/ROX addressing and route checks.
 - [Site configuration checklist](docs/SITE_CONFIGURATION_CHECKLIST.md) — values that must be measured or discovered on the real equipment.
 - [Repository audit](docs/REPOSITORY_AUDIT_2026-07-20.md) — defects corrected, deferred work and verification limits.
+- [ICIEA latency benchmark runbook](docs/ICIEA_LATENCY_BENCHMARK.md) — frozen native/VDA command tests, monotonic event logs, UI timeline, and paper analysis.
 
 ---
 
@@ -105,6 +106,16 @@ configs/
   fleet_control.env.example         Pi master and participant identities
   fleet_control.env                 current lab configuration
   rox_waypoints.yaml.example        safe, unconfigured coordinate template
+
+benchmark/
+  experiment_logger.py              shared asynchronous monotonic JSONL logger
+  *_latency_benchmark.py            one-row native/VDA physical runners
+  generate_schedule.py              reproducible randomized paired schedules
+  freeze_environment.py             non-secret campaign environment record
+
+analysis/
+  derive_latency.py                 integrity-checked event-to-trial derivation
+  statistics.py                     paired summaries, confidence intervals and plots
 
 crane_edge/
   crane.py                          low-level Ilmatar OPC UA wrapper

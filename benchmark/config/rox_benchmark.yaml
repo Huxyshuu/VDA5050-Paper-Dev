@@ -1,0 +1,36 @@
+schema_version: 1
+configured: false
+device: rox
+map_id: df_map
+position:
+  # Replace these values with a verified, obstacle-free benchmark position.
+  x: null
+  y: null
+headings:
+  theta_a: null
+  # Must equal normalize(theta_a + pi/2).
+  theta_b: null
+tolerances:
+  start_xy_m: 0.10
+  start_theta_rad: 0.10
+  target_xy_m: 0.05
+  target_theta_rad: 0.05
+motion_start_angular_velocity_rad_s: 0.05
+timeouts:
+  nav2_server_s: 10.0
+  command_s: 90.0
+mqtt:
+  host: 192.168.50.115
+  port: 1883
+  qos: 0
+vda:
+  interface_name: vda5050
+  major_version: v3
+  protocol_version: 3.0.0
+  manufacturer: neobotix
+  serial_number: rox_diff_1
+ros:
+  map_frame: map
+  base_frame: base_link
+  odom_topic: /odom
+  navigate_to_pose_action: /navigate_to_pose

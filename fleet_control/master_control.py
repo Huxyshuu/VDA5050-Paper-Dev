@@ -12,7 +12,7 @@ import os
 import re
 import threading
 import time
-from collections import OrderedDict
+from collections import OrderedDict, deque
 from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
@@ -43,6 +43,10 @@ VDA_PROTOCOL_VERSION = os.getenv("VDA_PROTOCOL_VERSION", "3.0.0")
 VDA_INTERFACE_NAME = os.getenv("VDA_INTERFACE_NAME", "vda5050")
 VDA_MAJOR_VERSION = os.getenv("VDA_MAJOR_VERSION", "v3")
 VDA_MQTT_QOS = int(os.getenv("VDA_MQTT_QOS", "0"))
+BENCHMARK_EVENT_TOPIC = os.getenv(
+    "BENCHMARK_EVENT_TOPIC", "vda5050/benchmark/events"
+)
+BENCHMARK_EVENT_LIMIT = max(100, int(os.getenv("BENCHMARK_EVENT_LIMIT", "1000")))
 
 DEFAULT_MAP_ID = os.getenv("VDA_DEFAULT_MAP_ID", "df_map")
 
@@ -119,6 +123,7 @@ STATE = {
         "holdpose_node": None,
     },
 }
+BENCHMARK_EVENTS = deque(maxlen=BENCHMARK_EVENT_LIMIT)
 
 ORCH = {
     "crane_release_sent_for_action": set(),
@@ -236,7 +241,11 @@ def _on_connect(client, userdata, flags, rc, properties=None):
         client.subscribe(_sub_topic_state_for(target), qos=VDA_MQTT_QOS)
         client.subscribe(_sub_topic_connection_for(target), qos=1)
         client.subscribe(_sub_topic_factsheet_for(target), qos=VDA_MQTT_QOS)
-    _log("[MQTT] Subscribed to state, connection, and factsheet topics for crane and ROX-Diff")
+    client.subscribe(BENCHMARK_EVENT_TOPIC, qos=0)
+    _log(
+        "[MQTT] Subscribed to state, connection, factsheet, and benchmark "
+        "event topics for crane and ROX-Diff"
+    )
 
 
 def _extract_running_action(action_states, action_type: str) -> Optional[str]:
@@ -505,7 +514,29 @@ def _on_message(client, userdata, msg):
         _log(f"[MQTT] Drop malformed JSON on {msg.topic}: {e}")
         return
 
-    if msg.topic == _sub_topic_state_for("crane"):
+    if msg.topic == BENCHMARK_EVENT_TOPIC:
+        required = {
+            "timestamp_utc",
+            "monotonic_ns",
+            "trial_id",
+            "architecture",
+            "device",
+            "operation",
+            "command_id",
+            "event_type",
+        }
+        if not isinstance(data, dict) or not required.issubset(data):
+            _log("[benchmark] Ignoring event with incomplete schema")
+            return
+        event = deepcopy(data)
+        event["received_at_utc"] = (
+            datetime.now(timezone.utc)
+            .isoformat(timespec="milliseconds")
+            .replace("+00:00", "Z")
+        )
+        with STATE_LOCK:
+            BENCHMARK_EVENTS.append(event)
+    elif msg.topic == _sub_topic_state_for("crane"):
         _handle_state_msg("crane", data)
     elif msg.topic == _sub_topic_state_for("rox"):
         _handle_state_msg("rox", data)

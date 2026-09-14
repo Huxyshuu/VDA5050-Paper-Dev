@@ -37,6 +37,11 @@ results/experiments/*.sqlite3-*
 # Runtime crane watchdog/network evidence
 logs/crane_diagnostics/
 
+# Immutable benchmark evidence and generated paper outputs stay outside Git.
+results/benchmark/
+analysis/output/
+benchmark/schedules/
+
 # Local crane credentials (never commit)
 crane_edge/access.txt
 access.txt

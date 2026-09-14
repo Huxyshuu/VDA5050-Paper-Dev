@@ -5,6 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NEOBOTIX_WS="${NEOBOTIX_WS:-$HOME/ros2_workspace}"
 PROJECT_WS="$ROOT/ros2_ws"
 ROS_DISTRO="${ROS_DISTRO:-jazzy}"
+export VDA5050_REPO_ROOT="$ROOT"
 export AMENT_TRACE_SETUP_FILES="${AMENT_TRACE_SETUP_FILES:-}"
 
 source "/opt/ros/$ROS_DISTRO/setup.bash"
@@ -22,4 +23,7 @@ source "$PROJECT_WS/install/setup.bash"
 exec ros2 launch rox_vda5050_adapter rox_vda5050_adapter.launch.py \
   mqtt_host:="${VDA_MQTT_HOST:-192.168.50.115}" \
   map_id:="${VDA_MAP_ID:-df_map}" \
+  benchmark_logging_enabled:="${BENCHMARK_LOG_ENABLED:-false}" \
+  benchmark_log_path:="${BENCHMARK_LOG_PATH:-$ROOT/results/benchmark/rox_events.jsonl}" \
+  benchmark_config_file:="${BENCHMARK_CONFIG_FILE:-$ROOT/benchmark/config/rox_benchmark.yaml}" \
   dry_run_navigation:=false

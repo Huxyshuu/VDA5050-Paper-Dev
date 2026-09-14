@@ -15,12 +15,20 @@ def generate_launch_description():
     mqtt_host = LaunchConfiguration("mqtt_host")
     map_id = LaunchConfiguration("map_id")
     dry_run = LaunchConfiguration("dry_run_navigation")
+    benchmark_logging = LaunchConfiguration("benchmark_logging_enabled")
+    benchmark_log_path = LaunchConfiguration("benchmark_log_path")
+    benchmark_config_file = LaunchConfiguration("benchmark_config_file")
     return LaunchDescription(
         [
             DeclareLaunchArgument("config", default_value=default_config),
             DeclareLaunchArgument("mqtt_host", default_value="192.168.50.115"),
             DeclareLaunchArgument("map_id", default_value="df_map"),
             DeclareLaunchArgument("dry_run_navigation", default_value="true"),
+            DeclareLaunchArgument("benchmark_logging_enabled", default_value="false"),
+            DeclareLaunchArgument(
+                "benchmark_log_path", default_value="results/benchmark/rox_events.jsonl"
+            ),
+            DeclareLaunchArgument("benchmark_config_file", default_value=""),
             Node(
                 package="rox_vda5050_adapter",
                 executable="rox_vda5050_adapter",
@@ -34,6 +42,11 @@ def generate_launch_description():
                         "dry_run_navigation": ParameterValue(
                             dry_run, value_type=bool
                         ),
+                        "benchmark_logging_enabled": ParameterValue(
+                            benchmark_logging, value_type=bool
+                        ),
+                        "benchmark_log_path": benchmark_log_path,
+                        "benchmark_config_file": benchmark_config_file,
                     },
                 ],
             ),

@@ -25,6 +25,7 @@ import logging
 import os
 import queue
 import signal
+import sys
 import threading
 import time
 import traceback
@@ -34,9 +35,18 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 from urllib.parse import urlparse
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 import jsonschema
 import paho.mqtt.client as mqtt
 import requests
+from benchmark.experiment_logger import (
+    ExperimentLogger,
+    config_identifier,
+    publish_json_event,
+)
 from crane import Crane  # local project import – ensure PYTHONPATH is set
 try:
     from network_diagnostics import CraneDiagnostics
@@ -90,7 +100,6 @@ DEFAULT_MAP_ID = os.getenv("CRANE_MAP_ID", "map")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 
 # Resolve files from the repository rather than the process working directory.
-REPO_ROOT = Path(__file__).resolve().parents[1]
 ENV_SCHEMA_DIR = os.getenv("VDA_SCHEMA_DIR")
 LOCAL_SCHEMA_DIR = REPO_ROOT / "schemas" / "vda5050_v3"
 CRANE_ACCESS_FILE = Path(
@@ -124,6 +133,19 @@ CRANE_NETWORK_HISTORY_S = max(
 CRANE_DIAGNOSTICS_LOG_DIR = Path(
     os.getenv("CRANE_DIAGNOSTICS_LOG_DIR", "logs/crane_diagnostics")
 ).expanduser()
+BENCHMARK_LOG_ENABLED = os.getenv("BENCHMARK_LOG_ENABLED", "false").strip().lower() in {
+    "1", "true", "yes", "on"
+}
+BENCHMARK_LOG_PATH = Path(
+    os.getenv("BENCHMARK_LOG_PATH", "results/benchmark/crane_events.jsonl")
+).expanduser()
+if not BENCHMARK_LOG_PATH.is_absolute():
+    BENCHMARK_LOG_PATH = REPO_ROOT / BENCHMARK_LOG_PATH
+BENCHMARK_CONFIG_FILE = os.getenv("BENCHMARK_CONFIG_FILE", "").strip()
+BENCHMARK_CONFIG_ID = os.getenv("BENCHMARK_CONFIG_ID", "unknown").strip()
+BENCHMARK_EVENT_TOPIC = os.getenv(
+    "BENCHMARK_EVENT_TOPIC", "vda5050/benchmark/events"
+).strip()
 CRANE_PLC_PING_TIMEOUT_S = max(
     0.1, float(os.getenv("CRANE_PLC_PING_TIMEOUT_S", "0.5"))
 )
@@ -1123,6 +1145,19 @@ class VDA5050Adapter:
         except (AttributeError, TypeError):
             self.mqtt = mqtt.Client(client_id=SERIAL_NUMBER, clean_session=True)
         self.log.info("MQTT client created (client_id=%s)", SERIAL_NUMBER)
+        self.benchmark_logger: Optional[ExperimentLogger] = None
+        self._benchmark_active_order_id = ""
+        if BENCHMARK_LOG_ENABLED:
+            config_id = BENCHMARK_CONFIG_ID
+            if BENCHMARK_CONFIG_FILE:
+                config_id = config_identifier(BENCHMARK_CONFIG_FILE)
+            self.benchmark_logger = ExperimentLogger(
+                BENCHMARK_LOG_PATH,
+                repo_root=REPO_ROOT,
+                source="crane_adapter",
+                config_id=config_id or "unknown",
+                publisher=publish_json_event(self.mqtt, BENCHMARK_EVENT_TOPIC),
+            )
 
         # last-will = CONNECTION_BROKEN in VDA 5050 v3.0
         last_will = self._connection_msg("CONNECTION_BROKEN")
@@ -1175,6 +1210,51 @@ class VDA5050Adapter:
             "watchdog_session": self.watchdog_session.snapshot(),
             "watchdog_feed_gate": self.feed_gate.snapshot(),
         }
+
+    @staticmethod
+    def _benchmark_operation(payload: Mapping[str, Any]) -> str:
+        for node in payload.get("nodes") or []:
+            for action in node.get("actions") or []:
+                action_type = str(action.get("actionType", ""))
+                if action_type in {"lowerHoist", "raiseHoist"}:
+                    return action_type
+        return "crane_order"
+
+    def _benchmark_emit(
+        self,
+        event_type: str,
+        *,
+        payload: Optional[Mapping[str, Any]] = None,
+        action: Optional[Mapping[str, Any]] = None,
+        result: str = "",
+        success: Optional[bool] = None,
+        details: Optional[Mapping[str, Any]] = None,
+    ) -> None:
+        if self.benchmark_logger is None:
+            return
+        order_id = str((payload or {}).get("orderId") or self.current_order_id or "")
+        if not order_id:
+            return
+        if payload is not None:
+            if "benchmark" not in str(payload.get("orderDescription", "")).lower():
+                return
+        elif order_id != self._benchmark_active_order_id:
+            return
+        operation = str((action or {}).get("actionType") or "")
+        if not operation:
+            operation = self._benchmark_operation(payload or {})
+        self.benchmark_logger.emit(
+            event_type,
+            trial_id=order_id,
+            architecture="vda",
+            device="crane",
+            operation=operation,
+            command_id=order_id,
+            order_id=order_id,
+            result=result,
+            success=success,
+            details=details,
+        )
 
 
     # ─────────────────────────────── MQTT callbacks ──────────────────────────
@@ -1334,6 +1414,15 @@ class VDA5050Adapter:
             self.log.error("Malformed JSON on %s: %r", topic, msg.payload[:200])
             return
 
+        if topic.endswith("/order"):
+            self._benchmark_emit(
+                "MQTT_RECEIVED",
+                payload=payload,
+                result=f"Received {len(msg.payload)} MQTT bytes",
+                success=True,
+                details={"topic": topic, "payload_bytes": len(msg.payload)},
+            )
+
         self.log.info("MQTT rx on %s (bytes=%d)", topic, len(msg.payload))
         if not self._header_matches_identity(payload):
             self.log.error("Rejected message with mismatched version/manufacturer/serialNumber")
@@ -1351,6 +1440,17 @@ class VDA5050Adapter:
                     self._set_order_error(payload, error_type, reason)
                     return
                 self._clear_order_errors(str(payload.get("orderId", "")))
+                self._benchmark_active_order_id = (
+                    str(payload.get("orderId", ""))
+                    if "benchmark" in str(payload.get("orderDescription", "")).lower()
+                    else ""
+                )
+                self._benchmark_emit(
+                    "VDA_ACCEPTED",
+                    payload=payload,
+                    result=f"Validated and accepted {len(payload.get('nodes', []))} nodes",
+                    success=True,
+                )
                 self._order_queue.put(payload)
                 self.log.info(
                     "Order enqueued: orderId=%s, updateId=%s, nodes=%d",
@@ -1428,6 +1528,8 @@ class VDA5050Adapter:
             self.log.info("Published OFFLINE connection state (retained).")
         except Exception:
             self.log.exception("Failed to publish OFFLINE state during stop.")
+        if self.benchmark_logger is not None:
+            self.benchmark_logger.close()
         try:
             self.mqtt.loop_stop()
             self.mqtt.disconnect()
@@ -2496,7 +2598,20 @@ class VDA5050Adapter:
                         target_mm = 445
 
                 self._active_targets["hoist"] = target_mm
+                self._benchmark_emit(
+                    "NATIVE_DISPATCH",
+                    action=action,
+                    result="Calling crane.set_target_hoist",
+                    success=True,
+                    details={"target_mm": target_mm},
+                )
                 self.crane.set_target_hoist(target_mm)
+                self._benchmark_emit(
+                    "NATIVE_ACK",
+                    action=action,
+                    result="crane.set_target_hoist returned",
+                    success=True,
+                )
                 aid = self._action_begin(
                     action,
                     default_type="lowerHoist",
@@ -2512,6 +2627,8 @@ class VDA5050Adapter:
                 last_progress = time.time()
                 last_pos_log = 0.0
                 last_warn = 0.0
+                initial_pos = prev_pos
+                benchmark_motion_started = False
                 MOVE_EPS_MM = 1
                 NEAR_EPS_MM = 25
 
@@ -2556,6 +2673,12 @@ class VDA5050Adapter:
 
                     done = self.crane.move_hoist_to_target(fast=True)
                     if done:
+                        self._benchmark_emit(
+                            "MOTION_COMPLETED",
+                            action=action,
+                            result=f"Hoist controller reported target {target_mm} mm reached",
+                            success=True,
+                        )
                         break
 
                     now = time.time()
@@ -2566,6 +2689,19 @@ class VDA5050Adapter:
                             if prev_pos is None or abs(pos - prev_pos) >= MOVE_EPS_MM:
                                 last_progress = now
                             prev_pos = pos
+                            if (
+                                not benchmark_motion_started
+                                and initial_pos is not None
+                                and abs(pos - initial_pos) >= MOVE_EPS_MM
+                            ):
+                                benchmark_motion_started = True
+                                self._benchmark_emit(
+                                    "MOTION_STARTED",
+                                    action=action,
+                                    result=f"Hoist moved from {initial_pos} to {pos} mm",
+                                    success=True,
+                                    details={"initial_mm": initial_pos, "position_mm": pos},
+                                )
                             rem = abs(target_mm - pos)
                             self.log.debug(
                                 "... lowering: hoist=%d mm → %d mm (rem=%d mm)",
@@ -2766,8 +2902,21 @@ class VDA5050Adapter:
                     target_mm = 3071
 
                 self._active_targets["hoist"] = target_mm
+                self._benchmark_emit(
+                    "NATIVE_DISPATCH",
+                    action=action,
+                    result="Calling crane stop/target interface",
+                    success=True,
+                    details={"target_mm": target_mm},
+                )
                 self.crane.stop_hoist()  # clear any latched direction/speed
                 self.crane.set_target_hoist(target_mm)
+                self._benchmark_emit(
+                    "NATIVE_ACK",
+                    action=action,
+                    result="Crane stop/target interface returned",
+                    success=True,
+                )
                 self.log.info(
                     "raiseHoist: raising to zu=%.3f m (%d mm)",
                     float(zu_m) if zu_m is not None else 3.071,
@@ -2789,6 +2938,8 @@ class VDA5050Adapter:
                 last_progress = time.time()
                 last_pos_log = 0.0
                 last_warn = 0.0
+                initial_pos = prev_pos
+                benchmark_motion_started = False
                 MOVE_EPS_MM = 1
                 NEAR_EPS_MM = 25
 
@@ -2833,6 +2984,12 @@ class VDA5050Adapter:
 
                     done = self.crane.move_hoist_to_target(fast=True)
                     if done:
+                        self._benchmark_emit(
+                            "MOTION_COMPLETED",
+                            action=action,
+                            result=f"Hoist controller reported target {target_mm} mm reached",
+                            success=True,
+                        )
                         self.log.info("raiseHoist reached target=%d mm", target_mm)
                         try:
                             self.crane.stop_hoist()
@@ -2863,6 +3020,19 @@ class VDA5050Adapter:
                             if prev_pos is None or abs(pos - prev_pos) >= MOVE_EPS_MM:
                                 last_progress = now
                             prev_pos = pos
+                            if (
+                                not benchmark_motion_started
+                                and initial_pos is not None
+                                and abs(pos - initial_pos) >= MOVE_EPS_MM
+                            ):
+                                benchmark_motion_started = True
+                                self._benchmark_emit(
+                                    "MOTION_STARTED",
+                                    action=action,
+                                    result=f"Hoist moved from {initial_pos} to {pos} mm",
+                                    success=True,
+                                    details={"initial_mm": initial_pos, "position_mm": pos},
+                                )
                             rem = abs(target_mm - pos)
                             self.log.debug(
                                 "... raising: hoist=%d mm → %d mm (rem=%d mm)",

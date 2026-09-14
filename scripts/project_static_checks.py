@@ -48,6 +48,8 @@ def main() -> int:
         ROOT / "crane_edge" / "network_diagnostics.py",
         ROOT / "crane_edge" / "watchdog_session.py",
         ROOT / "crane_edge" / "crane_vda5050_adapter_v3.py",
+        *sorted((ROOT / "benchmark").glob("*.py")),
+        *sorted((ROOT / "analysis").glob("*.py")),
         *sorted((ROOT / "scripts").glob("*.py")),
         *sorted((ROOT / "ros2_ws/src/rox_vda5050_adapter/launch").glob("*.py")),
         *sorted((ROOT / "ros2_ws/src/rox_vda5050_adapter/rox_vda5050_adapter").glob("*.py")),
