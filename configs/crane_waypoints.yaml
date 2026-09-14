@@ -6,12 +6,10 @@ waypoints:
     label: Source / pickup station
     bridge_m: 18.556
     trolley_m: 5.378
-    description: Legacy starting value only; replace with a live verified reading.
   rox_handover:
     label: ROX-Diff handover station
     bridge_m: 17.012
     trolley_m: 6.401
-    description: Legacy starting value only; align physically with ROX crane_handover.
 hoist_positions:
   travel_safe_m: 2.950
   source_lower_m: 0.255

@@ -3,13 +3,11 @@ configured: false
 device: rox
 map_id: df_map
 position:
-  # Replace these values with a verified, obstacle-free benchmark position.
-  x: null
-  y: null
+  x: 0.9943
+  y: 0.6132
 headings:
-  theta_a: null
-  # Must equal normalize(theta_a + pi/2).
-  theta_b: null
+  theta_a: -0.5583
+  theta_b: 1.0125
 tolerances:
   start_xy_m: 0.10
   start_theta_rad: 0.10

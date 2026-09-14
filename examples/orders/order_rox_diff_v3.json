@@ -1,10 +1,10 @@
 {
   "headerId": 0,
-  "timestamp": "2026-08-05T00:00:00.000Z",
+  "timestamp": "2026-09-14T13:59:14.159Z",
   "version": "3.0.0",
   "manufacturer": "neobotix",
   "serialNumber": "rox_diff_1",
-  "orderId": "template-rox-crane-case-study",
+  "orderId": "template-f14491ba-33a1-4f6a-9ac2-1ebf4077ef57",
   "orderUpdateId": 0,
   "orderDescription": "ROX-Diff warehouse route with crane handover",
   "nodes": [
@@ -14,16 +14,16 @@
       "nodeDescriptor": "Home / order start",
       "released": true,
       "nodePosition": {
-        "x": 0.1729,
-        "y": 0.015,
-        "theta": -0.0073,
+        "x": 0.9816,
+        "y": 0.6083,
+        "theta": -0.5637,
         "mapId": "df_map",
         "allowedDeviationXY": {
-          "a": 0.18,
-          "b": 0.18,
+          "a": 0.2,
+          "b": 0.2,
           "theta": 0.0
         },
-        "allowedDeviationTheta": 0.2
+        "allowedDeviationTheta": 0.3
       },
       "actions": []
     },
@@ -33,13 +33,13 @@
       "nodeDescriptor": "Crane handover rendezvous",
       "released": true,
       "nodePosition": {
-        "x": 3.1939,
-        "y": -2.5503,
-        "theta": 3.1275,
+        "x": 2.7544,
+        "y": -2.0849,
+        "theta": 2.59,
         "mapId": "df_map",
         "allowedDeviationXY": {
-          "a": 0.12,
-          "b": 0.12,
+          "a": 0.15,
+          "b": 0.15,
           "theta": 0.0
         },
         "allowedDeviationTheta": 0.15
@@ -59,16 +59,16 @@
       "nodeDescriptor": "Warehouse drop-off",
       "released": true,
       "nodePosition": {
-        "x": 2.2782,
-        "y": 0.8154,
-        "theta": 1.554,
+        "x": 3.1739,
+        "y": 0.1588,
+        "theta": 0.9971,
         "mapId": "df_map",
         "allowedDeviationXY": {
-          "a": 0.18,
-          "b": 0.18,
+          "a": 0.2,
+          "b": 0.2,
           "theta": 0.0
         },
-        "allowedDeviationTheta": 0.2
+        "allowedDeviationTheta": 0.3
       },
       "actions": []
     },
@@ -78,16 +78,16 @@
       "nodeDescriptor": "Return home",
       "released": true,
       "nodePosition": {
-        "x": 0.1729,
-        "y": 0.015,
-        "theta": -0.0073,
+        "x": 0.9816,
+        "y": 0.6083,
+        "theta": -0.5637,
         "mapId": "df_map",
         "allowedDeviationXY": {
-          "a": 0.18,
-          "b": 0.18,
+          "a": 0.2,
+          "b": 0.2,
           "theta": 0.0
         },
-        "allowedDeviationTheta": 0.2
+        "allowedDeviationTheta": 0.3
       },
       "actions": []
     }
