@@ -336,15 +336,43 @@ class RoxBenchmark(Node):
             qos=int(self.cfg["mqtt"].get("qos", 0)),
         )
         timeout = finite_number(self.cfg["timeouts"]["command_s"], "command_s")
-        if not self._vda_result.wait(timeout):
+        deadline = time.monotonic() + timeout
+        while (
+            rclpy.ok()
+            and not self._vda_result.is_set()
+            and time.monotonic() < deadline
+        ):
+            # MQTT callbacks run on Paho's network thread, but TF and odometry
+            # callbacks require the ROS executor to keep spinning.
+            remaining = max(0.0, deadline - time.monotonic())
+            rclpy.spin_once(self, timeout_sec=min(0.05, remaining))
+
+        if not self._vda_result.is_set():
             self._emit("RESULT_OBSERVED", result="Timed out waiting for VDA completion", success=False)
             raise TimeoutError("VDA ROX trial timed out")
+
         if self._vda_success:
-            try:
-                self.verify_target_pose()
-            except Exception as exc:
+            # The terminal VDA state can arrive just before the corresponding
+            # final TF update. Allow a short window for a fresh transform.
+            verification_deadline = time.monotonic() + 3.0
+            verification_error = "No fresh final TF sample was received"
+            verified = False
+
+            while rclpy.ok() and time.monotonic() < verification_deadline:
+                rclpy.spin_once(self, timeout_sec=0.05)
+                try:
+                    self.verify_target_pose()
+                    verified = True
+                    break
+                except Exception as exc:
+                    verification_error = str(exc)
+
+            if not verified:
                 self._vda_success = False
-                self._vda_result_text = str(exc)
+                self._vda_result_text = (
+                    "ROX target pose did not verify within 3.0 s: "
+                    + verification_error
+                )
         self._emit(
             "RESULT_OBSERVED",
             result=self._vda_result_text,

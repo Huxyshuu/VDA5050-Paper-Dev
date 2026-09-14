@@ -1,5 +1,5 @@
 schema_version: 1
-configured: false
+configured: true
 device: rox
 map_id: df_map
 position:
@@ -7,7 +7,7 @@ position:
   y: 0.6132
 headings:
   theta_a: -0.5583
-  theta_b: 1.0125
+  theta_b: 1.0124963267949
 tolerances:
   start_xy_m: 0.10
   start_theta_rad: 0.10
