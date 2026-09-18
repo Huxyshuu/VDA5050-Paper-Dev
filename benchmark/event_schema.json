@@ -4,38 +4,106 @@
   "title": "VDA 5050 native comparison benchmark event",
   "type": "object",
   "required": [
-    "schema_version", "timestamp_utc", "monotonic_ns", "trial_id",
-    "pair_id", "architecture", "device", "operation", "command_id",
-    "order_id", "event_type", "result", "success", "git_commit",
-    "config_id", "source", "host", "boot_id", "pid"
+    "schema_version",
+    "timestamp_utc",
+    "monotonic_ns",
+    "trial_id",
+    "pair_id",
+    "architecture",
+    "device",
+    "operation",
+    "command_id",
+    "order_id",
+    "event_type",
+    "result",
+    "success",
+    "git_commit",
+    "config_id",
+    "source",
+    "host",
+    "boot_id",
+    "pid"
   ],
   "properties": {
-    "schema_version": {"const": "1.0"},
-    "timestamp_utc": {"type": "string", "format": "date-time"},
-    "monotonic_ns": {"type": "integer", "minimum": 0},
-    "trial_id": {"type": "string", "minLength": 1},
-    "pair_id": {"type": "string"},
-    "architecture": {"enum": ["native", "vda", "setup"]},
-    "device": {"enum": ["rox", "crane", "cell"]},
-    "operation": {"type": "string", "minLength": 1},
-    "command_id": {"type": "string", "minLength": 1},
-    "order_id": {"type": "string"},
-    "event_type": {
+    "schema_version": {
+      "const": "2.0"
+    },
+    "timestamp_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "monotonic_ns": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "trial_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "pair_id": {
+      "type": "string"
+    },
+    "architecture": {
       "enum": [
-        "COMMAND_ISSUED", "MQTT_RECEIVED", "VDA_ACCEPTED",
-        "NATIVE_DISPATCH", "NATIVE_ACK", "MOTION_STARTED",
-        "MOTION_COMPLETED", "RESULT_OBSERVED"
+        "native",
+        "vda",
+        "setup"
       ]
     },
-    "result": {"type": "string"},
-    "success": {"type": ["boolean", "null"]},
-    "git_commit": {"type": "string"},
-    "config_id": {"type": "string"},
-    "source": {"type": "string"},
-    "host": {"type": "string"},
-    "boot_id": {"type": "string"},
-    "pid": {"type": "integer"},
-    "details": {"type": "object"}
+    "device": {
+      "enum": [
+        "rox"
+      ]
+    },
+    "operation": {
+      "type": "string",
+      "minLength": 1
+    },
+    "command_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "order_id": {
+      "type": "string"
+    },
+    "event_type": {
+      "enum": [
+        "COMMAND_ISSUED",
+        "NAV2_ACK_RECEIVED",
+        "NAV2_RESULT_RECEIVED",
+        "TRIAL_FINISHED"
+      ]
+    },
+    "result": {
+      "type": "string"
+    },
+    "success": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "git_commit": {
+      "type": "string"
+    },
+    "config_id": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "host": {
+      "type": "string"
+    },
+    "boot_id": {
+      "type": "string"
+    },
+    "pid": {
+      "type": "integer"
+    },
+    "details": {
+      "type": "object"
+    }
   },
   "additionalProperties": false
 }

@@ -525,7 +525,8 @@ def _on_message(client, userdata, msg):
             "command_id",
             "event_type",
         }
-        if not isinstance(data, dict) or not required.issubset(data):
+        if (not isinstance(data, dict) or not required.issubset(data)
+                or data.get("schema_version") != "2.0" or data.get("source") != "pi_runner"):
             _log("[benchmark] Ignoring event with incomplete schema")
             return
         event = deepcopy(data)

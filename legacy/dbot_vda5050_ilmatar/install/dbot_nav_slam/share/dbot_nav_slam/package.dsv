@@ -1,8 +1,0 @@
-source;share/dbot_nav_slam/hook/cmake_prefix_path.ps1
-source;share/dbot_nav_slam/hook/cmake_prefix_path.dsv
-source;share/dbot_nav_slam/hook/cmake_prefix_path.sh
-source;share/dbot_nav_slam/local_setup.bash
-source;share/dbot_nav_slam/local_setup.dsv
-source;share/dbot_nav_slam/local_setup.ps1
-source;share/dbot_nav_slam/local_setup.sh
-source;share/dbot_nav_slam/local_setup.zsh

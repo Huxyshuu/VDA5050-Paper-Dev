@@ -6,7 +6,7 @@ package_name = "rox_vda5050_adapter"
 
 setup(
     name=package_name,
-    version="0.4.0",
+    version="0.5.0",
     packages=find_packages(exclude=["test"]),
     data_files=[
         ("share/ament_index/resource_index/packages", ["resource/" + package_name]),
@@ -14,10 +14,6 @@ setup(
         ("share/" + package_name + "/launch", glob("launch/*.launch.py")),
         ("share/" + package_name + "/config", glob("config/*")),
         ("share/" + package_name + "/factsheets", glob("factsheets/*")),
-        (
-            "share/" + package_name + "/benchmark",
-            ["../../../../benchmark/experiment_logger.py"],
-        ),
     ],
     install_requires=["setuptools", "paho-mqtt", "jsonschema", "PyYAML"],
     zip_safe=True,

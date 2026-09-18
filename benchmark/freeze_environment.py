@@ -41,6 +41,7 @@ def main() -> None:
         key: os.getenv(key, "")
         for key in (
             "ROS_DISTRO",
+            "ROS_DOMAIN_ID",
             "RMW_IMPLEMENTATION",
             "VDA_PROTOCOL_VERSION",
             "VDA_MAJOR_VERSION",
@@ -54,6 +55,11 @@ def main() -> None:
     for command in (
         ["ros2", "pkg", "xml", "nav2_bringup"],
         ["ros2", "doctor", "--report"],
+        ["ros2", "param", "dump", "/controller_server"],
+        ["ros2", "param", "dump", "/planner_server"],
+        ["ros2", "param", "dump", "/bt_navigator"],
+        ["ros2", "param", "dump", "/amcl"],
+        ["ros2", "param", "dump", "/map_server"],
         ["mosquitto", "-h"],
         ["ip", "-brief", "address"],
         ["ip", "route"],
@@ -82,7 +88,7 @@ def main() -> None:
         "command_evidence": commands,
         "notes": [
             "No credentials or access codes are recorded.",
-            "UTC aligns logs; monotonic_ns is the only duration clock.",
+            "UTC is human-readable context; only Pi monotonic_ns differences are measured.",
         ],
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)

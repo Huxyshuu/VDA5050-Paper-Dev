@@ -39,11 +39,3 @@ rox_vda5050_adapter:
     # Dry run is the safe default. Change only after independent Nav2 tests pass.
     dry_run_navigation: true
     dry_run_delay_s: 1.0
-
-    # Paper benchmark instrumentation. Keep disabled outside a frozen campaign.
-    benchmark_logging_enabled: false
-    benchmark_log_path: "results/benchmark/rox_events.jsonl"
-    benchmark_config_file: ""
-    benchmark_config_id: "unknown"
-    benchmark_event_topic: "vda5050/benchmark/events"
-    benchmark_motion_angular_velocity_threshold: 0.05

@@ -13,11 +13,8 @@ from typing import Dict, Iterable, List, Tuple
 
 
 METRICS = (
-    "dispatch_latency_ms",
-    "ack_latency_ms",
-    "motion_start_latency_ms",
-    "completion_latency_ms",
-    "result_latency_ms",
+    "ack_round_trip_ms",
+    "completion_round_trip_ms",
 )
 
 
@@ -46,14 +43,18 @@ def percentile(values: Iterable[float], probability: float) -> float:
 
 
 def describe(values: List[float]) -> Dict[str, float]:
+    average = math.fsum(values) / len(values)
     return {
         "n": len(values),
+        "mean": average,
+        "std": math.sqrt(math.fsum((v-average)**2 for v in values)/(len(values)-1)) if len(values)>1 else math.nan,
+        "min": min(values),
+        "max": max(values),
         "median": median(values),
         "q1": percentile(values, 0.25),
         "q3": percentile(values, 0.75),
         "iqr": percentile(values, 0.75) - percentile(values, 0.25),
         "p95": percentile(values, 0.95),
-        "p99": percentile(values, 0.99),
     }
 
 
@@ -74,6 +75,8 @@ def read_rows(path: Path, *, successful_only: bool = True) -> List[Dict[str, str
     with path.open(newline="", encoding="utf-8") as stream:
         rows = list(csv.DictReader(stream))
     rows = [row for row in rows if row.get("architecture") in {"native", "vda"}]
+    if len({r['trial_id'] for r in rows}) != len(rows):
+        raise ValueError("Repeated trial IDs in CSV")
     if not successful_only:
         return rows
     return [row for row in rows if str(row.get("complete", "")).lower() == "true"
@@ -104,6 +107,12 @@ def analyze(rows: List[Dict[str, str]], bootstrap_samples: int, seed: int):
             by_pair: Dict[str, Dict[str, float]] = defaultdict(dict)
             for row in device_rows:
                 if row.get("pair_id") and row.get(metric):
+                    if row["architecture"] in by_pair[row["pair_id"]]:
+                        raise ValueError("Multiple observations for a pair/mode")
+                    counterparts = [r for r in device_rows if r.get("pair_id") == row["pair_id"]]
+                    for key in ("config_id", "start", "target"):
+                        if len({r.get(key) for r in counterparts}) > 1:
+                            raise ValueError(f"Unmatched {key} within pair {row['pair_id']}")
                     by_pair[row["pair_id"]][row["architecture"]] = float(row[metric])
             differences = []
             percentages = []
@@ -141,14 +150,7 @@ def analyze(rows: List[Dict[str, str]], bootstrap_samples: int, seed: int):
                         "device": device,
                         "metric": metric,
                         "architecture": "vda-minus-native",
-                        "n": len(differences),
-                        "median": median(differences),
-                        "q1": percentile(differences, 0.25),
-                        "q3": percentile(differences, 0.75),
-                        "iqr": percentile(differences, 0.75)
-                        - percentile(differences, 0.25),
-                        "p95": percentile(differences, 0.95),
-                        "p99": percentile(differences, 0.99),
+                        **describe(differences),
                         "bootstrap_ci_low": low,
                         "bootstrap_ci_high": high,
                         "median_percentage_overhead": (
@@ -183,7 +185,7 @@ def write_latex(path: Path, summary: List[Dict[str, object]]) -> None:
         "\\midrule",
     ]
     for row in effects:
-        metric = str(row["metric"]).replace("_latency_ms", "").replace("_", " ")
+        metric = str(row["metric"]).replace("_round_trip_ms", "").replace("_", " ")
         lines.append(
             f"{row['device'].upper()} & {metric} & {row['n']} & "
             f"{float(row['median']):.3f} & "
@@ -198,7 +200,7 @@ def write_figure(path: Path, rows: List[Dict[str, str]]) -> None:
     import matplotlib.pyplot as plt
 
     devices = sorted({row["device"] for row in rows})
-    metrics = ("dispatch_latency_ms", "ack_latency_ms", "completion_latency_ms")
+    metrics = METRICS
     fig, axes = plt.subplots(len(devices), len(metrics), figsize=(10.5, 3.4 * len(devices)))
     if len(devices) == 1:
         axes = [axes]
@@ -216,8 +218,8 @@ def write_figure(path: Path, rows: List[Dict[str, str]]) -> None:
             ]
             axis.boxplot(values, showfliers=True)
             axis.set_xticks([1, 2], ["Native", "VDA"])
-            axis.set_title(metric.replace("_latency_ms", "").replace("_", " ").title())
-            axis.set_ylabel("Latency (ms)")
+            axis.set_title(metric.replace("_round_trip_ms", "").replace("_", " ").title())
+            axis.set_ylabel("Pi-observed response time (ms)")
             axis.grid(axis="y", alpha=0.25)
         row_axes[0].annotate(
             device.upper(), xy=(-0.38, 0.5), xycoords="axes fraction", rotation=90,
@@ -254,7 +256,9 @@ def trial_accounting(rows: List[Dict[str, str]]) -> List[Dict[str, object]]:
                     "scheduled_trials": len(selected),
                     "complete_event_sequences": len(complete),
                     "successful_trials": len(successful),
-                    "failed_or_timed_out_trials": len(complete) - len(successful),
+                    "failed_trials": sum(row.get("outcome") == "failed" for row in selected),
+                    "missing_trials": sum(row.get("outcome") == "missing" for row in selected),
+                    "invalid_trials": sum(row.get("outcome") == "invalid" for row in selected),
                     "incomplete_trials": len(selected) - len(complete),
                 }
             )
@@ -272,13 +276,13 @@ def main() -> None:
         parser.error("--bootstrap-samples must be at least 100")
     all_rows = read_rows(args.input, successful_only=False)
     rows = read_rows(args.input)
-    if not rows:
-        raise SystemExit("No complete successful native/VDA trials are available")
     args.output_dir.mkdir(parents=True, exist_ok=True)
+    write_dicts(args.output_dir / "trial_accounting.csv", trial_accounting(all_rows))
+    if not rows:
+        raise SystemExit("Accounting written; no complete successful native/VDA trials are available")
     summary, paired = analyze(rows, args.bootstrap_samples, args.seed)
     write_dicts(args.output_dir / "latency_summary.csv", summary)
     write_dicts(args.output_dir / "paired_differences.csv", paired)
-    write_dicts(args.output_dir / "trial_accounting.csv", trial_accounting(all_rows))
     write_latex(args.output_dir / "latency_summary_table.tex", summary)
     write_figure(args.output_dir / "latency_comparison.pdf", rows)
     write_figure(args.output_dir / "latency_comparison.png", rows)

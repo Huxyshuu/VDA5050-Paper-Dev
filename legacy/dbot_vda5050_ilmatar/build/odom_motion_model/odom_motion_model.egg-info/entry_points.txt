@@ -1,2 +1,0 @@
-[console_scripts]
-odom_motion_model = odom_motion_model.odom_motion_model:main

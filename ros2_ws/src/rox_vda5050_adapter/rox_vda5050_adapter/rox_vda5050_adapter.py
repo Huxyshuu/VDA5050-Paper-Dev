@@ -8,10 +8,8 @@ internal implementation detail on the robot; the fleet control only sees VDA
 
 from __future__ import annotations
 
-import importlib.util
 import json
 import math
-import os
 import queue
 import threading
 import time
@@ -43,35 +41,6 @@ FINAL_ACTION_STATES = {"FINISHED", "FAILED"}
 SUPPORTED_NODE_ACTIONS = {"holdPose", "waitForTrigger", "noop", "noOp"}
 
 
-def _load_experiment_logger():
-    """Load the canonical repository logger from source or installed share data."""
-    candidates = []
-    repo_env = os.getenv("VDA5050_REPO_ROOT", "").strip()
-    if repo_env:
-        candidates.append(Path(repo_env) / "benchmark" / "experiment_logger.py")
-    try:
-        candidates.append(
-            Path(get_package_share_directory("rox_vda5050_adapter"))
-            / "benchmark"
-            / "experiment_logger.py"
-        )
-    except Exception:
-        pass
-    for parent in (Path.cwd(), *Path(__file__).resolve().parents):
-        candidates.append(parent / "benchmark" / "experiment_logger.py")
-    for path in candidates:
-        if not path.is_file():
-            continue
-        spec = importlib.util.spec_from_file_location("vda5050_experiment_logger", path)
-        if spec is None or spec.loader is None:
-            continue
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        return module.ExperimentLogger, module.config_identifier, module.publish_json_event
-    raise ImportError(
-        "benchmark/experiment_logger.py was not found; rebuild the overlay or set "
-        "VDA5050_REPO_ROOT"
-    )
 
 
 class OrderRejected(ValueError):
@@ -133,7 +102,6 @@ class RoxVda5050Adapter(Node):
         self._goal_request_pending = False
         self._resume_goal_index: Optional[int] = None
         self._pending_cancel_action_id: Optional[str] = None
-        self._benchmark_motion_started = False
 
         # ROS interfaces exposed by the Neobotix stack.
         self._tf_buffer = Buffer()
@@ -157,22 +125,6 @@ class RoxVda5050Adapter(Node):
         }
 
         self._mqtt = self._create_mqtt_client()
-        self._benchmark_logger = None
-        if self.benchmark_logging_enabled:
-            try:
-                Logger, identify_config, publisher = _load_experiment_logger()
-                config_id = self.benchmark_config_id
-                if self.benchmark_config_file:
-                    config_id = identify_config(self.benchmark_config_file)
-                self._benchmark_logger = Logger(
-                    self.benchmark_log_path,
-                    repo_root=os.getenv("VDA5050_REPO_ROOT", Path.cwd()),
-                    source="rox_adapter",
-                    config_id=config_id or "unknown",
-                    publisher=publisher(self._mqtt, self.benchmark_event_topic),
-                )
-            except Exception as exc:
-                raise RuntimeError(f"Benchmark logging could not start: {exc}") from exc
         self._mqtt.connect_async(self.mqtt_host, self.mqtt_port, self.mqtt_keepalive)
         self._mqtt.loop_start()
 
@@ -218,12 +170,6 @@ class RoxVda5050Adapter(Node):
             "initial_node_tolerance_m": 0.35,
             "dry_run_navigation": True,
             "dry_run_delay_s": 1.0,
-            "benchmark_logging_enabled": False,
-            "benchmark_log_path": "results/benchmark/rox_events.jsonl",
-            "benchmark_config_file": "",
-            "benchmark_config_id": "unknown",
-            "benchmark_event_topic": "vda5050/benchmark/events",
-            "benchmark_motion_angular_velocity_threshold": 0.05,
         }
         for name, value in defaults.items():
             self.declare_parameter(name, value)
@@ -264,21 +210,14 @@ class RoxVda5050Adapter(Node):
         self.initial_node_tolerance_m = float(gp("initial_node_tolerance_m"))
         self.dry_run_navigation = bool(gp("dry_run_navigation"))
         self.dry_run_delay_s = float(gp("dry_run_delay_s"))
-        self.benchmark_logging_enabled = bool(gp("benchmark_logging_enabled"))
-        benchmark_path = Path(str(gp("benchmark_log_path"))).expanduser()
-        if not benchmark_path.is_absolute():
-            repo_root = Path(os.getenv("VDA5050_REPO_ROOT", Path.cwd()))
-            benchmark_path = repo_root / benchmark_path
-        self.benchmark_log_path = str(benchmark_path)
-        self.benchmark_config_file = str(gp("benchmark_config_file"))
-        self.benchmark_config_id = str(gp("benchmark_config_id"))
-        self.benchmark_event_topic = str(gp("benchmark_event_topic"))
-        self.benchmark_motion_angular_velocity_threshold = max(
-            0.0, float(gp("benchmark_motion_angular_velocity_threshold"))
-        )
         self.topic_root = (
             f"{self.interface_name}/{self.major_version}/"
             f"{self.manufacturer}/{self.serial_number}"
+        )
+        # A small experiment feedback channel, separate from standard VDA state.
+        # No timestamps or log files are generated on ROX.
+        self._feedback_topic = (
+            f"vda5050/benchmark/nav2/{self.manufacturer}/{self.serial_number}"
         )
 
     def _load_schemas(self) -> SchemaSet:
@@ -333,6 +272,7 @@ class RoxVda5050Adapter(Node):
             return
         client.subscribe(f"{self.topic_root}/order", qos=0)
         client.subscribe(f"{self.topic_root}/instantActions", qos=0)
+        client.subscribe(f"{self._feedback_topic}/probe", qos=1)
         self._publish_connection("ONLINE")
         try:
             self._publish_factsheet()
@@ -357,14 +297,6 @@ class RoxVda5050Adapter(Node):
             payload = json.loads(message.payload.decode("utf-8"))
             if not isinstance(payload, dict):
                 raise ValueError("payload is not a JSON object")
-            if message.topic.endswith("/order"):
-                self._benchmark_emit(
-                    "MQTT_RECEIVED",
-                    payload=payload,
-                    result=f"Received {len(message.payload)} MQTT bytes",
-                    success=True,
-                    details={"topic": message.topic, "payload_bytes": len(message.payload)},
-                )
             self._mqtt_inbox.put((message.topic, payload))
         except Exception as exc:
             self.get_logger().error(f"Invalid MQTT JSON on {message.topic}: {exc}")
@@ -376,13 +308,55 @@ class RoxVda5050Adapter(Node):
             except queue.Empty:
                 break
             try:
-                if topic.endswith("/order"):
+                if topic == f"{self._feedback_topic}/probe":
+                    self._publish_benchmark_ready(payload)
+                elif topic.endswith("/order"):
                     self._accept_order(payload)
                 elif topic.endswith("/instantActions"):
                     self._handle_instant_actions(payload)
             except Exception as exc:
                 self.get_logger().error(f"Failed to process {topic}: {exc}")
                 self._add_error("ADAPTER_INTERNAL_ERROR", "CRITICAL", str(exc))
+                if topic.endswith("/order"):
+                    self._nav2_feedback("ERROR", order=payload, error=str(exc))
+
+    def _publish_benchmark_ready(self, payload) -> None:
+        """Read-only handshake; this endpoint cannot issue or cancel motion."""
+        if payload.get("protocol") != "pi-nav2-v1" or not payload.get("request_id"):
+            return
+        self._mqtt.publish(
+            self._feedback_topic,
+            json.dumps({
+                "protocol": "pi-nav2-v1", "event": "READY",
+                "request_id": str(payload["request_id"]),
+                "nav2_action": self.nav2_action_name,
+                "map_frame": self.map_frame, "base_frame": self.base_frame,
+                "map_id": self.map_id, "dry_run": self.dry_run_navigation,
+                "use_sim_time": bool(self.get_parameter("use_sim_time").value),
+                "server_ready": self._nav_client.server_is_ready(),
+                "busy": self._order_active(), "feedback_qos": 1,
+                "order_qos": 0,
+            }), qos=1, retain=False,
+        )
+
+    def _nav2_feedback(self, event, *, order=None, node=None, **fields) -> None:
+        """Relay a Nav2 milestone. Only the receiving Pi records its time.
+
+        ACK and RESULT are sent in callback order by this one MQTT client.
+        QoS 1 permits retransmission; the Pi deduplicates by trial/goal/event.
+        This channel is experiment instrumentation, not a VDA-standard ACK.
+        """
+        order = order if order is not None else self._order or {}
+        if order.get("orderDescription") != "pi-nav2-v1 benchmark":
+            return
+        payload = {
+            "protocol": "pi-nav2-v1", "event": event,
+            "order_id": str(order.get("orderId", "")),
+            "node_id": str((node or {}).get("nodeId", "")),
+            **fields,
+        }
+        self._mqtt.publish(self._feedback_topic, json.dumps(payload, allow_nan=False),
+                           qos=1, retain=False)
 
     def _mqtt_publish(
         self, topic_name: str, payload: Dict[str, Any], qos: int = 0, retain: bool = False
@@ -401,62 +375,12 @@ class RoxVda5050Adapter(Node):
     # ------------------------------------------------------------------
     # ROS state acquisition
     def _on_odom(self, message: Odometry) -> None:
-        motion_event = None
         with self._lock:
             self._velocity = {
                 "vx": float(message.twist.twist.linear.x),
                 "vy": float(message.twist.twist.linear.y),
                 "omega": float(message.twist.twist.angular.z),
             }
-            if (
-                self._driving
-                and self._order_id
-                and not self._benchmark_motion_started
-                and abs(self._velocity["omega"])
-                >= self.benchmark_motion_angular_velocity_threshold
-            ):
-                self._benchmark_motion_started = True
-                motion_event = dict(self._velocity)
-        if motion_event is not None:
-            self._benchmark_emit(
-                "MOTION_STARTED",
-                result=(
-                    f"abs(omega)={abs(motion_event['omega']):.6f} rad/s exceeded "
-                    f"{self.benchmark_motion_angular_velocity_threshold:.6f} rad/s"
-                ),
-                success=True,
-                details=motion_event,
-            )
-
-    def _benchmark_emit(
-        self,
-        event_type: str,
-        *,
-        payload: Optional[Dict[str, Any]] = None,
-        result: str = "",
-        success: Optional[bool] = None,
-        details: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        if self._benchmark_logger is None:
-            return
-        candidate = payload or self._order or {}
-        if "benchmark" not in str(candidate.get("orderDescription", "")).lower():
-            return
-        order_id = str(candidate.get("orderId") or self._order_id or "")
-        if not order_id:
-            return
-        self._benchmark_logger.emit(
-            event_type,
-            trial_id=order_id,
-            architecture="vda",
-            device="rox",
-            operation="rotate_90deg",
-            command_id=order_id,
-            order_id=order_id,
-            result=result,
-            success=success,
-            details=details,
-        )
 
     def _update_pose(self) -> None:
         try:
@@ -599,15 +523,27 @@ class RoxVda5050Adapter(Node):
             self._schemas.validate("order.schema", payload)
         except Exception as exc:
             self._add_error("ORDER_VALIDATION_ERROR", "WARNING", str(exc))
+            self._nav2_feedback("ERROR", order=payload, error=f"Invalid VDA order: {exc}")
             return
         if not self._identity_matches(payload):
             self._add_error("ORDER_IDENTITY_MISMATCH", "WARNING", "Order identity does not match this ROX-Diff adapter")
+            self._nav2_feedback("ERROR", order=payload, error="Order identity mismatch")
             return
         if self._order_active():
             self._add_error("ORDER_REJECTED_BUSY", "WARNING", "A different order is already active")
+            self._nav2_feedback("ERROR", order=payload, error="Adapter busy")
             return
         if int(payload.get("orderUpdateId", 0)) != 0:
             self._add_error("ORDER_UPDATE_UNSUPPORTED", "WARNING", "This first migration version accepts only new orders with orderUpdateId 0")
+            self._nav2_feedback("ERROR", order=payload, error="Order updates unsupported")
+            return
+
+        if payload.get("orderDescription") == "pi-nav2-v1 benchmark" and (
+            self.dry_run_navigation or bool(self.get_parameter("use_sim_time").value)
+            or len(payload.get("nodes", [])) != 2
+        ):
+            self._nav2_feedback("ERROR", order=payload,
+                                error="Benchmark requires real Nav2 and exactly two nodes")
             return
 
         nodes = sorted(payload.get("nodes", []), key=lambda item: item["sequenceId"])
@@ -616,6 +552,7 @@ class RoxVda5050Adapter(Node):
             self._validate_order_semantics(nodes, edges)
         except OrderRejected as exc:
             self._add_error(exc.error_type, exc.level, str(exc))
+            self._nav2_feedback("ERROR", order=payload, error=str(exc))
             return
         with self._lock:
             self._order = payload
@@ -643,12 +580,6 @@ class RoxVda5050Adapter(Node):
             self._errors = []
         self.get_logger().info(
             f"Accepted order {self._order_id} with {len(nodes)} nodes"
-        )
-        self._benchmark_emit(
-            "VDA_ACCEPTED",
-            payload=payload,
-            result=f"Validated and accepted {len(nodes)} nodes",
-            success=True,
         )
         # VDA 5050 requires the first node to be trivially reachable and it shall
         # not be reported in nodeStates. The semantic validation above enforces
@@ -783,7 +714,6 @@ class RoxVda5050Adapter(Node):
         position = node["nodePosition"]
         self._nav_goal_index = index
         self._driving = True
-        self._benchmark_motion_started = False
         if self.dry_run_navigation:
             self._dry_run_goal_index = index
             self._dry_run_deadline = time.monotonic() + self.dry_run_delay_s
@@ -792,11 +722,14 @@ class RoxVda5050Adapter(Node):
         if not self._nav_client.wait_for_server(timeout_sec=2.0):
             self._driving = False
             self._add_error("NAV2_SERVER_UNAVAILABLE", "CRITICAL", f"Action server {self.nav2_action_name} is not available")
+            self._nav2_feedback("ERROR", node=node, error="Nav2 action server unavailable")
             return
 
         goal = NavigateToPose.Goal()
         goal.pose.header.frame_id = self.map_frame
-        goal.pose.header.stamp = self.get_clock().now().to_msg()
+        if (self._order or {}).get("orderDescription") != "pi-nav2-v1 benchmark":
+            goal.pose.header.stamp = self.get_clock().now().to_msg()
+        # Benchmark native and VDA goals both use stamp zero (latest transform).
         goal.pose.pose.position.x = float(position["x"])
         goal.pose.pose.position.y = float(position["y"])
         theta = float(position.get("theta", 0.0))
@@ -804,20 +737,17 @@ class RoxVda5050Adapter(Node):
         goal.pose.pose.orientation.w = math.cos(theta / 2.0)
 
         self._goal_request_pending = True
-        self._benchmark_emit(
-            "NATIVE_DISPATCH",
-            result=f"Calling send_goal_async for node {node['nodeId']}",
-            success=True,
-            details={"node_id": node["nodeId"], "node_sequence_id": node["sequenceId"]},
-        )
+        context = {"order": self._order, "node": node}
         future = self._nav_client.send_goal_async(goal)
-        future.add_done_callback(lambda result, idx=index: self._on_goal_response(result, idx))
+        future.add_done_callback(lambda result, idx=index, ctx=context: self._on_goal_response(result, idx, ctx))
 
-    def _on_goal_response(self, future, index: int) -> None:
+    def _on_goal_response(self, future, index: int, context=None) -> None:
+        context = context or {"order": self._order, "node": self._nodes[index]}
         self._goal_request_pending = False
         try:
             goal_handle = future.result()
         except Exception as exc:
+            self._nav2_feedback("ERROR", **context, error=f"Nav2 goal request failed: {exc}")
             self._driving = False
             self._add_error(
                 "NAV2_GOAL_REQUEST_FAILED",
@@ -827,6 +757,8 @@ class RoxVda5050Adapter(Node):
             if self._cancelled:
                 self._finish_pending_cancel()
             return
+        goal_id = bytes(goal_handle.goal_id.uuid).hex()
+        self._nav2_feedback("ACK", **context, accepted=bool(goal_handle.accepted), goal_id=goal_id)
         if not goal_handle.accepted:
             self._driving = False
             if self._cancelled:
@@ -839,14 +771,10 @@ class RoxVda5050Adapter(Node):
                 )
             return
         self._nav_goal_handle = goal_handle
-        self._benchmark_emit(
-            "NATIVE_ACK",
-            result=f"Nav2 accepted node {self._nodes[index]['nodeId']}",
-            success=True,
-            details={"node_id": self._nodes[index]["nodeId"]},
-        )
         result_future = goal_handle.get_result_async()
-        result_future.add_done_callback(lambda result, idx=index: self._on_nav_result(result, idx))
+        result_future.add_done_callback(
+            lambda result, idx=index, ctx=context, gid=goal_id: self._on_nav_result(result, idx, ctx, gid)
+        )
 
         # A pause or cancel can arrive while the asynchronous goal request is in
         # flight. Cancel immediately after acceptance so a late callback cannot
@@ -856,12 +784,14 @@ class RoxVda5050Adapter(Node):
                 self._resume_goal_index = index
             goal_handle.cancel_goal_async()
 
-    def _on_nav_result(self, future, index: int) -> None:
+    def _on_nav_result(self, future, index: int, context=None, goal_id="") -> None:
+        context = context or {"order": self._order, "node": self._nodes[index]}
         self._nav_goal_handle = None
         self._driving = False
         try:
             wrapped = future.result()
         except Exception as exc:
+            self._nav2_feedback("ERROR", **context, error=f"Nav2 result failed: {exc}")
             if self._cancelled:
                 self._finish_pending_cancel()
             else:
@@ -871,12 +801,10 @@ class RoxVda5050Adapter(Node):
                     f"Could not obtain Nav2 result for {self._nodes[index]['nodeId']}: {exc}",
                 )
             return
-        success = wrapped.status == GoalStatus.STATUS_SUCCEEDED
-        self._benchmark_emit(
-            "MOTION_COMPLETED",
-            result=f"Nav2 terminal status={wrapped.status}",
-            success=success,
-            details={"node_id": self._nodes[index]["nodeId"], "nav2_status": wrapped.status},
+        self._nav2_feedback(
+            "RESULT", **context, goal_id=goal_id, status=int(wrapped.status),
+            error_code=int(getattr(wrapped.result, "error_code", 0)),
+            error_msg=str(getattr(wrapped.result, "error_msg", "")),
         )
         if self._cancelled:
             self._finish_pending_cancel()
@@ -1334,8 +1262,6 @@ class RoxVda5050Adapter(Node):
                 self._publish_connection("OFFLINE")
                 time.sleep(0.1)
         finally:
-            if self._benchmark_logger is not None:
-                self._benchmark_logger.close()
             self._mqtt.loop_stop()
             self._mqtt.disconnect()
         return super().destroy_node()

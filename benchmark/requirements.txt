@@ -1,0 +1,5 @@
+# For offline checks and analysis; ROS dependencies come from Jazzy or Docker.
+paho-mqtt>=1.6,<3
+PyYAML>=6,<7
+jsonschema>=4,<5
+matplotlib>=3.6,<4

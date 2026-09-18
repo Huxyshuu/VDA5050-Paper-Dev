@@ -912,7 +912,7 @@ class DashboardController:
             self.events.append(event)
 
     def _benchmark_projection(self) -> Dict[str, Any]:
-        """Project cross-process benchmark events without comparing host clocks."""
+        """Project the three Pi timing events and one trial-outcome record."""
         source = self.ctx.get("BENCHMARK_EVENTS") if hasattr(self, "ctx") else None
         if source is None:
             raw_events: List[Dict[str, Any]] = []
@@ -950,17 +950,11 @@ class DashboardController:
                 if origin is not None and current >= origin
                 else None
             )
+            item["monotonic_ns"] = str(current)  # preserve nanoseconds in JavaScript
             projected.append(item)
 
-        required_native = {
-            "COMMAND_ISSUED",
-            "NATIVE_DISPATCH",
-            "NATIVE_ACK",
-            "MOTION_STARTED",
-            "MOTION_COMPLETED",
-            "RESULT_OBSERVED",
-        }
-        required_vda = required_native | {"MQTT_RECEIVED", "VDA_ACCEPTED"}
+        required_native = {"COMMAND_ISSUED", "NAV2_ACK_RECEIVED", "NAV2_RESULT_RECEIVED", "TRIAL_FINISHED"}
+        required_vda = required_native
         trial_status = []
         for trial_id, observed in sorted(by_trial.items()):
             architecture = next(
@@ -977,6 +971,12 @@ class DashboardController:
                     "trial_id": trial_id,
                     "architecture": architecture,
                     "complete": required.issubset(observed),
+                    "success": next((e.get("success") for e in reversed(raw_events)
+                                     if e.get("trial_id") == trial_id and e.get("event_type") == "TRIAL_FINISHED"), None),
+                    "ack_ms": next((e.get("elapsed_from_command_ms") for e in projected
+                                    if e.get("trial_id") == trial_id and e.get("event_type") == "NAV2_ACK_RECEIVED"), None),
+                    "completion_ms": next((e.get("elapsed_from_command_ms") for e in projected
+                                           if e.get("trial_id") == trial_id and e.get("event_type") == "NAV2_RESULT_RECEIVED"), None),
                     "missing": sorted(required - observed),
                 }
             )

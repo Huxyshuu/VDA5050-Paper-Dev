@@ -27,19 +27,15 @@ except ImportError:  # pragma: no cover - Windows fallback
     fcntl = None
 
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "2.0"
 EVENT_TYPES = {
     "COMMAND_ISSUED",
-    "MQTT_RECEIVED",
-    "VDA_ACCEPTED",
-    "NATIVE_DISPATCH",
-    "NATIVE_ACK",
-    "MOTION_STARTED",
-    "MOTION_COMPLETED",
-    "RESULT_OBSERVED",
+    "NAV2_ACK_RECEIVED",
+    "NAV2_RESULT_RECEIVED",
+    "TRIAL_FINISHED",
 }
 ARCHITECTURES = {"native", "vda", "setup"}
-DEVICES = {"rox", "crane", "cell"}
+DEVICES = {"rox"}
 
 
 def utc_now() -> str:
@@ -134,9 +130,10 @@ class ExperimentLogger:
         result: str = "",
         success: Optional[bool] = None,
         details: Optional[Mapping[str, Any]] = None,
+        captured_ns: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Capture one event at the call site and queue it for persistence."""
-        captured_ns = time.monotonic_ns()
+        captured_ns = time.monotonic_ns() if captured_ns is None else captured_ns
         captured_utc = utc_now()
         event_type = str(event_type).upper()
         architecture = str(architecture).lower()

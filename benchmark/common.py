@@ -69,8 +69,33 @@ class MqttSession:
         self.host = host
         self.port = port
         self.connected = threading.Event()
+        self.subscribed = threading.Condition()
+        self.subscription_results = {}
         self.error = ""
         self.client.on_connect = self._on_connect
+        self.client.on_disconnect = self._on_disconnect
+        self.client.on_subscribe = self._on_subscribe
+
+    def _on_disconnect(self, client, userdata, flags_or_rc, reason_code=None, properties=None):
+        self.error = "MQTT disconnected; stop the campaign and preserve this attempt"
+
+    def _on_subscribe(self, client, userdata, mid, reasons, properties=None):
+        with self.subscribed:
+            self.subscription_results[mid] = all(
+                not getattr(code, "is_failure", False)
+                and int(getattr(code, "value", code)) < 128 for code in reasons
+            )
+            self.subscribed.notify_all()
+
+    def subscribe(self, topic, qos=1, timeout=10.0):
+        rc, mid = self.client.subscribe(topic, qos=qos)
+        if rc != mqtt.MQTT_ERR_SUCCESS:
+            raise RuntimeError(f"MQTT subscription failed: {topic}")
+        with self.subscribed:
+            if not self.subscribed.wait_for(lambda: mid in self.subscription_results, timeout):
+                raise TimeoutError(f"No MQTT SUBACK for {topic}")
+            if not self.subscription_results.pop(mid):
+                raise RuntimeError(f"Broker rejected subscription: {topic}")
 
     def _on_connect(self, client, userdata, flags, rc, properties=None) -> None:
         # Paho 1.x passes an integer while Paho 2.x passes a ReasonCode.

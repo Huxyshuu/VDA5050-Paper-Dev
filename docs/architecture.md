@@ -1,95 +1,96 @@
-# Deployment Architecture
+# Architecture and measurement boundary
 
-## Component boundary
+## Normal operation
 
-```text
-Warehouse operator / case-study script
-                 |
-                 v
-Raspberry Pi fleet/master control
-                 |
-                 v
-          Mosquitto MQTT broker
-        VDA 5050 v3.0 JSON topics
-          /                    \
-         v                      v
-Crane VDA adapter          ROX VDA adapter
-Raspberry Pi / edge        ROX onboard ROS 2
-         |                      |
-       OPC UA              Nav2 + Neobotix stack
-         |                      |
-    Crane PLC/safety        ROX drivers/safety
+The Pi runs Mosquitto and the master/dashboard. ROX runs ROS 2, Nav2 and the
+VDA adapter. The crane PLC exposes OPC UA; its adapter and watchdog run on the
+Pi. Local controllers and physical safety systems remain responsible for motion.
+
+## Paper benchmark
+
+The dedicated Pi runner replaces the master as the command origin during a
+trial. Keep the master idle. It may display the runner's events. No benchmark
+runner, logger, clock service or measurement file is needed on ROX.
+
+```mermaid
+flowchart TB
+  subgraph PI["Raspberry Pi"]
+    P["Runner: t0, tACK, tDONE"]
+    B["Mosquitto"]
+    L["events.jsonl → CSV → statistics"]
+    U["Dashboard timing view"]
+    P --> L
+    P -->|VDA order| B
+    B -->|Nav2 response relay| P
+    P -->|Local event copies| U
+  end
+  subgraph ROX["ROX"]
+    A["VDA adapter: no timestamps"]
+    N["Nav2 NavigateToPose"]
+    A -->|Native goal| N
+    N -->|Goal acknowledgement and result| A
+  end
+  P -->|Native condition: ROS 2 goal| N
+  N -->|Native condition: ROS 2 replies| P
+  B -->|VDA condition: MQTT order| A
+  A -->|VDA condition: MQTT replies| B
 ```
 
-## Raspberry Pi
+Only one command path is used per trial. Both originate on the Pi, use the
+same target x/y/heading, and terminate at the same Nav2 action server. The
+VDA order contains a start node, one edge and a target node. The already-reached
+start node does not create an additional Nav2 goal.
 
-Runs:
+## Three timing events, one clock
 
-- Mosquitto;
-- `fleet_control/master_control.py`;
-- normally `crane_edge/crane_vda5050_adapter_v3.py`.
+| Symbol/event | Exact boundary | Captured by |
+|---|---|---|
+| t0 / `COMMAND_ISSUED` | After target/message preparation and validation, just before command submission | Pi runner |
+| tACK / `NAV2_ACK_RECEIVED` | Entry to the callback receiving the corresponding Nav2 goal response | Pi runner |
+| tDONE / `NAV2_RESULT_RECEIVED` | Entry to the callback receiving the corresponding terminal Nav2 result | Pi runner |
 
-Responsibilities:
+The native callbacks receive ROS 2 action responses. In the VDA condition, the
+ROX adapter receives those same kinds of responses and immediately publishes
+small notifications over MQTT. The receiving Pi callback records the time
+before decoding the payload. Notifications contain order/node IDs, the native
+goal UUID, accepted/rejected state or terminal status, and no timestamp.
 
-- stamp and publish orders;
-- publish standard and project-specific instant actions;
-- receive state/connection/factsheet messages;
-- cache order/action mappings;
-- coordinate the first crane/ROX rendezvous;
-- expose Flask UI/API and `/runtime` diagnostics.
+The notifications use the experiment topic
+`vda5050/benchmark/nav2/<manufacturer>/<serial>` and protocol `pi-nav2-v1`.
+They are **experimental feedback**, not standard VDA order acknowledgements.
+Standard VDA `state` continues unchanged. The 2 Hz state timer is not used to
+infer the benchmark's Nav2 acceptance or completion. Feedback QoS is 1 with
+retain disabled; command QoS remains the deployed adapter's 0. Duplicate
+feedback is ignored after correlation; conflicting feedback fails the trial.
 
-The Pi does not run Nav2 and does not need to join the robot ROS domain.
+Both durations use the Pi's `time.monotonic_ns()`:
 
-## Crane edge
+\[
+L_{ack}=(t_{ACK}-t_0)/10^6\quad\text{ms}
+\]
+\[
+T_{completion}=(t_{DONE}-t_0)/10^6\quad\text{ms}
+\]
 
-The existing crane adapter maps VDA actions to OPC UA/PLC calls and maps crane feedback to VDA state. The crane PLC and local safety functions remain authoritative.
+No clock synchronization or cross-computer subtraction is used. ROS goal
+timestamps are zero in both benchmark paths to request the latest transform;
+ROS header time is not an experimental duration clock.
 
-## ROX-Diff onboard computer
+`TRIAL_FINISHED` records a later endpoint/stationarity check or a failure.
+Its timestamp does not enter the two metrics. Final pose is checked through
+localization and odometry received by the Pi, not external metrology.
 
-Runs:
+## Interpretation for the paper
 
-- Neobotix `rox_bringup`;
-- Neobotix `rox_navigation` / Nav2;
-- this project's separate ROS overlay;
-- `rox_vda5050_adapter`.
+The paired effect is VDA minus native response time for an identical movement.
+It includes command transport, adapter processing, and the chosen response
+path. It does not isolate one-way network latency, broker time, adapter CPU
+time, or physical motion duration. Completion time includes the rotation and
+delivery of the terminal result. Nav2 success is a controller report; endpoint
+verification supplies an additional functional check.
 
-The adapter is the only bridge from the robot ROS graph to MQTT. It turns VDA nodes into Nav2 goals and turns TF/odometry/battery/safety feedback into VDA state.
-
-## Active topic roots
-
-```text
-vda5050/v3/konecranes/ilmatar_1/{order,instantActions,state,connection,factsheet}
-vda5050/v3/neobotix/rox_diff_1/{order,instantActions,state,connection,factsheet}
-```
-
-Most topics use QoS 0. `connection` uses QoS 1 and is retained, with a last will for unexpected disconnects.
-
-## Coordinate systems
-
-ROX uses ROS frames:
-
-```text
-map -> odom -> base_link
-```
-
-VDA order node positions use the same numerical `map` frame coordinates and a stable project-level `mapId`, `df_map`.
-
-The crane and ROX logical node IDs can match for orchestration (`node2`/`node2`) even though their physical coordinate models are different. The master pairs logical workflow states; it does not compare crane XY and robot XY directly.
-
-## Safety boundary
-
-VDA/MQTT/Flask orchestration is not safety-rated. The robot scanner/FlexiSoft/relayboard/controller and crane PLC/local safety remain authoritative. The master may enforce workflow gates, but those gates are additional orchestration logic rather than safety certification.
-
-## Current lab network
-
-```text
-Ilmatar private network
-  Raspberry Pi Wi-Fi: 192.168.0.116
-
-DTLabOpen
-  Raspberry Pi Ethernet: 192.168.50.115
-  Neobotix ROX-Diff:     192.168.50.50
-```
-
-The Pi and ROX-Diff communicate directly over DTLabOpen. The Pi hosts MQTT on `192.168.50.115:1883` and Flask on `192.168.50.115:5000`. No NAT or port-forwarding boundary exists between them. ROS 2 and Nav2 remain local to the ROX-Diff.
-
+This comparison removes the old, artificial ROX-runner → Pi-broker journey.
+It measures the Pi-origin command path relevant to a central controller, while
+excluding the Flask HTTP/UI and master scenario scheduling overhead. These
+boundaries must accompany reported numbers. Do not describe this as measuring
+the performance of every possible VDA implementation.

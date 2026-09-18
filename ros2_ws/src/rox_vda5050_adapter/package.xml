@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="3">
   <name>rox_vda5050_adapter</name>
-  <version>0.4.0</version>
+  <version>0.5.0</version>
   <description>VDA 5050 v3.0 MQTT/Nav2 adapter, waypoint tools, pose persistence and remote operator support for Neobotix ROX-Diff.</description>
   <maintainer email="saad.rana@aalto.fi">Saad Ahmed Rana</maintainer>
   <license>Apache-2.0</license>
