@@ -1,7 +1,7 @@
 image: df_map.pgm
 mode: trinary
 resolution: 0.030
-origin: [-10.222, -18.652, 0]
+origin: [-4.121, -21.007, 0]
 negate: 0
 occupied_thresh: 0.65
 free_thresh: 0.196
