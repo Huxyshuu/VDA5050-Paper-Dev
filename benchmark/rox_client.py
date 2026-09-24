@@ -33,7 +33,7 @@ class RoxRunner(Node):
         super().__init__("laptop_rox_benchmark")
         self.cfg, self.run_dir = cfg, run_dir
         self.measurement = None
-        self.handle = None
+        self._nav_goal_handle = None
         self.probe_id, self.ready = "", None
         self.ready_event = threading.Event()
         self.odom_received = 0
@@ -218,7 +218,7 @@ class RoxRunner(Node):
             goal_id = bytes(handle.goal_id.uuid).hex()
             m.ack(received_ns, bool(handle.accepted), goal_id)
             if handle.accepted:
-                self.handle = handle
+                self._nav_goal_handle = handle
                 handle.get_result_async().add_done_callback(lambda f: self._native_result(f, m, goal_id))
                 if m.error or m.finished:
                     handle.cancel_goal_async()
