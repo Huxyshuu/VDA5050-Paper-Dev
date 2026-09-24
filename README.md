@@ -1,28 +1,20 @@
 # VDA 5050 v3: ROX-Diff and Ilmatar
 
 This repository operates a ROX-Diff AMR and an overhead crane through a
-Raspberry Pi master. The paper benchmark compares direct ROS 2/Nav2 commands
-with VDA orders for the same 90-degree ROX rotation.
+Raspberry Pi master. The paper benchmark uses a separate laptop with native
+ROS 2 Jazzy as command origin and the only timing clock. Native commands go
+directly to ROX/Nav2 or the crane OPC UA interface. VDA orders go through the Pi
+broker and device adapters. Only one device/path is exercised per trial.
 
-**All benchmark commands, timestamps, logs and analysis now run on the Pi.**
-ROX runs its normal Nav2 stack and VDA adapter. The adapter relays Nav2
-acknowledgements and results; it does not record experiment timestamps.
-
-| Measurement | Start on Pi | End on Pi |
-|---|---|---|
-| Acknowledgement round trip | `COMMAND_ISSUED` | `NAV2_ACK_RECEIVED` |
-| Completion response time | `COMMAND_ISSUED` | `NAV2_RESULT_RECEIVED` |
-
-`TRIAL_FINISHED` records the later endpoint check or failure. It is not a third
-latency metric. Old ROX-clock pilot logs use a different measurement boundary
-and must remain separate from the new dataset.
+The two durations are command-to-acknowledgement and command-to-completion.
+All three timestamps come from the laptop. Old Pi/ROX-origin datasets are not
+compatible with this measurement boundary.
 
 ## Start here
 
 | Task | Guide |
 |---|---|
-| Install, run and analyse the Pi benchmark | [Pi benchmark](docs/PI_BENCHMARK.md) |
-| Understand the two paths and paper claims | [Architecture](docs/architecture.md) |
+| Paper timing architecture and executable commands | [LaTeX methods fragment](paper/measurement_architecture.tex) |
 | Start the existing robot, Pi and crane services | [Deployment](docs/deployment.md) |
 | ROX daily commands | [ROX commands](docs/ROX_COMMANDS.md) |
 | Update the map and dependent waypoints | [Remapping](docs/REMAP_AND_RECAPTURE_WAYPOINTS.md) |
@@ -38,7 +30,7 @@ and must remain separate from the new dataset.
 | `fleet_control/` | Pi master, dashboard, sequential handover |
 | `crane_edge/` | Crane adapter, OPC UA access and watchdog |
 | `ros2_ws/src/rox_vda5050_adapter/` | ROX adapter, waypoint and pose tools |
-| `benchmark/` | Pi runner, configuration, schedule and three timing events |
+| `benchmark/` | Laptop runner, configuration, schedule and three timing events |
 | `analysis/` | One-log CSV derivation, statistics and paper figures |
 | `configs/`, `schemas/`, `examples/` | Site settings and protocol definitions |
 | `deploy/`, `scripts/` | Installation and operational tools |
@@ -47,7 +39,7 @@ and must remain separate from the new dataset.
 The retired DBot stack, generated legacy workspaces, old map copy and historical
 update notes were removed from the working tree. Git history retains them.
 Current maps, waypoints, controllers, crane watchdogs and safety interlocks are
-preserved. See [revision details](docs/PI_REVISION.md).
+preserved.
 
 ## Offline verification
 
@@ -56,10 +48,8 @@ python3 -m pip install -r benchmark/requirements.txt
 bash scripts/run_static_checks.sh
 ```
 
-This does not command hardware. The Pi benchmark guide includes a separate
-read-only hardware check and a supervised pilot before the final campaign.
-
-The crane remains operational. Its previous experimental timer was retired:
-assigning a local target is not evidence that the PLC accepted a command.
-A crane measurement contract must be defined at the actual OPC UA/PLC boundary
-before extending this ROX dataset.
+This does not command hardware. Benchmark configuration is deliberately disabled
+until the laptop hostname, broker address and physical endpoints are verified.
+Use `python3 benchmark/latency_benchmark.py --help` for the shared ROX/crane CLI.
+Run a supervised pilot before the final campaign. The LaTeX fragment contains
+setup and analysis commands as comments; no separate benchmark guide is needed.

@@ -11,8 +11,8 @@ import jsonschema
 from analysis.derive_latency import derive, read_events, write_csv
 from benchmark.experiment_logger import ExperimentLogger
 from benchmark.generate_schedule import build_rows
-from benchmark.pi_measurement import Measurement
-from benchmark.rox_latency_benchmark import select_rows, validate_config
+from benchmark.measurement import Measurement
+from benchmark.latency_benchmark import select_rows, validate_config
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -23,10 +23,10 @@ class MemoryLogger:
 
     def emit(self, event_type, **kwargs):
         captured = kwargs.pop("captured_ns", None)
-        value = {"schema_version": "2.0", "event_type": event_type,
+        value = {"schema_version": "3.0", "event_type": event_type,
                  "monotonic_ns": captured if captured is not None else max([e['monotonic_ns'] for e in self.events] or [0])+100,
                  "host": "raspberrypi", "boot_id": "boot-1", "pid": 123,
-                 "source": "pi_runner", "config_id": "sha256:frozen", "git_commit": "abc",
+                 "source": "laptop_runner", "config_id": "sha256:frozen", "git_commit": "abc",
                  "timestamp_utc": "2026-09-15T00:00:00Z", **kwargs}
         self.events.append(value)
         return value
@@ -35,7 +35,7 @@ class MemoryLogger:
 def trial_events(row, ack_ms=10, completion_ms=5000):
     logger = MemoryLogger()
     m = Measurement(logger, row)
-    with patch("benchmark.pi_measurement.time.monotonic_ns", return_value=1_000_000_000):
+    with patch("benchmark.measurement.time.monotonic_ns", return_value=1_000_000_000):
         m.issue({"x": 1., "y": 2., "theta": 0.5})
     m.ack(1_000_000_000 + int(ack_ms*1e6), True, "ab"*16)
     m.result(1_000_000_000 + int(completion_ms*1e6), 4, "ab"*16)
@@ -50,7 +50,7 @@ class BenchmarkPipelineTests(unittest.TestCase):
     def test_logger_preserves_callback_entry_time_and_schema(self):
         with tempfile.TemporaryDirectory() as d:
             path = Path(d)/"events.jsonl"
-            logger = ExperimentLogger(path, repo_root=ROOT, source="pi_runner")
+            logger = ExperimentLogger(path, repo_root=ROOT, source="laptop_runner")
             m = Measurement(logger, self.schedule[0])
             m.issue({"x": 0, "y": 0, "theta": 0})
             m.ack(m.issued_ns+100, True, "ab"*16)
@@ -148,11 +148,20 @@ class BenchmarkPipelineTests(unittest.TestCase):
             p = Path(d)/'old.jsonl'; p.write_text('{"schema_version":"1.0"}\n')
             with self.assertRaises(ValueError): read_events([p])
 
-    def test_config_forbids_remote_broker(self):
+    def test_nonzero_native_error_cannot_be_a_success(self):
+        logger = MemoryLogger(); m = Measurement(logger, self.schedule[0]); m.issue({})
+        m.ack(m.issued_ns+100, True, 'ab'*16)
+        m.result(m.issued_ns+200, 4, 'ab'*16, error_code=1)
+        self.assertFalse(m.finish({'xy_error_m':0, 'theta_error_rad':0}))
+        self.assertEqual('failed', derive(logger.events)[0]['outcome'])
+
+    def test_config_allows_remote_broker_and_rejects_old_protocol(self):
         import yaml
         cfg = yaml.safe_load((ROOT/'benchmark/config/rox_benchmark.yaml').read_text())
         validate_config(cfg)
         cfg['mqtt']['host'] = '192.168.50.115'
+        validate_config(cfg)
+        cfg['measurement_protocol'] = 'pi-nav2-v1'
         with self.assertRaises(ValueError): validate_config(cfg)
 
 

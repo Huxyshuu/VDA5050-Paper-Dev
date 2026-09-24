@@ -60,7 +60,7 @@ def build_rows(device: str, pairs: int, seed: int, run_id: str = "", start_at: s
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--device", choices=("rox",), default="rox")
+    parser.add_argument("--device", choices=("rox", "crane"), default="rox")
     parser.add_argument("--pairs", type=int, default=30)
     parser.add_argument("--seed", type=int, required=True)
     parser.add_argument("--output", type=Path, required=True)

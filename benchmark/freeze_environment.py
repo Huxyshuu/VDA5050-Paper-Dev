@@ -88,7 +88,7 @@ def main() -> None:
         "command_evidence": commands,
         "notes": [
             "No credentials or access codes are recorded.",
-            "UTC is human-readable context; only Pi monotonic_ns differences are measured.",
+            "UTC is human-readable context; only laptop monotonic_ns differences are measured.",
         ],
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)

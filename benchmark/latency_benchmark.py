@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare, check and run the entire ROX campaign from the Raspberry Pi."""
+"""Prepare, check and run the ROX or crane campaigns from the laptop."""
 from __future__ import annotations
 
 import argparse
@@ -12,6 +12,7 @@ import os
 import socket
 import sys
 import tarfile
+from importlib.metadata import version, PackageNotFoundError
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,18 +20,24 @@ sys.path.insert(0, str(ROOT))
 from benchmark.common import load_config, normalize_angle
 from benchmark.experiment_logger import config_identifier, git_commit, utc_now
 from benchmark.generate_schedule import build_rows
-from benchmark.pi_measurement import PROTOCOL
+from benchmark.measurement import PROTOCOL
 
 
 def validate_config(cfg):
-    if cfg.get("schema_version") != 2 or cfg.get("measurement_protocol") != PROTOCOL:
-        raise ValueError("Use the Pi schema_version: 2 configuration; old ROX-clock configs are retired")
-    if cfg.get("device") != "rox" or not cfg.get("runner_hostname"):
-        raise ValueError("Set device: rox and runner_hostname to the Pi hostname")
-    if cfg["mqtt"]["host"] not in {"127.0.0.1", "localhost", "::1"}:
-        raise ValueError("Use the Pi's LOCAL broker: mqtt.host: 127.0.0.1")
+    if cfg.get("schema_version") != 3 or cfg.get("measurement_protocol") != PROTOCOL:
+        raise ValueError("Use laptop schema_version: 3; previous clock/protocol campaigns must remain separate")
+    if cfg.get("device") not in {"rox", "crane"} or not cfg.get("runner_hostname"):
+        raise ValueError("Set device: rox/crane and runner_hostname to the laptop hostname")
+    if not cfg["mqtt"].get("host"):
+        raise ValueError("Set mqtt.host to the Raspberry Pi broker address")
     if cfg["mqtt"]["qos"] != 0:
         raise ValueError("This adapter uses order QoS 0 and feedback QoS 1")
+    if cfg["device"] == "crane":
+        from crane_edge.hoist_benchmark import validate_motion
+        validate_motion(cfg["hoist"])
+        if not cfg.get("opcua_url", "").startswith("opc.tcp://"):
+            raise ValueError("Set opcua_url to the PLC endpoint")
+        return
     for group in ("position", "headings", "tolerances", "timeouts", "readiness"):
         for key, value in cfg[group].items():
             if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
@@ -44,16 +51,23 @@ def validate_config(cfg):
 
 def source_fingerprint():
     files = sorted(p for directory in (ROOT/"benchmark", ROOT/"analysis",
-                   ROOT/"ros2_ws/src/rox_vda5050_adapter", ROOT/"schemas")
-                   for p in directory.rglob("*") if p.is_file() and p.suffix in {".py", ".json", ".schema", ".yaml", ".xml"})
-    files += [ROOT/"scripts/pi_benchmark.sh", ROOT/"deploy/pi-benchmark.Dockerfile"]
+                   ROOT/"ros2_ws/src/rox_vda5050_adapter", ROOT/"schemas", ROOT/"crane_edge")
+                   for p in directory.rglob("*") if p.is_file() and not any(part in {"__pycache__", ".venv", "runtime", "logs"} or "venv" in part for part in p.relative_to(ROOT).parts)
+                   and (p.suffix in {".py", ".json", ".schema", ".yaml", ".xml"} or p.name == "requirements.txt"))
     return {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in files}
 
 
 def client_environment():
-    return {key: os.getenv(key, "") for key in
+    result = {key: os.getenv(key, "") for key in
             ("ROS_DISTRO", "ROS_DOMAIN_ID", "RMW_IMPLEMENTATION", "ROS_AUTOMATIC_DISCOVERY_RANGE",
              "ROS_LOCALHOST_ONLY", "ROS_STATIC_PEERS", "CYCLONEDDS_URI")}
+    result["python"] = sys.version
+    for package in ("paho-mqtt", "jsonschema", "PyYAML", "asyncua", "numpy", "scipy"):
+        try:
+            result[package] = version(package)
+        except PackageNotFoundError:
+            result[package] = "not-installed"
+    return result
 
 
 def read_schedule(path):
@@ -71,7 +85,7 @@ def prepare(args):
     name = args.run_dir.name
     if not name or any(c not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-" for c in name):
         raise ValueError("Run directory name must contain only letters, digits, underscore or hyphen")
-    rows = build_rows("rox", args.pairs, args.seed, run_id=name, start_at=args.start_at)
+    rows = build_rows(cfg["device"], args.pairs, args.seed, run_id=name, start_at=args.start_at)
     args.run_dir.mkdir(parents=True, exist_ok=False)
     (args.run_dir / "config.yaml").write_bytes(args.config.read_bytes())
     with (args.run_dir / "schedule.csv").open("x", newline="") as stream:
@@ -87,26 +101,28 @@ def prepare(args):
         "client_environment": client_environment(),
     }, indent=2) + "\n")
     with tarfile.open(args.run_dir / "source.tar.gz", "w:gz") as archive:
-        for directory in ("benchmark", "analysis", "ros2_ws/src/rox_vda5050_adapter", "schemas",
-                          "scripts/pi_benchmark.sh", "deploy/pi-benchmark.Dockerfile"):
-            archive.add(ROOT/directory, arcname=directory,
-                        filter=lambda t: None if "__pycache__" in t.name or t.name.endswith(".pyc") else t)
+        # Archive only the source/config files in the fingerprint. Never recurse
+        # into runtime logs, virtual environments, or crane access.txt credentials.
+        for filename in source_fingerprint():
+            archive.add(ROOT/filename, arcname=filename)
     print(f"Prepared {args.run_dir}: {args.pairs*2} measured trials + {args.pairs} excluded resets")
 
 
 def verify_run(run_dir):
     manifest = json.loads((run_dir / "manifest.json").read_text())
+    if manifest.get("protocol") != PROTOCOL:
+        raise ValueError("Campaign uses a different measurement protocol")
     for file, key in (("config.yaml", "config_id"), ("schedule.csv", "schedule_id")):
         if config_identifier(run_dir/file) != manifest[key]:
             raise ValueError(f"Frozen {file} changed; create a new campaign")
     if source_fingerprint() != manifest["source_files"]:
         raise ValueError("Source changed since prepare; use a new campaign")
     if client_environment() != manifest["client_environment"]:
-        raise ValueError("Pi ROS environment changed since prepare; restore it or create a new campaign")
+        raise ValueError("Laptop client environment changed since prepare; restore it or create a new campaign")
     cfg = load_config(run_dir / "config.yaml")
     validate_config(cfg)
     if socket.gethostname() != cfg["runner_hostname"]:
-        raise ValueError(f"Run on Pi {cfg['runner_hostname']!r}; this host is {socket.gethostname()!r}")
+        raise ValueError(f"Run on laptop {cfg['runner_hostname']!r}; this host is {socket.gethostname()!r}")
     return cfg
 
 
@@ -142,8 +158,8 @@ def main():
     create.add_argument("--run-dir", type=Path, required=True)
     create.add_argument("--pairs", type=int, default=30)
     create.add_argument("--seed", type=int, required=True)
-    create.add_argument("--start-at", choices=("A", "B"), default="A", help="Current verified heading; frozen into schedule")
-    check = commands.add_parser("check", help="Pi DDS/MQTT and start-pose checks; no motion")
+    create.add_argument("--start-at", choices=("A", "B"), default="A", help="Current verified endpoint; frozen into schedule")
+    check = commands.add_parser("check", help="Laptop connections and start-pose checks; no motion")
     check.add_argument("--run-dir", type=Path, required=True)
     run = commands.add_parser("run", help="Run next rows under operator supervision")
     run.add_argument("--run-dir", type=Path, required=True)
@@ -157,7 +173,7 @@ def main():
         prepare(args)
         return
     (ROOT / "runtime").mkdir(exist_ok=True)
-    with (ROOT / "runtime/pi_benchmark.lock").open("a") as lock:
+    with (ROOT / "runtime/laptop_benchmark.lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         cfg = verify_run(args.run_dir)
         rows = read_schedule(args.run_dir / "schedule.csv")
@@ -165,19 +181,20 @@ def main():
         path = args.run_dir / "events.jsonl"
         events = read_events([path]) if path.exists() else []
         selected = select_rows(rows, events, getattr(args, "start_row", None), getattr(args, "end_row", None))
-        try:
+        rclpy = None
+        if cfg["device"] == "rox":
             import rclpy
-            from benchmark.pi_ros import PiRunner
-        except ImportError as exc:
-            raise SystemExit(f"Pi needs ROS Jazzy: {exc}. See docs/PI_BENCHMARK.md")
-        rclpy.init()
+            from benchmark.rox_client import RoxRunner as Runner
+            rclpy.init()
+        else:
+            from benchmark.crane_client import CraneRunner as Runner
         node = None
         try:
-            node = PiRunner(cfg, args.run_dir)
+            node = Runner(cfg, args.run_dir)
             if args.command == "check":
                 ready = node.preflight()
                 node.wait_pose(selected[0]["start"])
-                print("PASS: Pi DDS, local MQTT, adapter feedback, fresh pose and stationary ROX")
+                print("PASS: laptop connections, adapter feedback and stationary start endpoint")
                 print(json.dumps(ready, indent=2))
                 (args.run_dir / "adapter_readiness.json").write_text(json.dumps(ready, indent=2)+"\n")
             else:
@@ -185,12 +202,13 @@ def main():
                     if not node.run_trial(row):
                         raise RuntimeError("Trial failed; campaign stopped")
         except BaseException:
-            print("STOPPED. Preserve events.jsonl. Verify ROX has stopped before further commands.", file=sys.stderr)
+            print("STOPPED. Preserve events.jsonl. Verify the device has stopped before further commands.", file=sys.stderr)
             raise
         finally:
             if node is not None:
                 node.close()
-            rclpy.shutdown()
+            if rclpy is not None:
+                rclpy.shutdown()
 
 
 if __name__ == "__main__":

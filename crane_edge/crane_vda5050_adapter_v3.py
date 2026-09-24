@@ -1044,6 +1044,10 @@ class VDA5050Adapter:
         self.feed_gate = feed_gate
         self.diagnostics = diagnostics
         self.header = HeaderCounter()
+        self.benchmark = None
+        if os.getenv("CRANE_BENCHMARK_CONFIG"):
+            from crane_edge.benchmark_bridge import CraneBenchmark
+            self.benchmark = CraneBenchmark(self, os.environ["CRANE_BENCHMARK_CONFIG"], MANUFACTURER, SERIAL_NUMBER)
         self._motion_diag_lock = threading.RLock()
         self._motion_last_positions: Optional[Tuple[int, int, int]] = None
         self._motion_started_monotonic: Optional[float] = None
@@ -1202,6 +1206,10 @@ class VDA5050Adapter:
             )
             if result != mqtt.MQTT_ERR_SUCCESS:
                 raise RuntimeError(f"MQTT subscribe failed rc={result}")
+            if self.benchmark:
+                rc, _ = client.subscribe(self.benchmark.topic + "/probe", qos=1)
+                if rc != mqtt.MQTT_ERR_SUCCESS:
+                    raise RuntimeError("Benchmark probe subscription failed")
             self.log.info("Subscribed to %s/{order,instantActions}", TOPIC_ROOT)
             online = self._connection_msg("ONLINE")
             if not self._validate("connection", online):
@@ -1312,6 +1320,10 @@ class VDA5050Adapter:
         if self._order_active or not self._order_queue.empty():
             return "Crane is already executing or has a queued order; cancel it first"
         for node in nodes:
+            # Opt-in hoist benchmark is action-only, with no XY navigation.
+            # Its exact shape and reservation are checked before queue insertion.
+            if getattr(self, "benchmark", None) and "nodePosition" not in node:
+                continue
             position = node.get("nodePosition") or {}
             if str(position.get("mapId", "")) != DEFAULT_MAP_ID:
                 return (
@@ -1341,6 +1353,15 @@ class VDA5050Adapter:
             return
 
 
+        if not isinstance(payload, dict) or msg.retain:
+            return
+        benchmark = getattr(self, "benchmark", None)
+        if benchmark and topic == benchmark.topic + "/probe":
+            try:
+                benchmark.probe(payload)
+            except Exception as exc:
+                self.log.error("Benchmark probe failed: %s", exc)
+            return
         self.log.info("MQTT rx on %s (bytes=%d)", topic, len(msg.payload))
         if not self._header_matches_identity(payload):
             self.log.error("Rejected message with mismatched version/manufacturer/serialNumber")
@@ -1356,7 +1377,15 @@ class VDA5050Adapter:
                     )
                     self.log.error("Order rejected: %s", reason)
                     self._set_order_error(payload, error_type, reason)
+                    if benchmark:
+                        benchmark.send("ERROR", order_id=str(payload.get("orderId", "")), error=reason)
                     return
+                if benchmark:
+                    try:
+                        benchmark.validate_order(payload)
+                    except (ValueError, KeyError, TypeError) as exc:
+                        benchmark.send("ERROR", order_id=str(payload.get("orderId", "")), error=str(exc))
+                        return
                 self._clear_order_errors(str(payload.get("orderId", "")))
                 self._order_queue.put(payload)
                 self.log.info(
@@ -1368,6 +1397,9 @@ class VDA5050Adapter:
         elif topic.endswith("/instantActions"):
             if self._validate("instantActions", payload):
                 actions = payload.get("actions", []) or []
+                if benchmark and any(a.get("actionType") != "cancelOrder" for a in actions):
+                    self.log.error("Only cancellation is allowed during exclusive crane benchmark mode")
+                    return
                 n = len(actions)
                 # cancelOrder is a safety interrupt. Latch cancellation and STOP
                 # immediately even when the executor is inside a long reset/home
@@ -1415,6 +1447,8 @@ class VDA5050Adapter:
         self._start_thread(self._publish_state_task, name="state_pub")
         self._start_thread(self._publish_visualization_task, name="visu_pub")
         self._start_thread(self._order_executor_task, name="executor")
+        if self.benchmark:
+            self._start_thread(self.benchmark.guard, name="benchmark_guard")
         self.feed_gate.activate_runtime()
 
     def stop(self):
@@ -2037,6 +2071,9 @@ class VDA5050Adapter:
 
     def _execute_order(self, order_msg: Dict[str, Any]):
         """Execute nodes sequentially (edges ignored)."""
+        if getattr(self, "benchmark", None):
+            self.benchmark.run(order_msg)
+            return
         self._cancel.clear()
         order_id = order_msg.get("orderId")
         update_id = order_msg.get("orderUpdateId")

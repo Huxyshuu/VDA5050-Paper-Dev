@@ -45,6 +45,8 @@ def main() -> int:
         ROOT / "fleet_control" / "crane_manual_controls.py",
         ROOT / "fleet_control" / "sequential_cell_scenario.py",
         ROOT / "crane_edge" / "crane.py",
+        ROOT / "crane_edge" / "hoist_benchmark.py",
+        ROOT / "crane_edge" / "benchmark_bridge.py",
         ROOT / "crane_edge" / "network_diagnostics.py",
         ROOT / "crane_edge" / "watchdog_session.py",
         ROOT / "crane_edge" / "crane_vda5050_adapter_v3.py",

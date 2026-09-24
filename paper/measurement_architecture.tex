@@ -1,0 +1,111 @@
+% Insert into the manuscript with \input{paper/measurement_architecture}.
+% No extra LaTeX packages are required by this fragment.
+\subsection{Comparison Architecture and Timing Boundary}
+\label{subsec:laptop_timing}
+A laptop running ROS~2 Jazzy issues every experimental command and records
+all timing events using its local monotonic clock. For the ROX-Diff, the
+native path is laptop--ROS~2/DDS--Nav2 on ROX. The standardized path is
+laptop--MQTT broker on the Raspberry Pi--VDA~5050 adapter on ROX--the same
+Nav2 action server. For the crane, the native laptop accesses the crane's
+OPC~UA server directly; the standardized path passes through the Pi broker
+and the crane adapter on the Pi before accessing that same OPC~UA server.
+The Pi retains its existing crane watchdog in both conditions. The normal
+master remains idle; its dashboard may display copies of the laptop's events.
+No ROS client container or SSH command launcher is part of these paths.
+
+For each trial, the laptop records command submission $t_0$, acknowledgement
+receipt $t_{\mathrm{ack}}$, and completion receipt $t_{\mathrm{completion}}$:
+\begin{equation}
+T_{\mathrm{ack}}=t_{\mathrm{ack}}-t_0,\qquad
+T_{\mathrm{completion}}=t_{\mathrm{completion}}-t_0.
+\end{equation}
+Connections, payload construction, validation and
+start-position checks occur before $t_0$; submission, serialization and
+communication occur within the measured interval. ROS and MQTT response
+callbacks capture time on entry, before decoding or logging their payload.
+The native crane client records the corresponding local API return. No
+remote timestamp is subtracted and synchronized device clocks are unnecessary.
+
+For ROX, acknowledgement means the actual Nav2 goal response, and completion
+means its terminal action result. In the VDA condition, the adapter forwards
+these responses immediately on a dedicated experimental MQTT feedback topic,
+with order identifiers and the Nav2 goal UUID. This feedback is instrumentation,
+not a standard VDA~5050 acknowledgement, and its serialization and return
+transport are included. Periodic VDA state publication is not used as a proxy
+for Nav2 acceptance or completion.
+
+The crane executes the same bounded hoist routine in both conditions: directly
+on the laptop for native operation and inside the Pi adapter for VDA operation.
+Acknowledgement follows successful return of the first OPC~UA motion-write
+batch, not local target assignment. Completion follows target attainment,
+STOP, and a configured interval of stationary feedback. This is an
+application-level completion criterion, not a PLC action-result message.
+A benchmark reservation prevents overlapping adapter commands; a heartbeat
+lease cancels the experiment if the laptop disappears. The existing watchdog,
+manual enable and physical safety controls remain independent. These differing
+ROX and crane acknowledgement semantics are reported separately.
+
+Matched pairs use the same verified starting endpoint, target, motion routine,
+controller settings and network arrangement, randomizing native/VDA order.
+A return-to-start movement between treatments is logged as setup and excluded
+from timing summaries. Independent endpoint verification follows the measured
+completion event; failures and timeouts remain in the dataset. For either
+metric $k\in\{\mathrm{ack},\mathrm{completion}\}$, the paired difference is
+\begin{equation}
+\Delta T_{k,i}=T_{k,i}^{\mathrm{VDA}}-T_{k,i}^{\mathrm{native}}.
+\end{equation}
+Report successful/scheduled counts, mean and sample standard deviation,
+median and interquartile range, and paired effects with bootstrap confidence
+intervals. Upper-tail estimates from small pilot samples are descriptive only.
+The comparison measures deployed architecture response times, including
+transport, adapter queuing, processing and feedback. For the crane it also
+includes the placement of its OPC~UA polling loop on the laptop versus Pi.
+It does not isolate adapter CPU cost, one-way latency or pure physical motion
+duration, and does not establish complete-handover throughput.
+
+% Executable setup notes (not printed in the paper):
+% Apply the patch on laptop, Pi and ROX. Rebuild the ROX adapter on ROX:
+%   cd ros2_ws
+%   colcon build --packages-select rox_vda5050_adapter --symlink-install
+% Restart its usual launch command after sourcing install/setup.bash.
+% Restart the Pi master to display schema-3 laptop events. Keep missions idle.
+%
+% Laptop, repository root (use the same ROS_DOMAIN_ID/RMW as ROX):
+%   source /opt/ros/jazzy/setup.bash
+%   python3 -m venv --system-site-packages .venv-benchmark
+%   source .venv-benchmark/bin/activate
+%   python3 -m pip install -r benchmark/requirements.txt
+%   python3 -m unittest discover -s tests -v
+%   python3 benchmark/logger_overhead.py --output logger-overhead.json
+% Set benchmark/config/rox_benchmark.yaml runner_hostname from `hostname`,
+% mqtt.host to Pi, and verified map/pose/headings; then configured: true.
+% Use a NEW unique run-directory name every time (old clock data incompatible).
+%   python3 benchmark/latency_benchmark.py prepare --config benchmark/config/rox_benchmark.yaml --run-dir runs/rox-pilot-laptop --pairs 5 --seed 5050
+%   python3 benchmark/latency_benchmark.py check --run-dir runs/rox-pilot-laptop
+%   python3 benchmark/latency_benchmark.py run --run-dir runs/rox-pilot-laptop --end-row 1
+% Inspect the physical endpoint and log before continuing under supervision:
+%   python3 benchmark/latency_benchmark.py run --run-dir runs/rox-pilot-laptop
+% The next unattempted row is selected automatically; failed attempts stop a campaign.
+% Five pairs generate 10 measured movements + 5 excluded reset movements.
+%
+% Crane: verify benchmark/config/crane_benchmark.yaml values at Ilmatar first.
+% Copy that exact configured file to Pi; in the crane adapter service environment:
+%   CRANE_BENCHMARK_CONFIG=/absolute/path/to/benchmark/config/crane_benchmark.yaml
+% Restart the existing crane adapter/watchdog service with that environment.
+% Leave its existing URL/access-code/watchdog settings intact. The laptop needs
+% direct network access to the PLC URL; it never sends watchdog/access-code writes.
+% Unset CRANE_BENCHMARK_CONFIG and restart after tests to restore ordinary orders.
+% Prepare/check/run using the SAME CLI with --config benchmark/config/crane_benchmark.yaml
+% and a distinct --run-dir runs/crane-pilot-laptop. No ROS installation needed on Pi.
+%
+% Analysis, on laptop, for either campaign (replace run directory as appropriate):
+%   python3 analysis/derive_latency.py runs/rox-pilot-laptop/events.jsonl --schedule runs/rox-pilot-laptop/schedule.csv --output runs/rox-pilot-laptop/trials.csv
+%   python3 analysis/statistics.py runs/rox-pilot-laptop/trials.csv --output-dir runs/rox-pilot-laptop/results
+% Outputs: trials.csv, latency_summary.csv, paired_differences.csv,
+% trial_accounting.csv, latency_summary_table.tex, latency_comparison.pdf/png.
+% Freeze environment evidence before the final campaign:
+%   python3 benchmark/freeze_environment.py --config benchmark/config/rox_benchmark.yaml --output runs/rox-pilot-laptop/environment.json --network-note "Laptop to Pi broker and ROX/PLC; record wired/Wi-Fi links"
+% Run freeze_environment.py on Pi too to capture its broker/crane environment;
+% retain both files with the campaign. Record PLC version and Nav2 configuration.
+% After pilot review, prepare a NEW run with --pairs 30 and a prespecified seed.
+% 30 pairs generate 60 measured movements + 30 excluded resets per device.

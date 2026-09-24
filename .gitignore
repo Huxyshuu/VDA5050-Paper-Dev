@@ -46,3 +46,7 @@ benchmark/schedules/
 crane_edge/access.txt
 access.txt
 accesscode_url.txt
+
+# Laptop benchmark environment and immutable campaign evidence
+.venv-benchmark/
+runs/

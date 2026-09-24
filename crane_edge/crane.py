@@ -34,6 +34,7 @@ class Crane(object):
         self._max_total_duration_ms = 0.0
         self._slow_warn_ms = max(0.0, float(slow_warn_ms))
         self._slow_critical_ms = max(self._slow_warn_ms, float(slow_critical_ms))
+        self.endpoint_url = clientaddress
         self.client = Client(clientaddress)
         self._run_io("connect", "connect", self.client.connect)
         self._global_speed_scale = 1.0  # NEW: 0.0 ... 1.0 multiplier applied to all set_*_speed()

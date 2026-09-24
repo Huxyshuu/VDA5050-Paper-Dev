@@ -4,18 +4,18 @@ Start the existing master with `bash scripts/run_master_control.sh` and open
 the Pi on port 5000. The dashboard operates named waypoint missions, displays
 the occupancy map and device states, and runs the supervised handover sequence.
 
-## Pi command timing
+## Laptop command timing
 
-The dedicated panel receives copies of events already timestamped by the Pi
+The dedicated panel receives copies of events already timestamped by the laptop
 runner. It displays the raw monotonic nanoseconds, elapsed milliseconds from
 command submission, trial ID, condition and outcome. Latest acknowledgement
 and completion values are shown above the timeline.
 
 | Event | Meaning |
 |---|---|
-| `COMMAND_ISSUED` | Pi submits a prepared native goal or VDA order |
-| `NAV2_ACK_RECEIVED` | Pi receives Nav2's acceptance/rejection response |
-| `NAV2_RESULT_RECEIVED` | Pi receives Nav2's terminal result |
+| `COMMAND_ISSUED` | Laptop submits a prepared native goal or VDA order |
+| `COMMAND_ACK_RECEIVED` | Laptop receives the device acknowledgement |
+| `COMMAND_RESULT_RECEIVED` | Laptop receives the device completion response |
 | `TRIAL_FINISHED` | Endpoint verification or failure accounting, outside timing |
 
 The UI polls at its normal rate. Polling affects when a value becomes visible,
@@ -25,8 +25,8 @@ missions while the runner is controlling ROX.
 
 `/api/benchmark/events` supplies the display projection. The panel's JSONL
 export is only the bounded in-memory view; restart or clearing can remove
-display history. The complete research record is `events.jsonl` in the Pi run
-directory. Use [the benchmark analysis commands](PI_BENCHMARK.md) for CSV and
+display history. The complete research record is `events.jsonl` in the laptop run
+directory. Use [the LaTeX methods and command comments](../paper/measurement_architecture.tex) for CSV and
 statistics. No benchmark toggle on ROX is required.
 
 ## Other dashboard features

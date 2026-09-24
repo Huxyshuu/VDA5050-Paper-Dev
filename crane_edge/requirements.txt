@@ -4,3 +4,4 @@ requests>=2.31,<3
 asyncua>=1.1,<2
 numpy>=1.24
 scipy>=1.10
+PyYAML>=6,<7

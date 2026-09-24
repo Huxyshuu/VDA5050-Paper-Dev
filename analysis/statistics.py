@@ -219,7 +219,7 @@ def write_figure(path: Path, rows: List[Dict[str, str]]) -> None:
             axis.boxplot(values, showfliers=True)
             axis.set_xticks([1, 2], ["Native", "VDA"])
             axis.set_title(metric.replace("_round_trip_ms", "").replace("_", " ").title())
-            axis.set_ylabel("Pi-observed response time (ms)")
+            axis.set_ylabel("Laptop-observed response time (ms)")
             axis.grid(axis="y", alpha=0.25)
         row_axes[0].annotate(
             device.upper(), xy=(-0.38, 0.5), xycoords="axes fraction", rotation=90,

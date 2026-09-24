@@ -1,7 +1,7 @@
-schema_version: 2
-measurement_protocol: pi-nav2-v1
-runner_hostname: raspberrypi
-configured: true
+schema_version: 3
+measurement_protocol: laptop-timing-v1
+runner_hostname: SET_LAPTOP_HOSTNAME
+configured: false
 device: rox
 map_id: df_map
 position:
@@ -25,7 +25,7 @@ timeouts:
   command_s: 90.0
   endpoint_s: 5.0
 mqtt:
-  host: 127.0.0.1
+  host: 192.168.50.115
   port: 1883
   qos: 0
 vda:

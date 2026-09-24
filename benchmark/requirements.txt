@@ -1,5 +1,10 @@
-# For offline checks and analysis; ROS dependencies come from Jazzy or Docker.
+# For offline checks and analysis; ROS dependencies come from native Jazzy on the laptop.
 paho-mqtt>=1.6,<3
 PyYAML>=6,<7
 jsonschema>=4,<5
 matplotlib>=3.6,<4
+
+# Crane native path uses the same API as the Pi adapter.
+asyncua>=1,<2
+numpy>=1.24
+scipy>=1.10

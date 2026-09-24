@@ -1,7 +1,8 @@
-"""ROS 2 and MQTT clients on the Pi. ROX runs only Nav2 and its normal adapter."""
+"""ROS 2 and MQTT clients on the laptop. ROX runs only Nav2 and its normal adapter."""
 from __future__ import annotations
 
 import json
+import hashlib
 import math
 import threading
 import time
@@ -22,14 +23,14 @@ from unique_identifier_msgs.msg import UUID
 
 from benchmark.common import MqttSession, normalize_angle, utc_now
 from benchmark.experiment_logger import ExperimentLogger, config_identifier, publish_json_event
-from benchmark.pi_measurement import EVENT_TOPIC, PROTOCOL, Measurement, feedback_topic
+from benchmark.measurement import EVENT_TOPIC, PROTOCOL, Measurement, feedback_topic
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-class PiRunner(Node):
+class RoxRunner(Node):
     def __init__(self, cfg, run_dir):
-        super().__init__("pi_rox_benchmark")
+        super().__init__("laptop_rox_benchmark")
         self.cfg, self.run_dir = cfg, run_dir
         self.measurement = None
         self.handle = None
@@ -50,10 +51,10 @@ class PiRunner(Node):
                                    ("interface_name", "major_version", "manufacturer", "serial_number"))
         self.feedback = feedback_topic(cfg["vda"]["manufacturer"], cfg["vda"]["serial_number"])
         mqtt = cfg["mqtt"]
-        self.mqtt = MqttSession(mqtt["host"], int(mqtt["port"]), "pi-benchmark-" + uuid.uuid4().hex[:12])
+        self.mqtt = MqttSession(mqtt["host"], int(mqtt["port"]), "laptop-benchmark-" + uuid.uuid4().hex[:12])
         self.mqtt.client.on_message = self._feedback
         self.logger = ExperimentLogger(
-            run_dir / "events.jsonl", repo_root=ROOT, source="pi_runner",
+            run_dir / "events.jsonl", repo_root=ROOT, source="laptop_runner",
             config_id=config_identifier(run_dir / "config.yaml"),
             publisher=publish_json_event(self.mqtt.client, EVENT_TOPIC),
         )
@@ -82,7 +83,7 @@ class PiRunner(Node):
             self.tf_received[transform.child_frame_id.lstrip("/")] = now
 
     def _feedback(self, client, userdata, message):
-        received_ns = time.monotonic_ns()  # FIRST action in the Pi MQTT callback
+        received_ns = time.monotonic_ns()  # FIRST action in the Laptop MQTT callback
         if message.retain:
             return
         try:
@@ -121,9 +122,9 @@ class PiRunner(Node):
 
     def preflight(self):
         if bool(self.get_parameter("use_sim_time").value):
-            raise RuntimeError("Pi runner must use real hardware, not use_sim_time")
+            raise RuntimeError("Laptop runner must use real hardware, not use_sim_time")
         if not self.nav.wait_for_server(timeout_sec=self.cfg["timeouts"]["nav2_server_s"]):
-            raise RuntimeError("Pi cannot reach NavigateToPose over DDS. Check ROS_DOMAIN_ID, RMW and networking")
+            raise RuntimeError("Laptop cannot reach NavigateToPose over DDS. Check ROS_DOMAIN_ID, RMW and networking")
         self.probe_id = uuid.uuid4().hex
         self.ready, self.ready_event = None, threading.Event()
         self.mqtt.publish_json(self.feedback + "/probe",
@@ -134,22 +135,23 @@ class PiRunner(Node):
                     "nav2_action": self.cfg["ros"]["navigate_to_pose_action"],
                     "map_frame": self.cfg["ros"]["map_frame"],
                     "base_frame": self.cfg["ros"]["base_frame"], "map_id": self.cfg["map_id"],
-                    "order_qos": 0, "feedback_qos": 1}
+                    "order_qos": 0, "feedback_qos": 1,
+                    "adapter_sha256": hashlib.sha256((ROOT/"ros2_ws/src/rox_vda5050_adapter/rox_vda5050_adapter/rox_vda5050_adapter.py").read_bytes()).hexdigest()}
         for key, value in expected.items():
             if self.ready.get(key) != value:
                 raise RuntimeError(f"Adapter preflight {key}: expected {value!r}, got {self.ready.get(key)!r}")
         if not self.logger.flush() or self.logger.error:
-            raise RuntimeError("Pi logger is not writable: " + str(self.logger.error))
+            raise RuntimeError("Laptop logger is not writable: " + str(self.logger.error))
         return self.ready
 
     def pose(self):
         now = time.monotonic()
         ros, limits = self.cfg["ros"], self.cfg["readiness"]
         if now - self.odom_received > limits["freshness_s"]:
-            raise RuntimeError("No fresh odometry received on Pi")
+            raise RuntimeError("No fresh odometry received on laptop")
         for child in (ros["odom_frame"], ros["base_frame"]):
             if now - self.tf_received.get(child.lstrip("/"), 0) > limits["freshness_s"]:
-                raise RuntimeError(f"No fresh /tf updates for {child} received on Pi")
+                raise RuntimeError(f"No fresh /tf updates for {child} received on laptop")
         t = self.tf.lookup_transform(ros["map_frame"], ros["base_frame"], rclpy.time.Time())
         p, q = t.transform.translation, t.transform.rotation
         if not all(math.isfinite(v) for v in (p.x, p.y, q.x, q.y, q.z, q.w, *self.velocity)):
@@ -204,13 +206,13 @@ class PiRunner(Node):
         return {"headerId": int(time.time_ns() % 2147483647), "timestamp": utc_now(),
                 "version": vda["protocol_version"], "manufacturer": vda["manufacturer"],
                 "serialNumber": vda["serial_number"], "orderId": row["trial_id"],
-                "orderUpdateId": 0, "orderDescription": "pi-nav2-v1 benchmark",
+                "orderUpdateId": 0, "orderDescription": "laptop-timing-v1 benchmark",
                 "nodes": [node(row["start"], 0), node(row["target"], 2)],
                 "edges": [{"edgeId": row["trial_id"] + "-edge", "sequenceId": 1,
                            "released": True, "actions": []}]}
 
     def _native_ack(self, future, m):
-        received_ns = time.monotonic_ns()  # FIRST action in the Pi ROS callback
+        received_ns = time.monotonic_ns()  # FIRST action in the Laptop ROS callback
         try:
             handle = future.result()
             goal_id = bytes(handle.goal_id.uuid).hex()
@@ -224,7 +226,7 @@ class PiRunner(Node):
             m.fail(f"Native goal response failed: {exc}")
 
     def _native_result(self, future, m, goal_id):
-        received_ns = time.monotonic_ns()  # FIRST action in the Pi ROS callback
+        received_ns = time.monotonic_ns()  # FIRST action in the Laptop ROS callback
         try:
             wrapped = future.result()
             m.result(received_ns, int(wrapped.status), goal_id,
@@ -263,7 +265,7 @@ class PiRunner(Node):
             target = self.target(row["target"])
             goal = NavigateToPose.Goal()
             goal.pose.header.frame_id = self.cfg["ros"]["map_frame"]
-            # Zero stamp requests the latest transform; no Pi/ROX wall-clock offset.
+            # Zero stamp requests the latest transform; no laptop/ROX wall-clock offset.
             goal.pose.pose.position.x, goal.pose.pose.position.y = target["x"], target["y"]
             goal.pose.pose.orientation.z = math.sin(target["theta"] / 2)
             goal.pose.pose.orientation.w = math.cos(target["theta"] / 2)
@@ -279,10 +281,10 @@ class PiRunner(Node):
             else:
                 self.mqtt.publish_json(self.topic_root + "/order", order, qos=0)
             if not self.spin_until(m.done.is_set, self.cfg["timeouts"]["command_s"]):
-                raise TimeoutError("No terminal Nav2 result received on Pi before command timeout")
+                raise TimeoutError("No terminal Nav2 result received on Laptop before command timeout")
             if m.error:
                 raise RuntimeError(m.error)
-            # This check is deliberately after NAV2_RESULT_RECEIVED in BOTH modes.
+            # This check is deliberately after COMMAND_RESULT_RECEIVED in BOTH modes.
             endpoint = self.wait_pose(row["target"], endpoint=True)
         except BaseException as exc:
             m.fail(f"{type(exc).__name__}: {exc}")
@@ -297,6 +299,6 @@ class PiRunner(Node):
         success = m.finish(endpoint)
         if not self.logger.flush() or self.logger.error:
             raise RuntimeError("Logger failure; preserve the attempt: " + str(self.logger.error))
-        print(f"Pi acknowledgement: {(m.ack_ns-m.issued_ns)/1e6:.3f} ms; "
-              f"Pi completion: {(m.result_ns-m.issued_ns)/1e6:.3f} ms", flush=True)
+        print(f"T_ack: {(m.ack_ns-m.issued_ns)/1e6:.3f} ms; "
+              f"T_completion: {(m.result_ns-m.issued_ns)/1e6:.3f} ms", flush=True)
         return success

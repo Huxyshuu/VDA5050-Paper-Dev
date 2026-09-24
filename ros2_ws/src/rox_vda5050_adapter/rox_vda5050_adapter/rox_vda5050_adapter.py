@@ -9,6 +9,7 @@ internal implementation detail on the robot; the fleet control only sees VDA
 from __future__ import annotations
 
 import json
+import hashlib
 import math
 import queue
 import threading
@@ -322,13 +323,14 @@ class RoxVda5050Adapter(Node):
 
     def _publish_benchmark_ready(self, payload) -> None:
         """Read-only handshake; this endpoint cannot issue or cancel motion."""
-        if payload.get("protocol") != "pi-nav2-v1" or not payload.get("request_id"):
+        if payload.get("protocol") != "laptop-timing-v1" or not payload.get("request_id"):
             return
         self._mqtt.publish(
             self._feedback_topic,
             json.dumps({
-                "protocol": "pi-nav2-v1", "event": "READY",
+                "protocol": "laptop-timing-v1", "event": "READY",
                 "request_id": str(payload["request_id"]),
+                "adapter_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                 "nav2_action": self.nav2_action_name,
                 "map_frame": self.map_frame, "base_frame": self.base_frame,
                 "map_id": self.map_id, "dry_run": self.dry_run_navigation,
@@ -340,17 +342,17 @@ class RoxVda5050Adapter(Node):
         )
 
     def _nav2_feedback(self, event, *, order=None, node=None, **fields) -> None:
-        """Relay a Nav2 milestone. Only the receiving Pi records its time.
+        """Relay a Nav2 milestone. Only the receiving laptop records its time.
 
         ACK and RESULT are sent in callback order by this one MQTT client.
-        QoS 1 permits retransmission; the Pi deduplicates by trial/goal/event.
+        QoS 1 permits retransmission; the laptop deduplicates by trial/goal/event.
         This channel is experiment instrumentation, not a VDA-standard ACK.
         """
         order = order if order is not None else self._order or {}
-        if order.get("orderDescription") != "pi-nav2-v1 benchmark":
+        if order.get("orderDescription") != "laptop-timing-v1 benchmark":
             return
         payload = {
-            "protocol": "pi-nav2-v1", "event": event,
+            "protocol": "laptop-timing-v1", "event": event,
             "order_id": str(order.get("orderId", "")),
             "node_id": str((node or {}).get("nodeId", "")),
             **fields,
@@ -538,7 +540,7 @@ class RoxVda5050Adapter(Node):
             self._nav2_feedback("ERROR", order=payload, error="Order updates unsupported")
             return
 
-        if payload.get("orderDescription") == "pi-nav2-v1 benchmark" and (
+        if payload.get("orderDescription") == "laptop-timing-v1 benchmark" and (
             self.dry_run_navigation or bool(self.get_parameter("use_sim_time").value)
             or len(payload.get("nodes", [])) != 2
         ):
@@ -727,7 +729,7 @@ class RoxVda5050Adapter(Node):
 
         goal = NavigateToPose.Goal()
         goal.pose.header.frame_id = self.map_frame
-        if (self._order or {}).get("orderDescription") != "pi-nav2-v1 benchmark":
+        if (self._order or {}).get("orderDescription") != "laptop-timing-v1 benchmark":
             goal.pose.header.stamp = self.get_clock().now().to_msg()
         # Benchmark native and VDA goals both use stamp zero (latest transform).
         goal.pose.pose.position.x = float(position["x"])

@@ -26,7 +26,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "2.0"
+      "const": "3.0"
     },
     "timestamp_utc": {
       "type": "string",
@@ -52,7 +52,7 @@
     },
     "device": {
       "enum": [
-        "rox"
+        "rox", "crane"
       ]
     },
     "operation": {
@@ -69,8 +69,8 @@
     "event_type": {
       "enum": [
         "COMMAND_ISSUED",
-        "NAV2_ACK_RECEIVED",
-        "NAV2_RESULT_RECEIVED",
+        "COMMAND_ACK_RECEIVED",
+        "COMMAND_RESULT_RECEIVED",
         "TRIAL_FINISHED"
       ]
     },

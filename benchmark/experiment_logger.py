@@ -27,15 +27,15 @@ except ImportError:  # pragma: no cover - Windows fallback
     fcntl = None
 
 
-SCHEMA_VERSION = "2.0"
+SCHEMA_VERSION = "3.0"
 EVENT_TYPES = {
     "COMMAND_ISSUED",
-    "NAV2_ACK_RECEIVED",
-    "NAV2_RESULT_RECEIVED",
+    "COMMAND_ACK_RECEIVED",
+    "COMMAND_RESULT_RECEIVED",
     "TRIAL_FINISHED",
 }
 ARCHITECTURES = {"native", "vda", "setup"}
-DEVICES = {"rox"}
+DEVICES = {"rox", "crane"}
 
 
 def utc_now() -> str:
