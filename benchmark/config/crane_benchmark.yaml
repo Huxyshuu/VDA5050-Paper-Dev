@@ -1,10 +1,10 @@
 schema_version: 3
 measurement_protocol: laptop-timing-v1
-configured: false
-runner_hostname: SET_LAPTOP_HOSTNAME
+configured: true
+runner_hostname: hugo
 device: crane
 mqtt:
-  host: 192.168.50.115
+  host: 192.168.0.116
   port: 1883
   qos: 0
 vda:
@@ -14,7 +14,7 @@ vda:
   manufacturer: konecranes
   serial_number: ilmatar_1
 # Use the same non-secret PLC endpoint in both clients. Existing Pi watchdog stays on.
-opcua_url: opc.tcp://SET_PLC_ADDRESS:4840
+opcua_url: opc.tcp://10.210.1.12:4840
 # EXAMPLES ONLY: verify coordinates, clear travel and speed-feedback units at Ilmatar.
 hoist:
   height_a_mm: 2500
