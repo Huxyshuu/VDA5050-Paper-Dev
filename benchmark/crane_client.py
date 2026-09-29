@@ -11,7 +11,7 @@ from benchmark.common import MqttSession, utc_now
 from benchmark.experiment_logger import ExperimentLogger, config_identifier, publish_json_event
 from benchmark.measurement import EVENT_TOPIC, PROTOCOL, Measurement
 from crane_edge.crane import Crane
-from crane_edge.hoist_benchmark import check_position, execute, height, motion_id
+from crane_edge.hoist_benchmark import AxesNotStationary, check_position, execute, height, motion_id
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -121,13 +121,27 @@ class CraneRunner:
     def wait_pose(self, endpoint, **_):
         deadline = time.monotonic()+5
         settled = None
+        last_unsettled = ""
         while time.monotonic() < deadline:
-            result = check_position(self.crane, self.cfg['hoist'], endpoint)
-            settled = settled if settled is not None else time.monotonic()
-            if time.monotonic()-settled >= self.cfg['hoist']['settle_s']:
-                return result
+            if self.token and self.canceled():
+                raise RuntimeError('Crane verification canceled or communication lost')
+            try:
+                result = check_position(self.crane, self.cfg['hoist'], endpoint)
+            except AxesNotStationary as exc:
+                # Retry only finite, above-limit speed readings. Position, mode,
+                # invalid feedback and OPC UA errors must still fail immediately.
+                if str(exc) != last_unsettled:
+                    print(f"Waiting for stationary crane: {exc}", flush=True)
+                last_unsettled = str(exc)
+                settled = None
+            else:
+                now = time.monotonic()
+                settled = settled if settled is not None else now
+                if now < deadline and now-settled >= self.cfg['hoist']['settle_s']:
+                    return result
             time.sleep(self.cfg['hoist']['poll_s'])
-        raise TimeoutError('Crane start/end point did not settle')
+        raise TimeoutError('Crane start/end point did not settle within 5 s. '
+                           + last_unsettled)
 
     def order(self, row):
         v = self.cfg['vda']

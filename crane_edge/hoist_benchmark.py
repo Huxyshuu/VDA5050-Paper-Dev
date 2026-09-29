@@ -11,6 +11,10 @@ import math
 import time
 
 
+class AxesNotStationary(RuntimeError):
+    """Finite speed feedback exceeds the stationary limit; retry while settling."""
+
+
 def validate_motion(cfg):
     required = {"height_a_mm", "height_b_mm", "min_height_mm", "max_height_mm",
                 "tolerance_mm", "poll_s", "settle_s", "timeout_s", "stationary_feedback"}
@@ -51,9 +55,16 @@ def check_position(crane, cfg, endpoint, *, stationary=True):
     if abs(z-height(cfg, endpoint)) > cfg["tolerance_mm"]:
         raise RuntimeError(f"Hoist is not at {endpoint}: {z} mm")
     if stationary:
-        speeds = [crane.get_hoist_speed_feedback(), crane.get_bridge_speed_feedback(), crane.get_trolley_speed_feedback()]
-        if any(not math.isfinite(float(v)) or abs(float(v)) > cfg["stationary_feedback"] for v in speeds):
-            raise RuntimeError("Crane axes are not stationary")
+        speeds = dict(zip(("hoist", "bridge", "trolley"), map(float, (
+            crane.get_hoist_speed_feedback(), crane.get_bridge_speed_feedback(),
+            crane.get_trolley_speed_feedback()))))
+        detail = ", ".join(f"{axis}={value:.6g}" for axis, value in speeds.items())
+        if any(not math.isfinite(v) for v in speeds.values()):
+            raise RuntimeError(f"Invalid crane speed feedback: {detail}")
+        if any(abs(v) > cfg["stationary_feedback"] for v in speeds.values()):
+            raise AxesNotStationary(
+                f"Crane axes are not stationary: {detail}; "
+                f"limit={cfg['stationary_feedback']:.6g}")
     return {"height_error_mm": abs(z-height(cfg, endpoint))}
 
 
@@ -100,7 +111,7 @@ def execute(crane, cfg, start, target, ack, *, canceled=lambda: False):
                     settled = settled if settled is not None else time.monotonic()
                     if time.monotonic()-settled >= cfg["settle_s"]:
                         return endpoint
-                except RuntimeError:
+                except AxesNotStationary:
                     settled = None
             time.sleep(cfg["poll_s"])
     except BaseException:

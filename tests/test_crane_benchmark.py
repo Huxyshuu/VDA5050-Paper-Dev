@@ -10,7 +10,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 import yaml
 import jsonschema
-from crane_edge.hoist_benchmark import execute, motion_id, validate_motion
+from crane_edge.hoist_benchmark import AxesNotStationary, check_position, execute, motion_id, validate_motion
 from crane_edge.benchmark_bridge import CraneBenchmark
 from benchmark.generate_schedule import build_rows
 from benchmark.measurement import Measurement, PROTOCOL
@@ -98,6 +98,67 @@ class CraneBenchmarkTests(unittest.TestCase):
         with self.assertRaises(ValueError): validate_motion(cfg)
         with self.assertRaises(ValueError): execute(self.crane,self.motion,'A','A',lambda:None)
         self.assertEqual([],self.crane.log)
+
+    def settling_runner(self):
+        cls = methods('benchmark/crane_client.py', 'CraneRunner', {'wait_pose'})
+        cls.wait_pose.__globals__.update(time=self.clock, check_position=check_position,
+                                        AxesNotStationary=AxesNotStationary)
+        runner = cls()
+        runner.cfg, runner.crane, runner.token = self.cfg, self.crane, None
+        return runner
+
+    def test_verification_transient_speed_restarts_full_settling_interval(self):
+        runner = self.settling_runner()
+        self.crane.get_hoist_speed_feedback = lambda: .02 if 100.4 <= self.clock.now < 100.6 else 0.
+        endpoint = runner.wait_pose('A')
+        self.assertEqual(0, endpoint['height_error_mm'])
+        self.assertGreaterEqual(self.clock.now, 101.6)
+        self.assertLess(self.clock.now, 105.)
+
+    def test_verification_persistent_motion_times_out_with_axis_values(self):
+        runner = self.settling_runner()
+        self.crane.get_trolley_speed_feedback = lambda: .02
+        with self.assertRaisesRegex(TimeoutError, 'trolley=0.02'):
+            runner.wait_pose('A')
+        self.assertLessEqual(self.clock.now, 105.11)
+
+    def test_verification_invalid_feedback_position_and_mode_fail_immediately(self):
+        runner = self.settling_runner()
+        self.crane.get_bridge_speed_feedback = lambda: float('nan')
+        with self.assertRaisesRegex(RuntimeError, 'Invalid crane speed'):
+            runner.wait_pose('A')
+        self.crane.get_bridge_speed_feedback = lambda: 0.
+        self.crane.z = 2400
+        with self.assertRaisesRegex(RuntimeError, 'not at A'):
+            runner.wait_pose('A')
+        self.crane.z = 2500
+        self.crane.automatic = False
+        with self.assertRaisesRegex(RuntimeError, 'automatic'):
+            runner.wait_pose('A')
+        self.assertEqual(100., self.clock.now)
+
+    def test_verification_opcua_failure_is_not_retried(self):
+        runner = self.settling_runner()
+        def fail(): raise OSError('OPC UA disconnected')
+        self.crane.get_hoist_speed_feedback = fail
+        with self.assertRaisesRegex(OSError, 'disconnected'):
+            runner.wait_pose('A')
+        self.assertEqual(100., self.clock.now)
+
+    def test_verification_reservation_cancel_is_not_retried(self):
+        runner = self.settling_runner()
+        runner.token, runner.canceled = 'reserved', lambda: True
+        with self.assertRaisesRegex(RuntimeError, 'canceled'):
+            runner.wait_pose('A')
+        self.assertEqual(100., self.clock.now)
+
+    def test_motion_settling_does_not_swallow_invalid_feedback(self):
+        def speed(): return float('nan') if 'stop' in self.crane.log else 0.
+        self.crane.get_hoist_speed_feedback = speed
+        with self.assertRaisesRegex(RuntimeError, 'Invalid crane speed'):
+            self.run_motion()
+        self.assertEqual('stop', self.crane.log[-1])
+        self.assertLess(self.clock.now, 101.)
 
     def runner_order(self):
         cls=methods('benchmark/crane_client.py','CraneRunner',{'order'})
