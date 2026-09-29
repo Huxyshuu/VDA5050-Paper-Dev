@@ -119,7 +119,8 @@ class CraneRunner:
         return p
 
     def wait_pose(self, endpoint, **_):
-        deadline = time.monotonic()+5
+        timeout = self.cfg['hoist']['timeout_s']
+        deadline = time.monotonic()+timeout
         settled = None
         last_unsettled = ""
         while time.monotonic() < deadline:
@@ -140,7 +141,7 @@ class CraneRunner:
                 if now < deadline and now-settled >= self.cfg['hoist']['settle_s']:
                     return result
             time.sleep(self.cfg['hoist']['poll_s'])
-        raise TimeoutError('Crane start/end point did not settle within 5 s. '
+        raise TimeoutError(f'Crane start/end point did not settle within {timeout:g} s. '
                            + last_unsettled)
 
     def order(self, row):

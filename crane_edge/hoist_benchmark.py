@@ -77,14 +77,42 @@ def execute(crane, cfg, start, target, ack, *, canceled=lambda: False):
     validate_motion(cfg)
     if start == target:
         raise ValueError("A motion trial must change endpoint")
-    check_position(crane, cfg, start)
-    if abs(crane.get_speed_scale()-1.0) > 1e-9:
-        raise RuntimeError("Benchmark requires unchanged speed scale 1.0")
     deadline = time.monotonic() + cfg["timeout_s"]
     acknowledged = False
     stopped = False
     settled = None
     try:
+        # The runner already verified a stable start outside timing. If finite
+        # speed feedback has risen again, wait without dispatching motion. This
+        # bounded recovery is identical for native and VDA; any wait is included
+        # in command-to-ACK/completion, never subtracted from measured times.
+        start_settled = None
+        waiting = False
+        last_unsettled = ""
+        while True:
+            if canceled():
+                raise RuntimeError("Hoist command canceled or communication lost")
+            if time.monotonic() >= deadline:
+                raise TimeoutError("Hoist start did not settle before command deadline: "
+                                   + last_unsettled)
+            try:
+                check_position(crane, cfg, start)
+            except AxesNotStationary as exc:
+                waiting = True
+                start_settled = None
+                if str(exc) != last_unsettled:
+                    print(f"Waiting before hoist dispatch: {exc}", flush=True)
+                last_unsettled = str(exc)
+            else:
+                if not waiting:
+                    break
+                now = time.monotonic()
+                start_settled = start_settled if start_settled is not None else now
+                if now-start_settled >= cfg["settle_s"]:
+                    break
+            time.sleep(cfg["poll_s"])
+        if abs(crane.get_speed_scale()-1.0) > 1e-9:
+            raise RuntimeError("Benchmark requires unchanged speed scale 1.0")
         crane.set_target_hoist(height(cfg, target))  # local assignment, NOT an ACK
         while True:
             if canceled():

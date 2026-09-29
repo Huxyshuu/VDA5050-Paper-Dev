@@ -120,7 +120,45 @@ class CraneBenchmarkTests(unittest.TestCase):
         self.crane.get_trolley_speed_feedback = lambda: .02
         with self.assertRaisesRegex(TimeoutError, 'trolley=0.02'):
             runner.wait_pose('A')
-        self.assertLessEqual(self.clock.now, 105.11)
+        self.assertLessEqual(self.clock.now, 100+self.motion['timeout_s']+.11)
+        self.assertGreaterEqual(self.clock.now, 100+self.motion['timeout_s'])
+
+    def test_verification_allows_slow_settling_beyond_old_five_second_limit(self):
+        runner = self.settling_runner()
+        self.crane.get_hoist_speed_feedback = lambda: .08 if self.clock.now < 107 else 0.
+        self.assertEqual(0, runner.wait_pose('A')['height_error_mm'])
+        self.assertGreaterEqual(self.clock.now, 107+self.motion['settle_s'])
+
+    def test_dispatch_waits_for_full_stable_interval_without_motion_writes(self):
+        observed = []
+        def speed():
+            if self.clock.now < 102:
+                self.assertEqual([], self.crane.log)
+                return .08
+            return 0.
+        self.crane.get_hoist_speed_feedback = speed
+        self.run_motion(ack=lambda: observed.append(self.clock.now))
+        self.assertEqual(1, len(observed))
+        self.assertGreaterEqual(observed[0], 102+self.motion['settle_s'])
+
+    def test_persistent_start_motion_never_dispatches_or_acknowledges(self):
+        self.crane.get_hoist_speed_feedback = lambda: .08
+        with self.assertRaisesRegex(TimeoutError, 'start did not settle'):
+            self.run_motion()
+        self.assertEqual(['stop'], self.crane.log)
+
+    def test_cancel_while_waiting_at_start_stops_without_dispatch(self):
+        self.crane.get_hoist_speed_feedback = lambda: .08
+        with self.assertRaisesRegex(RuntimeError, 'canceled'):
+            self.run_motion(canceled=lambda: self.clock.now >= 100.5)
+        self.assertEqual(['stop'], self.crane.log)
+
+    def test_invalid_start_feedback_is_not_retried(self):
+        self.crane.get_hoist_speed_feedback = lambda: float('nan')
+        with self.assertRaisesRegex(RuntimeError, 'Invalid crane speed'):
+            self.run_motion()
+        self.assertEqual(100, self.clock.now)
+        self.assertEqual(['stop'], self.crane.log)
 
     def test_verification_invalid_feedback_position_and_mode_fail_immediately(self):
         runner = self.settling_runner()
