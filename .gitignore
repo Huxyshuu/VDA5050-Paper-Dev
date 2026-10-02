@@ -50,3 +50,6 @@ accesscode_url.txt
 # Laptop benchmark environment and immutable campaign evidence
 .venv-benchmark/
 runs/
+
+evidence/
+figures/
