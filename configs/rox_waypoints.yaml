@@ -2,26 +2,26 @@ map_id: df_map
 configured: true
 waypoints:
   home:
-    x: 0.9556
-    y: 0.3479
-    theta: -0.0814
+    x: -0.2109
+    y: 0.5132
+    theta: 0.0937
     allowed_deviation_xy: 0.2
     allowed_deviation_theta: 0.3
   short_test:
-    x: 2.1534
-    y: -2.0561
-    theta: -1.6302
+    x: 1.3765
+    y: -1.6103
+    theta: -1.4627
     allowed_deviation_xy: 0.2
     allowed_deviation_theta: 0.3
   crane_handover:
-    x: 3.7989
-    y: -1.2116
-    theta: 3.0644
+    x: 2.858
+    y: -0.4928
+    theta: -3.0684
     allowed_deviation_xy: 0.15
     allowed_deviation_theta: 0.15
   warehouse_dropoff:
-    x: 3.1112
-    y: 0.9978
-    theta: 1.4717
+    x: 1.8313
+    y: 1.5089
+    theta: 1.5015
     allowed_deviation_xy: 0.2
     allowed_deviation_theta: 0.3
