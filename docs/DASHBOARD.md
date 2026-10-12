@@ -4,6 +4,41 @@ Start the existing master with `bash scripts/run_master_control.sh` and open
 the Pi on port 5000. The dashboard operates named waypoint missions, displays
 the occupancy map and device states, and runs the supervised handover sequence.
 
+## Guided Operations interface
+
+The dashboard opens on **Operations**, with one current task, its next step,
+the cell map and participant readiness. Scenario confirmations retain the
+server-provided run and step IDs. Manual and timed confirmation policies remain
+explicit, and timed countdowns use the server snapshot time.
+
+Use the six views to keep the interface focused:
+
+- **Operations:** current task, full sequence, map and scenario library.
+- **Robot:** named destinations, pause/resume/cancel, retry and factsheet request.
+- **Crane:** bridge/trolley destinations, hook heights, release, order controls and homing.
+- **Diagnostics:** execution, watchdog, OPC UA sessions, network and motion evidence.
+- **Research:** laptop benchmark display and the separate dashboard mission recorder.
+- **History:** mission outcomes and filtered event logs.
+
+The mobile view selector provides the same pages. The light/dark theme and
+selected view are saved in the browser. Web fonts are optional: offline clients
+use the system sans-serif and monospace fallbacks. No JavaScript dependency,
+build step or backend configuration change is required.
+
+On a failed or timed-out snapshot request, command buttons are disabled until
+a fresh snapshot arrives. Losing MQTT also locks commands. Open confirmation
+dialogs close if the operator gate changes or live control becomes unavailable.
+Layout navigation and theme changes never send a command.
+
+Frontend checks (Node.js 18 or newer, for testing only):
+
+```bash
+node --test tests/test_guided_operations.cjs
+```
+
+After updating the template and static assets, restart the master using the
+normal deployment procedure and hard-refresh the browser to clear cached assets.
+
 ## Laptop command timing
 
 The dedicated panel receives copies of events already timestamped by the laptop
