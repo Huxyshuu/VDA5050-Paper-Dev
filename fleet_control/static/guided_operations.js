@@ -90,16 +90,22 @@
     }
   };
   const views = ['operations', 'robot', 'crane', 'diagnostics', 'research', 'history'];
+  const sidebarViewport = window.matchMedia('(min-width: 1025px)');
+  const availableViews = () => views.filter(view => view !== 'diagnostics' || !sidebarViewport.matches);
   let activeView = 'operations';
   host.guidedSelectView = function (name, focus = false) {
     if (!views.includes(name)) return;
+    if (sidebarViewport.matches && name === 'diagnostics') name = 'operations';
     activeView = name;
     for (const view of views) {
       const selected = view === name;
-      el(`view-${view}`).hidden = !selected;
+      el(`view-${view}`).hidden = !(selected || (view === 'diagnostics' && sidebarViewport.matches));
+      el(`tab-${view}`).hidden = view === 'diagnostics' && sidebarViewport.matches;
       el(`tab-${view}`).setAttribute('aria-selected', String(selected));
       el(`tab-${view}`).tabIndex = selected ? 0 : -1;
     }
+    el('view-diagnostics').setAttribute('role', sidebarViewport.matches ? 'complementary' : 'tabpanel');
+    el('view-diagnostics').setAttribute('aria-labelledby', sidebarViewport.matches ? 'systemSidebarTitle' : 'tab-diagnostics');
     el('mobileView').value = name;
     try { localStorage.setItem('vda5050-view', name); } catch {}
     if (focus && window.matchMedia('(min-width: 761px)').matches) el(`tab-${name}`).focus();
@@ -124,8 +130,9 @@
   document.querySelector('.view-nav').onkeydown = e => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
     e.preventDefault();
-    const i = views.indexOf(activeView), next = e.key === 'Home' ? 0 : e.key === 'End' ? views.length - 1 : (i + (e.key === 'ArrowRight' ? 1 : -1) + views.length) % views.length;
-    host.guidedSelectView(views[next], true);
+    const pages = availableViews(), i = pages.indexOf(activeView);
+    const next = e.key === 'Home' ? 0 : e.key === 'End' ? pages.length - 1 : (i + (e.key === 'ArrowRight' ? 1 : -1) + pages.length) % pages.length;
+    host.guidedSelectView(pages[next], true);
   };
   el('guideSelectScenario').onclick = () => {
     host.guidedSelectView('operations');
@@ -136,6 +143,8 @@
   host.renderGuidedOperations = function (data) {
     const g = deriveGuidance(data), chain = data.command_chain || {};
     el('connectionAlert').hidden = true;
+    el('view-diagnostics').dataset.stale = 'false';
+    text('sidebarFreshness', 'Live system state');
     text('guideRunKind', g.scenario ? 'SEQUENTIAL OPERATIONS / RESEARCH CELL' : 'OPERATIONS / RESEARCH CELL');
     text('guideRunMeta', g.total ? `${g.completed} of ${g.total} sequence steps complete${g.policy ? ` · ${g.policy === 'timeout' ? 'Timed' : 'Manual'} confirmations` : ''}` : 'Choose a scenario or a named destination to begin.');
     text('guideTaskKind', g.waiting ? 'OPERATOR CONFIRMATION' : g.current?.target ? `${g.current.target.toUpperCase()} / CURRENT STEP` : 'CURRENT TASK');
@@ -149,6 +158,8 @@
     el('stopScenarioBtn').hidden = !g.busy;
     el('stopScenarioBtn').disabled = !g.busy || !data.server?.mqtt_connected;
     el('guideSelectScenario').hidden = !g.canChoose;
+    // Collapse the chooser only once the server confirms a scenario has started.
+    el('scenarioLibrary').hidden = g.busy;
     const target = g.current?.target || (chain.kind === 'order' ? 'rox' : null);
     el('guideDeviceControl').hidden = !['rox', 'crane'].includes(target);
     el('guideDeviceControl').dataset.openView = target === 'crane' ? 'crane' : 'robot';
@@ -178,6 +189,8 @@
   host.guidedOffline = function (message) {
     host.guidedDisableCommands();
     el('connectionAlert').hidden = false;
+    el('view-diagnostics').dataset.stale = 'true';
+    text('sidebarFreshness', 'Telemetry stale · reconnecting');
     text('connectionAlert', `Live control unavailable. ${message} Controls will recover after a fresh snapshot.`);
     text('guideStepTitle', 'Waiting for live state.');
     text('guideInstruction', 'Previous telemetry may be stale. Reconnect before sending commands.');
@@ -188,5 +201,8 @@
   let savedView;
   try { savedView = localStorage.getItem('vda5050-view'); } catch {}
   host.guidedSelectView(views.includes(savedView) ? savedView : 'operations');
+  const syncSidebar = () => host.guidedSelectView(activeView);
+  if (sidebarViewport.addEventListener) sidebarViewport.addEventListener('change', syncSidebar);
+  else if (sidebarViewport.addListener) sidebarViewport.addListener(syncSidebar);
   syncTheme();
 })(typeof window !== 'undefined' ? window : globalThis);

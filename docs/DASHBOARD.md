@@ -7,18 +7,29 @@ the occupancy map and device states, and runs the supervised handover sequence.
 ## Guided Operations interface
 
 The dashboard opens on **Operations**, with one current task, its next step,
-the cell map and participant readiness. Scenario confirmations retain the
+and an equally sized cell-map panel. Scenario confirmations retain the
 server-provided run and step IDs. Manual and timed confirmation policies remain
 explicit, and timed countdowns use the server snapshot time.
 
 Use the six views to keep the interface focused:
 
-- **Operations:** current task, full sequence, map and scenario library.
+- **Operations:** current task, full sequence, map and a stacked scenario list below the task.
 - **Robot:** named destinations, pause/resume/cancel, retry and factsheet request.
 - **Crane:** bridge/trolley destinations, hook heights, release, order controls and homing.
-- **Diagnostics:** execution, watchdog, OPC UA sessions, network and motion evidence.
+- **Diagnostics:** a persistent left sidebar on desktop, or a separate view on mobile/tablet.
 - **Research:** laptop benchmark display and the separate dashboard mission recorder.
 - **History:** mission outcomes and filtered event logs.
+
+Above 1024 px, the supportive sidebar is 224 px wide and stays visible while
+switching pages. Live participants appear first, followed by vertically stacked
+execution, watchdog, OPC UA, network, motion and failure boxes. Each box exposes
+its detailed telemetry through a disclosure. The sidebar marks cached telemetry
+as stale if live control becomes unavailable. On narrower screens, the same
+participants and health content appear only in the Diagnostics view.
+
+Scenarios appear as compact rows with a Start button and expandable stages.
+The list disappears once the server confirms an active scenario and returns
+when it finishes, is cancelled or fails. Merely expanding a row sends no command.
 
 The mobile view selector provides the same pages. The light/dark theme and
 selected view are saved in the browser. Web fonts are optional: offline clients

@@ -57,7 +57,7 @@ test('custom sequences keep the current step visible after the first five steps'
   assert.ok(g.phases.some(p => p.phase === 'active')); assert.equal(g.next.label, 'Step 10');
 });
 test('HTML keeps every original control ID exactly once and routes tabs to real panels', () => {
-  const ids = [...template.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]);
+  const ids = [...template.matchAll(/\sid="([^"]+)"/g)].map(m => m[1]);
   assert.equal(new Set(ids).size, ids.length);
   for (const name of ['mapCanvas', 'pauseBtn', 'resumeBtn', 'cancelBtn', 'retryBtn', 'skipRetryBtn', 'factsheetBtn',
     'craneReleaseHandoverBtn', 'craneHomeAllBtn', 'craneHomeXYBtn', 'craneHomeHoistBtn', 'cranePauseBtn',
@@ -67,7 +67,7 @@ test('HTML keeps every original control ID exactly once and routes tabs to real 
 });
 
 // Minimal DOM adapter exercises the real rendering and handlers, not a second UI implementation.
-function harness() {
+function harness({ desktop = false } = {}) {
   class Element {
     constructor(id = '') {
       this.id = id; this.dataset = {}; this.style = {}; this.attributes = {}; this.disabled = false;
@@ -91,7 +91,7 @@ function harness() {
     remove() {}
   }
   const elements = new Map();
-  for (const m of template.matchAll(/<[^>]*\bid="([^"]+)"[^>]*>/g)) {
+  for (const m of template.matchAll(/<[^>]*\sid="([^"]+)"[^>]*>/g)) {
     const node = new Element(m[1]); node.hidden = /\bhidden\b/.test(m[0]); node.disabled = /\bdisabled\b/.test(m[0]); elements.set(m[1], node);
   }
   elements.get('eventLevel').value = 'ALL';
@@ -102,11 +102,13 @@ function harness() {
     addEventListener() {}, createElement: () => new Element() };
   document.documentElement.dataset.theme = 'light';
   const posts = [];
+  let mediaChange;
+  const sidebarMedia = { matches: desktop, addEventListener: (_event, callback) => { mediaChange = callback; } };
   const context = { document, console, AbortController, URL, Map, Set, Date, Math, JSON,
     localStorage: { getItem: () => null, setItem() {} }, requestAnimationFrame: () => 1,
     setTimeout: () => 1, clearTimeout() {}, ResizeObserver: class { observe() {} },
     getComputedStyle: () => ({ getPropertyValue: () => '#222222' }),
-    matchMedia: () => ({ matches: false }), addEventListener() {}, devicePixelRatio: 1,
+    matchMedia: query => query.includes('1025px') ? sidebarMedia : { matches: query.includes('761px') && sidebarMedia.matches }, addEventListener() {}, devicePixelRatio: 1,
     fetch: async (url, options = {}) => { if (options.method === 'POST') posts.push({ url, payload: JSON.parse(options.body) });
       return { ok: true, json: async () => url === '/api/dashboard' ? context.fixture : url === '/api/crane/manual' ? context.crane : {} }; }
   };
@@ -117,7 +119,7 @@ function harness() {
   context.fixture = waitingFixture(); context.crane = { ready: true, connection: 'ONLINE', operating_mode: 'AUTOMATIC',
     position: { bridge_m: 0, trolley_m: 0, hoist_m: 0 }, controls: { home_all: true }, waypoints: [], hoist_positions: [] };
   function render() { vm.runInContext('render(fixture);renderCraneManual(crane)', context); }
-  return { context, elements, posts, render };
+  return { context, elements, posts, render, resize: value => { sidebarMedia.matches = value; mediaChange(); } };
 }
 test('real dashboard renders live guidance without commanding hardware at startup', () => {
   const h = harness(); h.render();
@@ -152,4 +154,64 @@ test('confirmation posts the original bound run and step; stale gate closes the 
   h.context.fixture.active_scenario.active_step_id = 'another-gate'; h.render();
   assert.equal(h.elements.get('modalBackdrop').classList.contains('open'), false);
   assert.equal(h.elements.get('confirmScenarioStepBtn').disabled, true);
+});
+
+test('desktop health sidebar remains visible across all workspace pages', () => {
+  const h = harness({ desktop: true });
+  for (const page of ['operations', 'robot', 'crane', 'research', 'history']) {
+    h.context.guidedSelectView(page);
+    assert.equal(h.elements.get('view-diagnostics').hidden, false);
+    assert.equal(h.elements.get('tab-diagnostics').hidden, true);
+    assert.equal(h.elements.get('view-diagnostics').getAttribute('role'), 'complementary');
+    assert.equal(h.elements.get(`view-${page}`).hidden, false);
+  }
+  assert.equal(h.posts.length, 0);
+});
+test('mobile Diagnostics contains participants and health without a duplicate sidebar', () => {
+  const h = harness(); h.context.guidedSelectView('robot');
+  assert.equal(h.elements.get('view-diagnostics').hidden, true);
+  h.context.guidedSelectView('diagnostics');
+  assert.equal(h.elements.get('view-diagnostics').hidden, false);
+  assert.equal(h.elements.get('view-robot').hidden, true);
+  assert.equal(h.elements.get('view-diagnostics').getAttribute('role'), 'tabpanel');
+  const sidebar = template.slice(template.indexOf('<aside id="view-diagnostics"'), template.indexOf('</aside>'));
+  assert.ok(sidebar.indexOf('id="deviceList"') < sidebar.indexOf('id="diagScenarioCard"'));
+});
+test('resizing from mobile Diagnostics to desktop switches main view and keeps health visible', () => {
+  const h = harness(); h.context.guidedSelectView('diagnostics'); h.resize(true);
+  assert.equal(h.elements.get('view-diagnostics').hidden, false);
+  assert.equal(h.elements.get('view-operations').hidden, false);
+  assert.equal(h.elements.get('mobileView').value, 'operations');
+  h.resize(false);
+  assert.equal(h.elements.get('view-diagnostics').hidden, true);
+  assert.equal(h.elements.get('tab-diagnostics').hidden, false);
+});
+test('mission library hides for active, paused and cancelling runs; returns on completion', () => {
+  const h = harness();
+  for (const status of ['RUNNING', 'WAITING_OPERATOR', 'PAUSED', 'CANCELLING']) {
+    h.context.fixture.command_chain.status = status;
+    h.context.fixture.active_scenario.status = status; h.render();
+    assert.equal(h.elements.get('scenarioLibrary').hidden, true, status);
+  }
+  for (const status of ['FINISHED', 'CANCELLED', 'FAILED', 'REJECTED']) {
+    h.context.fixture.command_chain.status = status;
+    h.context.fixture.active_scenario.status = status; h.render();
+    assert.equal(h.elements.get('scenarioLibrary').hidden, false, status);
+  }
+});
+test('scenario rows retain start binding, escaped content and expandable stage information', () => {
+  const h = harness();
+  h.context.fixture.command_chain = { kind: 'idle', status: 'IDLE', steps: [] };
+  h.context.fixture.active_scenario = null;
+  h.context.fixture.scenarios = [{ id: 'short_loop', label: 'Short <test>', enabled: true, target: 'rox', risk: 'low', description: 'A & B', display_steps: ['Home', 'Short test', 'Home'] }];
+  h.render();
+  const markup = h.elements.get('scenarioList').innerHTML;
+  assert.ok(markup.includes('class="scenario scenario-row"'));
+  assert.ok(markup.includes('data-id="short_loop"'));
+  assert.ok(markup.includes('<details class="scenario-details"'));
+  assert.ok(markup.includes('<ol class="scenario-stages">'));
+  assert.ok(markup.includes('Short &lt;test&gt;'));
+  assert.ok(markup.includes('3 stages'));
+  assert.equal(h.elements.get('scenarioLibrary').hidden, false);
+  assert.equal(h.posts.length, 0);
 });
